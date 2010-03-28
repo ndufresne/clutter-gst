@@ -41,6 +41,8 @@
 #include "config.h"
 #endif
 
+#define COGL_ENABLE_EXPERIMENTAL_API
+
 #include "clutter-gst-video-sink.h"
 #include "clutter-gst-private.h"
 #include "clutter-gst-shaders.h"
@@ -55,6 +57,7 @@
 
 #include <glib.h>
 #include <string.h>
+#include <sys/types.h>
 
 /* Flags to give to cogl_texture_new(). Since clutter 1.1.10 put NO_ATLAS to
  * be sure the frames don't end up in an atlas */
@@ -159,7 +162,7 @@ typedef struct _ClutterGstSymbols
 } ClutterGstSymbols;
 
 /*
- * features: what does the underlaying video card supports ?
+ * features: what does the underlaying GL implentation support ?
  */
 typedef enum _ClutterGstFeatures
 {
@@ -167,6 +170,31 @@ typedef enum _ClutterGstFeatures
   CLUTTER_GST_GLSL           = 0x2, /* GLSL */
   CLUTTER_GST_MULTI_TEXTURE  = 0x4, /* multi-texturing */
 } ClutterGstFeatures;
+
+/*
+ * Custom GstBuffer containing additional information about the CoglBuffer
+ * we are using.
+ */
+typedef struct _ClutterGstBuffer
+{
+  GstBuffer            buffer;
+
+  ClutterGstVideoSink *sink;            /* a ref to the its sink */
+  CoglHandle           pbo;             /* underlying CoglBuffer */
+  guint                size;            /* size (in bytes); */
+} ClutterGstBuffer;
+
+/*
+ * This structure is used to queue the buffer requests from buffer_alloc() to
+ * the clutter thread.
+ */
+typedef struct _ClutterGstBufferRequest
+{
+  GCond *wait_for_buffer;
+  guint size;
+  ClutterGstBuffer *buffer;
+  guint id;
+} ClutterGstBufferRequest;
 
 /*
  * Custom GSource to signal we have a new frame pending
@@ -180,7 +208,7 @@ typedef struct _ClutterGstSource
 
   ClutterGstVideoSink *sink;
   GMutex              *buffer_lock;   /* mutex for the buffer */
-  GstBuffer           *buffer;
+  ClutterGstBuffer    *buffer;
 } ClutterGstSource;
 
 /*
@@ -200,7 +228,7 @@ typedef struct _ClutterGstRenderer
  void (*init)       (ClutterGstVideoSink *sink);
  void (*deinit)     (ClutterGstVideoSink *sink);
  void (*upload)     (ClutterGstVideoSink *sink,
-                     GstBuffer           *buffer);
+                     ClutterGstBuffer    *buffer);
 } ClutterGstRenderer;
 
 typedef enum _ClutterGstRendererState
@@ -220,6 +248,7 @@ struct _ClutterGstVideoSinkPrivate
   GLuint                   fp;
 
   ClutterGstVideoFormat    format;
+  GstCaps                 *current_caps;
   gboolean                 bgr;
   int                      width;
   int                      height;
@@ -231,8 +260,19 @@ struct _ClutterGstVideoSinkPrivate
   GMainContext            *clutter_main_context;
   ClutterGstSource        *source;
 
+  GMutex                  *pool_lock;
+  GSList                  *buffer_pool;         /* available buffers */
+  GSList                  *recycle_pool;        /* recyle those buffers at next
+                                                   iteration of the GSource */
+  GSList                  *purge_pool;          /* delete those buffers at next
+                                                   iteration of the GSource */
+  gboolean                 pool_in_flush;       /* wether we are handling a
+                                                   FLUSH event */
+  GQueue                  *buffer_requests;     /* buffers to create at next
+                                                   iteration of the GSource */
+
   GSList                  *renderers;
-  GstCaps                 *caps;
+  GstCaps                 *available_caps;
   ClutterGstRenderer      *renderer;
   ClutterGstRendererState  renderer_state;
 
@@ -251,6 +291,176 @@ GST_BOILERPLATE_FULL (ClutterGstVideoSink,
                       GstBaseSink,
                       GST_TYPE_BASE_SINK,
                       _do_init);
+
+/*
+ * ClutterGstBuffer related functions
+ */
+
+#define CLUTTER_GST_TYPE_BUFFER         (clutter_gst_buffer_get_type ())
+#define CLUTTER_GST_IS_BUFFER(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), CLUTTER_GST_TYPE_BUFFER))
+#define CLUTTER_GST_BUFFER(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                   \
+                               CLUTTER_GST_TYPE_BUFFER, \
+                               ClutterGstBuffer))
+
+static GstBufferClass *clutter_gst_buffer_parent_class = NULL;
+static GType clutter_gst_buffer_get_type (void);
+
+static void
+clutter_gst_buffer_finalize (GstMiniObject *obj)
+{
+  ClutterGstBuffer *buffer = (ClutterGstBuffer *) obj;
+  ClutterGstVideoSinkPrivate *priv = buffer->sink->priv;
+  GstMiniObjectClass *mini_object_class;
+
+  mini_object_class = GST_MINI_OBJECT_CLASS (clutter_gst_buffer_parent_class);
+
+  if (buffer->size == 0xdeadbeef)
+    {
+      GST_LOG_OBJECT (buffer->sink, "freeing %p", obj);
+
+      if (buffer->pbo != COGL_INVALID_HANDLE)
+        {
+          cogl_buffer_unmap (buffer->pbo);
+          cogl_handle_unref (buffer->pbo);
+          buffer->pbo = COGL_INVALID_HANDLE;
+        }
+
+      gst_object_unref (buffer->sink);
+      buffer->size = 0;
+
+      GST_BUFFER_DATA (buffer) = NULL;
+      GST_BUFFER_SIZE (buffer) = 0;
+
+      mini_object_class->finalize (obj);
+    }
+  else
+    {
+      GST_LOG_OBJECT (buffer->sink, "putting %p in the recycle queue", obj);
+
+      /* need to take a ref if we want to recycle this one */
+      gst_buffer_ref (GST_BUFFER_CAST (buffer));
+
+      g_mutex_lock (priv->pool_lock);
+      priv->recycle_pool = g_slist_prepend (priv->recycle_pool, buffer);
+      g_mutex_unlock (priv->pool_lock);
+    }
+}
+
+static void
+clutter_gst_buffer_init (ClutterGstBuffer *buffer,
+                         gpointer          g_class)
+{
+  /* nothing to do here, really, _new() will do everything for us, and one
+   * should always create a new ClutterGstBuuffer with _new() */
+}
+
+static void
+clutter_gst_buffer_class_init (gpointer g_class,
+                               gpointer class_data)
+{
+  GstMiniObjectClass *mini_object_class = GST_MINI_OBJECT_CLASS (g_class);
+
+  clutter_gst_buffer_parent_class = g_type_class_peek_parent (g_class);
+
+  mini_object_class->finalize = clutter_gst_buffer_finalize;
+}
+
+static GType
+clutter_gst_buffer_get_type (void)
+{
+  static GType clutter_gst_buffer_type;
+
+  if (G_UNLIKELY (clutter_gst_buffer_type == 0))
+    {
+      static const GTypeInfo clutter_gst_buffer_info =
+        {
+          sizeof (GstBufferClass),
+          NULL,
+          NULL,
+          clutter_gst_buffer_class_init,
+          NULL,
+          NULL,
+          sizeof (ClutterGstBuffer),
+          0,
+          (GInstanceInitFunc) clutter_gst_buffer_init,
+          NULL
+        };
+      clutter_gst_buffer_type =
+        g_type_register_static (GST_TYPE_BUFFER,
+                                "ClutterGstBuffer",
+                                &clutter_gst_buffer_info,
+                                0);
+    }
+
+  return clutter_gst_buffer_type;
+}
+
+static void
+clutter_gst_buffer_destroy (ClutterGstBuffer *buffer)
+{
+  /* This buffer is literally dead beef, calling _free() on a buffer ensures
+   * the buffer is discarded instead of being recycled */
+  buffer->size = 0xdeadbeef;
+  gst_buffer_unref (GST_BUFFER_CAST (buffer));
+}
+
+static ClutterGstBuffer *
+clutter_gst_buffer_new (ClutterGstVideoSink *sink,
+                        guint                size)
+{
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  ClutterGstBuffer *new_buffer;
+  guchar *map;
+
+  new_buffer =
+    (ClutterGstBuffer *) gst_mini_object_new (CLUTTER_GST_TYPE_BUFFER);
+
+  new_buffer->pbo = cogl_pixel_buffer_new (size);
+  if (G_UNLIKELY (new_buffer->pbo == COGL_INVALID_HANDLE))
+    goto hell;
+
+  cogl_buffer_set_update_hint (new_buffer->pbo, COGL_BUFFER_UPDATE_HINT_STREAM);
+
+  new_buffer->size = size;
+  new_buffer->sink = gst_object_ref (sink);
+
+  map = cogl_buffer_map (new_buffer->pbo, COGL_BUFFER_ACCESS_WRITE);
+  if (G_UNLIKELY (map == NULL))
+    goto hell;
+
+  GST_BUFFER_DATA (new_buffer) = map;
+  GST_BUFFER_SIZE (new_buffer) = size;
+  gst_buffer_set_caps (GST_BUFFER_CAST (new_buffer), priv->current_caps);
+
+  return new_buffer;
+
+hell:
+  clutter_gst_buffer_destroy (new_buffer);
+  return NULL;
+}
+
+static void
+clutter_gst_video_sink_recycle_buffer (ClutterGstVideoSink *sink,
+                                       ClutterGstBuffer    *buffer)
+{
+  /* we destroy the pbo if it's still there as we don't want to map a pbo
+   * while the texture is being used in the scene */
+  if (buffer->pbo != COGL_INVALID_HANDLE)
+    {
+      cogl_buffer_unmap (buffer->pbo);
+      cogl_handle_unref (buffer->pbo);
+    }
+
+  buffer->pbo = cogl_pixel_buffer_new (buffer->size);
+  cogl_buffer_set_update_hint (buffer->pbo, COGL_BUFFER_UPDATE_HINT_STREAM);
+  GST_BUFFER_DATA (buffer) = cogl_buffer_map (buffer->pbo,
+                                              COGL_BUFFER_ACCESS_WRITE);
+
+  /* make sure the GstBuffer is cleared of any previously used flags */
+  GST_MINI_OBJECT_FLAGS (buffer) = 0;
+}
 
 /*
  * ClutterGstSource implementation
@@ -284,7 +494,7 @@ clutter_gst_source_finalize (GSource *source)
 
   g_mutex_lock (gst_source->buffer_lock);
   if (gst_source->buffer)
-    gst_buffer_unref (gst_source->buffer);
+    clutter_gst_buffer_destroy (gst_source->buffer);
   gst_source->buffer = NULL;
   g_mutex_unlock (gst_source->buffer_lock);
   g_mutex_free (gst_source->buffer_lock);
@@ -292,14 +502,26 @@ clutter_gst_source_finalize (GSource *source)
 
 static void
 clutter_gst_source_push (ClutterGstSource *gst_source,
-                         GstBuffer        *buffer)
+                         ClutterGstBuffer *buffer)
 {
   ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv;
 
   g_mutex_lock (gst_source->buffer_lock);
-  if (gst_source->buffer)
-    gst_buffer_unref (gst_source->buffer);
-  gst_source->buffer = gst_buffer_ref (buffer);
+
+  fprintf (stderr, "ppp pushing %p\n", buffer);
+  if (buffer)
+    {
+      /* if we already have a buffer pending, recycle it, (unref it) */
+      if (gst_source->buffer)
+        {
+          fprintf (stderr, "ppp %p has been pushed, discarding the old buffer "
+                   "%p\n", buffer, gst_source->buffer);
+          gst_buffer_unref (GST_BUFFER_CAST (gst_source->buffer));
+        }
+      gst_source->buffer =
+        CLUTTER_GST_BUFFER (gst_buffer_ref (GST_BUFFER_CAST (buffer)));
+    }
+
   g_mutex_unlock (gst_source->buffer_lock);
 
   g_main_context_wakeup (priv->clutter_main_context);
@@ -313,7 +535,8 @@ clutter_gst_source_prepare (GSource *source,
 
   *timeout = -1;
 
-  return gst_source->buffer != NULL;
+  return gst_source->buffer != NULL ||
+         !g_queue_is_empty (gst_source->sink->priv->buffer_requests);
 }
 
 static gboolean
@@ -321,7 +544,8 @@ clutter_gst_source_check (GSource *source)
 {
   ClutterGstSource *gst_source = (ClutterGstSource *) source;
 
-  return gst_source->buffer != NULL;
+  return gst_source->buffer != NULL ||
+         !g_queue_is_empty (gst_source->sink->priv->buffer_requests);
 }
 
 static gboolean
@@ -331,7 +555,9 @@ clutter_gst_source_dispatch (GSource     *source,
 {
   ClutterGstSource *gst_source = (ClutterGstSource *) source;
   ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv;
-  GstBuffer *buffer;
+  ClutterGstBuffer *buffer;
+
+  fprintf (stderr, "=== dispatch start\n");
 
   /* The initialization / free functions of the renderers have to be called in
    * the clutter thread (OpenGL context) */
@@ -346,6 +572,8 @@ clutter_gst_source_dispatch (GSource     *source,
       priv->renderer_state = CLUTTER_GST_RENDERER_RUNNING;
     }
 
+  /* Push a buffer if we have one. Note that the ClutterGstSource can be waken
+   * up to do buffer management too, so we might not have a buffer */
   g_mutex_lock (gst_source->buffer_lock);
   buffer = gst_source->buffer;
   gst_source->buffer = NULL;
@@ -353,9 +581,110 @@ clutter_gst_source_dispatch (GSource     *source,
 
   if (buffer)
     {
+      if (!CLUTTER_GST_IS_BUFFER (buffer))
+        {
+          fprintf (stderr, "=== %p is not a ClutterGstBuffer\n", buffer);
+          GST_WARNING_OBJECT (gst_source->sink, "%p not our buffer, "
+                              "fuck off", buffer);
+          goto memory_management;
+        }
+
+      fprintf (stderr, "=== upload %p\n", buffer);
       priv->renderer->upload (gst_source->sink, buffer);
-      gst_buffer_unref (buffer);
+      clutter_gst_video_sink_recycle_buffer (gst_source->sink, buffer);
+
+      /* add the recycled buffer to the pool */
+      g_mutex_lock (priv->pool_lock);
+      priv->buffer_pool = g_slist_prepend (priv->buffer_pool, buffer);
+      fprintf (stderr, "=== recycle %p, buffer_pool (len=%d)\n",
+               buffer,
+               g_slist_length (priv->buffer_pool));
+      g_mutex_unlock (priv->pool_lock);
     }
+
+  /*
+   * memory pool management
+   */
+memory_management:
+  g_mutex_lock (priv->pool_lock);
+
+  /* purge buffers that do not have the required caps any more */
+  while (G_UNLIKELY (priv->purge_pool))
+    {
+      ClutterGstBuffer *purge_me;
+
+      purge_me = (ClutterGstBuffer *) priv->purge_pool->data;
+      priv->purge_pool = g_slist_delete_link (priv->purge_pool,
+                                              priv->purge_pool);
+
+      fprintf (stderr, "=== purge %p\n", purge_me);
+      clutter_gst_buffer_destroy (purge_me);
+    }
+
+  while (priv->recycle_pool)
+    {
+      ClutterGstBuffer *recycle_me;
+
+      recycle_me = (ClutterGstBuffer *) priv->recycle_pool->data;
+      priv->recycle_pool = g_slist_delete_link (priv->recycle_pool,
+                                                priv->recycle_pool);
+
+      clutter_gst_video_sink_recycle_buffer (gst_source->sink, recycle_me);
+
+      /* add the recycled buffer to the buffer pool */
+      priv->buffer_pool = g_slist_prepend (priv->buffer_pool, recycle_me);
+      fprintf (stderr, "=== recycle %p, buffer_pool (len=%d)\n",
+               recycle_me,
+               g_slist_length (priv->buffer_pool));
+    }
+
+  /* it's time to answer the requests from buffer_alloc () */
+  while (!g_queue_is_empty (priv->buffer_requests))
+    {
+      ClutterGstBufferRequest *request;
+      ClutterGstBuffer *new_buffer;
+
+      request = g_queue_pop_head (priv->buffer_requests);
+      new_buffer = NULL;
+
+      /* try do find a suitable buffer in buffer_pool */
+      while (priv->buffer_pool)
+        {
+          new_buffer = (ClutterGstBuffer *) priv->buffer_pool->data;
+
+          fprintf (stderr, "=== removing %p from the pool\n", new_buffer);
+
+          priv->buffer_pool = g_slist_delete_link (priv->buffer_pool,
+                                                   priv->buffer_pool);
+
+          if (request->size == GST_BUFFER_SIZE (new_buffer))
+            {
+              /* found it! */
+              break;
+            }
+          else
+            {
+              /* it was a free buffer from a time when different sized buffers
+               * were needed */
+              clutter_gst_buffer_destroy (new_buffer);
+              new_buffer = NULL;
+            }
+        }
+
+      /* could not find a suitable buffer, create a new one */
+      if (new_buffer == NULL)
+          new_buffer = clutter_gst_buffer_new (gst_source->sink, request->size);
+
+      request->buffer = new_buffer;
+
+      fprintf (stderr, "=== (req%d) answering request with %p\n", request->id,
+               request->buffer);
+      g_cond_signal (request->wait_for_buffer);
+    }
+
+  g_mutex_unlock (priv->pool_lock);
+
+  fprintf (stderr, "=== dispatch end\n");
 
   return TRUE;
 }
@@ -376,6 +705,44 @@ clutter_gst_video_sink_set_priority (ClutterGstVideoSink *sink,
   GST_INFO ("GSource priority: %d", priority);
 
   g_source_set_priority ((GSource *) priv->source, priority);
+}
+
+/*
+ * ClutterGstBufferRequest
+ */
+
+static ClutterGstBufferRequest *
+clutter_gst_buffer_request_new (guint size)
+{
+  ClutterGstBufferRequest *request;
+  static guint i = 0;
+
+  request = g_slice_new (ClutterGstBufferRequest);
+  request->wait_for_buffer = g_cond_new ();
+  request->buffer = NULL;
+  request->size = size;
+  request->id = i++;
+
+  return request;
+}
+
+static void
+clutter_gst_buffer_request_free (ClutterGstBufferRequest *request)
+{
+  g_cond_free (request->wait_for_buffer);
+  g_slice_free (ClutterGstBufferRequest, request);
+}
+
+/* to be called while holding priv->pool_lock */
+static void
+clutter_gst_video_sink_queue_buffer_request (ClutterGstVideoSink     *sink,
+                                             ClutterGstBufferRequest *request)
+{
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+
+  /* queue the request and wake the main thread up */
+  g_queue_push_tail (priv->buffer_requests, request);
+  clutter_gst_source_push (priv->source, NULL);
 }
 
 /*
@@ -499,20 +866,30 @@ clutter_gst_dummy_deinit (ClutterGstVideoSink *sink)
 
 static void
 clutter_gst_rgb24_upload (ClutterGstVideoSink *sink,
-                          GstBuffer           *buffer)
+                          ClutterGstBuffer    *buffer)
 {
+#if 0
   ClutterGstVideoSinkPrivate *priv= sink->priv;
+  CoglPixelFormat format;
+  CoglHandle tex;
 
-  clutter_texture_set_from_rgb_data (priv->texture,
-                                     GST_BUFFER_DATA (buffer),
-                                     FALSE,
-                                     priv->width,
-                                     priv->height,
-                                     GST_ROUND_UP_4 (3 * priv->width),
-                                     3,
-                                     priv->bgr ?
-                                     CLUTTER_TEXTURE_RGB_FLAG_BGR : 0,
-                                     NULL);
+  cogl_buffer_unmap (buffer->pbo);
+  GST_BUFFER_DATA (buffer) = NULL;
+
+  format = priv->bgr ? COGL_PIXEL_FORMAT_BGR_888 : COGL_PIXEL_FORMAT_RGB_888;
+
+  tex = cogl_texture_new_from_buffer (buffer->pbo,
+                                      priv->width,
+                                      priv->height,
+                                      COGL_TEXTURE_NO_SLICING,
+                                      format,
+                                      format,
+                                      GST_ROUND_UP_4 (3 * priv->width),
+                                      0);
+
+  clutter_texture_set_cogl_texture (priv->texture, tex);
+  cogl_handle_unref (tex);
+#endif
 }
 
 static ClutterGstRenderer rgb24_renderer =
@@ -532,20 +909,29 @@ static ClutterGstRenderer rgb24_renderer =
 
 static void
 clutter_gst_rgb32_upload (ClutterGstVideoSink *sink,
-                          GstBuffer           *buffer)
+                          ClutterGstBuffer    *buffer)
 {
   ClutterGstVideoSinkPrivate *priv= sink->priv;
+  CoglPixelFormat format;
+  CoglHandle tex;
 
-  clutter_texture_set_from_rgb_data (priv->texture,
-                                     GST_BUFFER_DATA (buffer),
-                                     TRUE,
-                                     priv->width,
-                                     priv->height,
-                                     GST_ROUND_UP_4 (4 * priv->width),
-                                     4,
-                                     priv->bgr ?
-                                     CLUTTER_TEXTURE_RGB_FLAG_BGR : 0,
-                                     NULL);
+  cogl_buffer_unmap (buffer->pbo);
+  GST_BUFFER_DATA (buffer) = NULL;
+
+  format = priv->bgr ? COGL_PIXEL_FORMAT_BGRA_8888 :
+                       COGL_PIXEL_FORMAT_RGBA_8888;
+
+  tex = cogl_texture_new_from_buffer (buffer->pbo,
+                                      priv->width,
+                                      priv->height,
+                                      COGL_TEXTURE_NO_SLICING,
+                                      format,
+                                      format,
+                                      priv->width,
+                                      0);
+
+  clutter_texture_set_cogl_texture (priv->texture, tex);
+  cogl_handle_unref (tex);
 }
 
 static ClutterGstRenderer rgb32_renderer =
@@ -567,19 +953,24 @@ static ClutterGstRenderer rgb32_renderer =
 
 static void
 clutter_gst_yv12_upload (ClutterGstVideoSink *sink,
-                         GstBuffer           *buffer)
+                         ClutterGstBuffer    *buffer)
 {
   ClutterGstVideoSinkPrivate *priv = sink->priv;
   gint y_row_stride  = GST_ROUND_UP_4 (priv->width);
   gint uv_row_stride = GST_ROUND_UP_4 (priv->width / 2);
 
-  CoglHandle y_tex = cogl_texture_new_from_data (priv->width,
-                                                 priv->height,
-                                                 CLUTTER_GST_TEXTURE_FLAGS,
-                                                 COGL_PIXEL_FORMAT_G_8,
-                                                 COGL_PIXEL_FORMAT_G_8,
-                                                 y_row_stride,
-                                                 GST_BUFFER_DATA (buffer));
+  cogl_buffer_unmap (buffer->pbo);
+  GST_BUFFER_DATA (buffer) = NULL;
+
+  CoglHandle y_tex = cogl_texture_new_from_buffer (buffer->pbo,
+                                                   priv->width,
+                                                   priv->height,
+                                                   COGL_TEXTURE_NO_SLICING |
+                                                   COGL_TEXTURE_NO_AUTO_MIPMAP, 
+                                                   COGL_PIXEL_FORMAT_G_8,
+                                                   COGL_PIXEL_FORMAT_G_8,
+                                                   y_row_stride,
+                                                   0);
 
   clutter_texture_set_cogl_texture (priv->texture, y_tex);
   cogl_handle_unref (y_tex);
@@ -590,25 +981,25 @@ clutter_gst_yv12_upload (ClutterGstVideoSink *sink,
   if (priv->v_tex)
     cogl_handle_unref (priv->v_tex);
 
-  priv->v_tex = cogl_texture_new_from_data (priv->width / 2,
-                                            priv->height / 2,
-                                            CLUTTER_GST_TEXTURE_FLAGS,
-                                            COGL_PIXEL_FORMAT_G_8,
-                                            COGL_PIXEL_FORMAT_G_8,
-                                            uv_row_stride,
-                                            GST_BUFFER_DATA (buffer) +
-                                            (y_row_stride * priv->height));
+  priv->v_tex = cogl_texture_new_from_buffer (buffer->pbo,
+                                              priv->width / 2,
+                                              priv->height / 2,
+                                              COGL_TEXTURE_NO_SLICING,
+                                              COGL_PIXEL_FORMAT_G_8,
+                                              COGL_PIXEL_FORMAT_G_8,
+                                              uv_row_stride,
+                                              (y_row_stride * priv->height));
 
-  priv->u_tex =
-    cogl_texture_new_from_data (priv->width / 2,
-                                priv->height / 2,
-                                CLUTTER_GST_TEXTURE_FLAGS,
-                                COGL_PIXEL_FORMAT_G_8,
-                                COGL_PIXEL_FORMAT_G_8,
-                                uv_row_stride,
-                                GST_BUFFER_DATA (buffer)
-                                + (y_row_stride * priv->height)
-                                + (uv_row_stride * priv->height / 2));
+  priv->u_tex = 
+    cogl_texture_new_from_buffer (buffer->pbo,
+                                  priv->width / 2,
+                                  priv->height / 2,
+                                  COGL_TEXTURE_NO_SLICING,
+                                  COGL_PIXEL_FORMAT_G_8,
+                                  COGL_PIXEL_FORMAT_G_8,
+                                  uv_row_stride,
+                                  (y_row_stride * priv->height) +
+                                  (uv_row_stride * priv->height / 2));
 }
 
 static void
@@ -879,9 +1270,12 @@ clutter_gst_ayuv_glsl_deinit(ClutterGstVideoSink *sink)
 
 static void
 clutter_gst_ayuv_upload (ClutterGstVideoSink *sink,
-                         GstBuffer           *buffer)
+                         ClutterGstBuffer    *buffer)
 {
   ClutterGstVideoSinkPrivate *priv= sink->priv;
+
+  cogl_buffer_unmap (buffer->pbo);
+  GST_BUFFER_DATA (buffer) = NULL;
 
   clutter_texture_set_from_rgb_data (priv->texture,
                                      GST_BUFFER_DATA (buffer),
@@ -1048,85 +1442,31 @@ clutter_gst_video_sink_init (ClutterGstVideoSink      *sink,
   /* We are saving the GMainContext of the caller thread (which has to be
    * the clutter thread)  */
   priv->clutter_main_context = g_main_context_default ();
+  priv->source = clutter_gst_source_new (sink);
+  g_source_attach ((GSource *) priv->source, priv->clutter_main_context);
 
+  /* buffer pool */
+  priv->buffer_requests = g_queue_new ();
+  priv->pool_lock = g_mutex_new ();
 
   priv->renderers = clutter_gst_build_renderers_list (&priv->syms);
-  priv->caps = clutter_gst_build_caps (priv->renderers);
+  priv->available_caps = clutter_gst_build_caps (priv->renderers);
   priv->renderer_state = CLUTTER_GST_RENDERER_STOPPED;
 
   priv->signal_handler_ids = g_array_new (FALSE, FALSE, sizeof (gulong));
 }
 
-static GstFlowReturn
-clutter_gst_video_sink_render (GstBaseSink *bsink,
-                               GstBuffer   *buffer)
-{
-  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (bsink);
-
-  clutter_gst_source_push (sink->priv->source, buffer);
-
-  return GST_FLOW_OK;
-}
-
-static GstCaps *
-clutter_gst_video_sink_get_caps (GstBaseSink *bsink)
-{
-  ClutterGstVideoSink *sink;
-
-  sink = CLUTTER_GST_VIDEO_SINK (bsink);
-  return gst_caps_ref (sink->priv->caps);
-}
-
 static gboolean
-clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
-                                 GstCaps     *caps)
+clutter_gst_video_sink_find_renderer (ClutterGstVideoSink *sink,
+                                      GstCaps             *caps)
 {
-  ClutterGstVideoSink        *sink;
-  ClutterGstVideoSinkPrivate *priv;
-  GstCaps                    *intersection;
-  GstStructure               *structure;
-  gboolean                    ret;
-  const GValue               *fps;
-  const GValue               *par;
-  gint                        width, height;
-  guint32                     fourcc;
-  int                         red_mask, blue_mask;
-
-  sink = CLUTTER_GST_VIDEO_SINK(bsink);
-  priv = sink->priv;
-
-  intersection = gst_caps_intersect (priv->caps, caps);
-  if (gst_caps_is_empty (intersection)) 
-    return FALSE;
-
-  gst_caps_unref (intersection);
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  GstStructure *structure;
+  guint32 fourcc;
+  int red_mask, blue_mask;
+  gboolean ret;
 
   structure = gst_caps_get_structure (caps, 0);
-
-  ret  = gst_structure_get_int (structure, "width", &width);
-  ret &= gst_structure_get_int (structure, "height", &height);
-  fps  = gst_structure_get_value (structure, "framerate");
-  ret &= (fps != NULL);
-
-  par  = gst_structure_get_value (structure, "pixel-aspect-ratio");
-
-  if (!ret)
-    return FALSE;
-
-  priv->width  = width;
-  priv->height = height;
-
-  /* We dont yet use fps or pixel aspect into but handy to have */
-  priv->fps_n  = gst_value_get_fraction_numerator (fps);
-  priv->fps_d  = gst_value_get_fraction_denominator (fps);
-
-  if (par) 
-    {
-      priv->par_n = gst_value_get_fraction_numerator (par);
-      priv->par_d = gst_value_get_fraction_denominator (par);
-    } 
-  else 
-    priv->par_n = priv->par_d = 1;
 
   ret = gst_structure_get_fourcc (structure, "format", &fourcc);
   if (ret && (fourcc == GST_MAKE_FOURCC ('Y', 'V', '1', '2')))
@@ -1147,7 +1487,7 @@ clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
       guint32 mask;
       gst_structure_get_int (structure, "red_mask", &red_mask);
       gst_structure_get_int (structure, "blue_mask", &blue_mask);
-      
+
       mask = red_mask | blue_mask;
       if (mask < 0x1000000)
         {
@@ -1174,6 +1514,250 @@ clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
   return TRUE;
 }
 
+/*
+ * Buffer management
+ *
+ * The buffer_alloc vfunc returns a new buffer with given caps. The caps we
+ * receive should be the one set by set_caps() a bit earlier.
+ *
+ * When GStreamer requests a new buffer from us, we start by looking for a free
+ * buffer in the buffer pool (which holds mapped CoglBuffers) and hand one if
+ * found. If we can't find a free buffer, we have to signal that to the main
+ * thread that will create a CoglBuffer, map it and insert it into the pool.
+ * The synchronisation to wait for a new buffer from the main thread is done
+ * by a GCond.
+ *
+ * We never try to do reverse negotiation as we can deal with all the sizes we
+ * advertise in the caps (GL does the work for us)
+ */
+static gint _i = -1;
+static GstFlowReturn
+clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
+                                     guint64       offset,
+                                     guint         size,
+                                     GstCaps      *caps,
+                                     GstBuffer   **buf)
+{
+  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (bsink);
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  GstCaps *intersection;
+  ClutterGstBuffer *new_buffer = NULL;
+  gint i = ++_i;
+
+  fprintf (stderr, "*** (%d) need buffer from thread %p\n", i,
+           g_thread_self ());
+
+  /* start by validating the caps against what we are currently doing */
+  if (G_UNLIKELY (priv->current_caps == NULL ||
+                  !gst_caps_is_equal (priv->current_caps, caps)))
+    {
+      intersection = gst_caps_intersect (priv->available_caps, caps);
+
+      /* fixate (ensure we have fixed requirements, not intervals) */
+      gst_caps_truncate (intersection);
+
+      if (gst_caps_is_empty (intersection))
+        {
+          /* we don't do reverse nego */
+          gst_caps_unref (intersection);
+          goto incompatible_caps;
+        }
+
+      /* buffers use priv->current_caps as their caps. Let's try to make the
+       * next gst_caps_is_equal() return TRUE after a pointer comparison
+       * instead of expensive code */
+      if (gst_caps_is_equal (intersection, caps))
+        {
+          GST_INFO_OBJECT (sink, "replacing our caps pointer by the one given"
+                           " by upstream");
+          gst_caps_replace (&priv->current_caps, caps);
+        }
+      else
+        gst_caps_replace (&priv->current_caps, intersection);
+
+      gst_caps_unref (intersection);
+
+      GST_INFO_OBJECT (sink, "using %" GST_PTR_FORMAT " for the caps of our "
+                       "buffers", priv->current_caps);
+
+      if (!clutter_gst_video_sink_find_renderer (sink, priv->current_caps))
+          goto incompatible_caps;
+    }
+
+  /* look for a free buffer int the pool */
+  g_mutex_lock (priv->pool_lock);
+  while (priv->buffer_pool)
+    {
+      /* remove from the pool */
+      new_buffer = (ClutterGstBuffer *) priv->buffer_pool->data;
+      priv->buffer_pool = g_slist_delete_link (priv->buffer_pool,
+                                               priv->buffer_pool);
+
+      /* append to garbage collection list if it's the wrong size (might
+       * happen if caps change). Only the main thread can delete CoglBuffers */
+      if (G_UNLIKELY (new_buffer->size != size))
+        {
+          priv->purge_pool = g_slist_prepend (priv->purge_pool,
+                                              new_buffer);
+        }
+      else
+        {
+          /* found a suitable free buffer */
+          break;
+        }
+    }
+  g_mutex_unlock (priv->pool_lock);
+
+  /* we did not find a free buffer, let's ask and wait for one */
+  if (new_buffer == NULL)
+    {
+      ClutterGstBufferRequest *request;
+
+      g_mutex_lock (priv->pool_lock);
+      /* if we are flushing, don't even request a buffer now */
+      if (priv->pool_in_flush)
+        goto flushing;
+
+      request = clutter_gst_buffer_request_new (size);
+      clutter_gst_video_sink_queue_buffer_request (sink, request);
+
+      fprintf (stderr, "*** (%d) waiting for new buffer\n", i);
+      fprintf (stderr, "*** (%d) (req%d) waiting for new buffer\n",
+               i, request->id);
+      g_cond_wait (request->wait_for_buffer, priv->pool_lock);
+
+      new_buffer = request->buffer;
+      clutter_gst_buffer_request_free (request);
+
+      /* we might have been woken up by a flush event */
+      if (priv->pool_in_flush)
+        {
+          g_mutex_unlock (priv->pool_lock);
+          goto flushing;
+        }
+
+      g_mutex_unlock (priv->pool_lock);
+    }
+
+  /* at this point we should really have one... */
+  if (G_UNLIKELY (new_buffer == NULL || GST_BUFFER_DATA (new_buffer) == NULL))
+    goto no_memory;
+
+#if 0
+  GST_LOG_OBJECT (sink, "let's use %p (%d bytes)", new_buffer, size);
+#endif
+  fprintf (stderr, "*** (%d) let's use %p\n", i, new_buffer);
+
+  gst_buffer_set_caps (GST_BUFFER_CAST (new_buffer), caps);
+  GST_MINI_OBJECT_CAST (new_buffer)->flags = 0;
+
+  *buf = GST_BUFFER_CAST (new_buffer);
+
+  return GST_FLOW_OK;
+
+flushing:
+  {
+    GST_DEBUG_OBJECT (sink, "The pool is flushing");
+    return GST_FLOW_WRONG_STATE;
+  }
+no_memory:
+  {
+    GST_ERROR_OBJECT (sink, "Could not create a buffer of size %d", size);
+    fprintf (stderr, "Could not create a buffer of size %d\n", size);
+    /* FIXME: post a message on the bus */
+    return GST_FLOW_ERROR;
+  }
+incompatible_caps:
+  {
+    GST_ERROR_OBJECT (sink, "Could not create a buffer for caps %"
+                      GST_PTR_FORMAT, intersection);
+    fprintf (stderr, "Could not create a buffer for caps %p", intersection);
+    gst_caps_unref (intersection);
+    return GST_FLOW_NOT_NEGOTIATED;
+  }
+}
+
+static GstFlowReturn
+clutter_gst_video_sink_render (GstBaseSink *bsink,
+                               GstBuffer   *buffer)
+{
+  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (bsink);
+
+  GST_DEBUG_OBJECT (sink, "pushing %p", buffer);
+  clutter_gst_source_push (sink->priv->source, (ClutterGstBuffer *) buffer);
+
+  return GST_FLOW_OK;
+}
+
+static GstCaps *
+clutter_gst_video_sink_get_caps (GstBaseSink *bsink)
+{
+  ClutterGstVideoSink *sink;
+  GstCaps *our_caps;
+
+  sink = CLUTTER_GST_VIDEO_SINK (bsink);
+  our_caps = gst_caps_ref (sink->priv->available_caps);
+
+#if 0
+  GST_LOG_OBJECT (sink, "we are being asked for our caps: %" GST_PTR_FORMAT,
+                  our_caps);
+#endif
+
+  return our_caps;
+}
+
+static gboolean
+clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
+                                 GstCaps     *caps)
+{
+  ClutterGstVideoSink        *sink;
+  ClutterGstVideoSinkPrivate *priv;
+  GstCaps                    *intersection;
+  GstStructure               *structure;
+  gboolean                    ret;
+  const GValue               *fps;
+  const GValue               *par;
+  gint                        width, height;
+
+  sink = CLUTTER_GST_VIDEO_SINK(bsink);
+  priv = sink->priv;
+
+  GST_INFO_OBJECT (sink, "we are being informed that the caps %"
+                    GST_PTR_FORMAT " will be used", caps);
+
+  intersection = gst_caps_intersect (priv->available_caps, caps);
+  if (gst_caps_is_empty (intersection)) 
+    return FALSE;
+
+  gst_caps_unref (intersection);
+
+  structure = gst_caps_get_structure (caps, 0);
+
+  ret  = gst_structure_get_int (structure, "width", &width);
+  ret &= gst_structure_get_int (structure, "height", &height);
+  fps  = gst_structure_get_value (structure, "framerate");
+  ret &= (fps != NULL);
+
+  if (!ret)
+    return FALSE;
+
+  priv->width  = width;
+  priv->height = height;
+  priv->fps_n  = gst_value_get_fraction_numerator (fps);
+  priv->fps_d  = gst_value_get_fraction_denominator (fps);
+
+  par  = gst_structure_get_value (structure, "pixel-aspect-ratio");
+  if (par) 
+    {
+      priv->par_n = gst_value_get_fraction_numerator (par);
+      priv->par_d = gst_value_get_fraction_denominator (par);
+    } 
+  else 
+    priv->par_n = priv->par_d = 1;
+
+  return TRUE;
+}
+
 static void
 clutter_gst_video_sink_dispose (GObject *object)
 {
@@ -1196,10 +1780,10 @@ clutter_gst_video_sink_dispose (GObject *object)
       priv->texture = NULL;
     }
 
-  if (priv->caps)
+  if (priv->available_caps)
     {
-      gst_caps_unref (priv->caps);
-      priv->caps = NULL;
+      gst_caps_unref (priv->available_caps);
+      priv->available_caps = NULL;
     }
 
   G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -1217,6 +1801,18 @@ clutter_gst_video_sink_finalize (GObject *object)
   g_slist_free (priv->renderers);
 
   g_array_free (priv->signal_handler_ids, TRUE);
+
+  while (! g_queue_is_empty (priv->buffer_requests))
+    {
+      ClutterGstBufferRequest *request;
+
+      request = g_queue_pop_head (priv->buffer_requests);
+      clutter_gst_buffer_request_free (request);
+    }
+  g_queue_free (priv->buffer_requests);
+
+  /* FIXME free buffer pools  */
+  g_mutex_free (priv->pool_lock);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -1274,10 +1870,11 @@ static gboolean
 clutter_gst_video_sink_start (GstBaseSink *base_sink)
 {
   ClutterGstVideoSink        *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
+#if 0
   ClutterGstVideoSinkPrivate *priv = sink->priv;
+#endif
 
-  priv->source = clutter_gst_source_new (sink);
-  g_source_attach ((GSource *) priv->source, priv->clutter_main_context);
+  GST_INFO_OBJECT (sink, "starting");
 
   return TRUE;
 }
@@ -1311,6 +1908,45 @@ clutter_gst_video_sink_stop (GstBaseSink *base_sink)
   return TRUE;
 }
 
+static gboolean
+clutter_gst_video_sink_event (GstBaseSink *bsink,
+                              GstEvent    *event)
+{
+  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (bsink);
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_FLUSH_START:
+      g_mutex_lock (priv->pool_lock);
+      priv->pool_in_flush = TRUE;
+      /* we might have some buffer_alloc() requests pending for _dispatch() to
+       * answer. Cancel those requests in the case the flush makes the queue
+       * pause the sink_pad task (and thus blocks the threads waiting in
+       * buffer_alloc() as the main thread is blocked */
+      while (!g_queue_is_empty (priv->buffer_requests))
+        {
+          ClutterGstBufferRequest *request;
+
+          request = g_queue_pop_head (priv->buffer_requests);
+          g_cond_signal (request->wait_for_buffer);
+          /* buffer_alloc() will free the request */
+        }
+      g_mutex_unlock (priv->pool_lock);
+      break;
+    case GST_EVENT_FLUSH_STOP:
+      g_mutex_lock (priv->pool_lock);
+      priv->pool_in_flush = FALSE;
+      g_mutex_unlock (priv->pool_lock);
+    default:
+      break;
+  }
+
+  if (GST_BASE_SINK_CLASS (parent_class)->event)
+    return GST_BASE_SINK_CLASS (parent_class)->event (bsink, event);
+  else
+    return TRUE;
+}
+
 static void
 clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
 {
@@ -1326,12 +1962,14 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
   gobject_class->dispose = clutter_gst_video_sink_dispose;
   gobject_class->finalize = clutter_gst_video_sink_finalize;
 
+  gstbase_sink_class->buffer_alloc = clutter_gst_video_sink_buffer_alloc;
   gstbase_sink_class->render = clutter_gst_video_sink_render;
   gstbase_sink_class->preroll = clutter_gst_video_sink_render;
   gstbase_sink_class->start = clutter_gst_video_sink_start;
   gstbase_sink_class->stop = clutter_gst_video_sink_stop;
   gstbase_sink_class->set_caps = clutter_gst_video_sink_set_caps;
   gstbase_sink_class->get_caps = clutter_gst_video_sink_get_caps;
+  gstbase_sink_class->event = clutter_gst_video_sink_event;
 
   /**
    * ClutterGstVideoSink:texture:
