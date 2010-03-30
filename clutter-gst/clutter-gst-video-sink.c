@@ -1964,7 +1964,6 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
 
   gstbase_sink_class->buffer_alloc = clutter_gst_video_sink_buffer_alloc;
   gstbase_sink_class->render = clutter_gst_video_sink_render;
-  gstbase_sink_class->preroll = clutter_gst_video_sink_render;
   gstbase_sink_class->start = clutter_gst_video_sink_start;
   gstbase_sink_class->stop = clutter_gst_video_sink_stop;
   gstbase_sink_class->set_caps = clutter_gst_video_sink_set_caps;
