@@ -369,7 +369,7 @@ set_progress (ClutterGstVideoTexture *video_texture,
   gst_element_seek (priv->pipeline,
 		    1.0,
 		    GST_FORMAT_TIME,
-		    GST_SEEK_FLAG_FLUSH,
+		    GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT,
 		    GST_SEEK_TYPE_SET,
 		    position,
 		    0, 0);
