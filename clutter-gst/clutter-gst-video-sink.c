@@ -508,14 +508,17 @@ clutter_gst_source_push (ClutterGstSource *gst_source,
 
   g_mutex_lock (gst_source->buffer_lock);
 
-  fprintf (stderr, "ppp pushing %p\n", buffer);
+  GST_DEBUG_OBJECT (gst_source->sink, "pushing buffer %p", buffer);
+
   if (buffer)
     {
       /* if we already have a buffer pending, recycle it, (unref it) */
       if (gst_source->buffer)
         {
-          fprintf (stderr, "ppp %p has been pushed, discarding the old buffer "
-                   "%p\n", buffer, gst_source->buffer);
+          GST_WARNING_OBJECT (gst_source->sink,
+                              "%p has been pushed, discarding old buffer %p",
+                              buffer,
+                              gst_source->buffer);
           gst_buffer_unref (GST_BUFFER_CAST (gst_source->buffer));
         }
       gst_source->buffer =
@@ -554,21 +557,22 @@ clutter_gst_source_dispatch (GSource     *source,
                              gpointer     user_data)
 {
   ClutterGstSource *gst_source = (ClutterGstSource *) source;
-  ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv;
+  ClutterGstVideoSink *sink = gst_source->sink;
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
   ClutterGstBuffer *buffer;
 
-  fprintf (stderr, "=== dispatch start\n");
+  GST_DEBUG_OBJECT (sink, "dispatch start");
 
   /* The initialization / free functions of the renderers have to be called in
    * the clutter thread (OpenGL context) */
   if (G_UNLIKELY (priv->renderer_state == CLUTTER_GST_RENDERER_NEED_GC))
     {
-      priv->renderer->deinit (gst_source->sink);
+      priv->renderer->deinit (sink);
       priv->renderer_state = CLUTTER_GST_RENDERER_STOPPED;
     }
   if (G_UNLIKELY (priv->renderer_state == CLUTTER_GST_RENDERER_STOPPED))
     {
-      priv->renderer->init (gst_source->sink);
+      priv->renderer->init (sink);
       priv->renderer_state = CLUTTER_GST_RENDERER_RUNNING;
     }
 
@@ -583,22 +587,23 @@ clutter_gst_source_dispatch (GSource     *source,
     {
       if (!CLUTTER_GST_IS_BUFFER (buffer))
         {
-          fprintf (stderr, "=== %p is not a ClutterGstBuffer\n", buffer);
-          GST_WARNING_OBJECT (gst_source->sink, "%p not our buffer, "
-                              "fuck off", buffer);
+          GST_WARNING_OBJECT (sink,
+                              "%p is not a ClutterGstBuffer",
+                              buffer);
           goto memory_management;
         }
 
-      fprintf (stderr, "=== upload %p\n", buffer);
-      priv->renderer->upload (gst_source->sink, buffer);
-      clutter_gst_video_sink_recycle_buffer (gst_source->sink, buffer);
+      GST_DEBUG_OBJECT (sink, "upload %p", buffer);
+      priv->renderer->upload (sink, buffer);
+      clutter_gst_video_sink_recycle_buffer (sink, buffer);
 
       /* add the recycled buffer to the pool */
       g_mutex_lock (priv->pool_lock);
       priv->buffer_pool = g_slist_prepend (priv->buffer_pool, buffer);
-      fprintf (stderr, "=== recycle %p, buffer_pool (len=%d)\n",
-               buffer,
-               g_slist_length (priv->buffer_pool));
+      GST_DEBUG_OBJECT (sink,
+                        "recycle %p, buffer_pool length is %d)",
+                        buffer,
+                        g_slist_length (priv->buffer_pool));
       g_mutex_unlock (priv->pool_lock);
     }
 
@@ -617,7 +622,7 @@ memory_management:
       priv->purge_pool = g_slist_delete_link (priv->purge_pool,
                                               priv->purge_pool);
 
-      fprintf (stderr, "=== purge %p\n", purge_me);
+      GST_DEBUG_OBJECT (sink, "purge %p", purge_me);
       clutter_gst_buffer_destroy (purge_me);
     }
 
@@ -629,13 +634,14 @@ memory_management:
       priv->recycle_pool = g_slist_delete_link (priv->recycle_pool,
                                                 priv->recycle_pool);
 
-      clutter_gst_video_sink_recycle_buffer (gst_source->sink, recycle_me);
+      clutter_gst_video_sink_recycle_buffer (sink, recycle_me);
 
       /* add the recycled buffer to the buffer pool */
       priv->buffer_pool = g_slist_prepend (priv->buffer_pool, recycle_me);
-      fprintf (stderr, "=== recycle %p, buffer_pool (len=%d)\n",
-               recycle_me,
-               g_slist_length (priv->buffer_pool));
+      GST_DEBUG_OBJECT (sink,
+                        "recycle %p, buffer_pool length is %d",
+                        recycle_me,
+                        g_slist_length (priv->buffer_pool));
     }
 
   /* it's time to answer the requests from buffer_alloc () */
@@ -652,7 +658,7 @@ memory_management:
         {
           new_buffer = (ClutterGstBuffer *) priv->buffer_pool->data;
 
-          fprintf (stderr, "=== removing %p from the pool\n", new_buffer);
+          GST_DEBUG_OBJECT (sink, "removing %p from the pool", new_buffer);
 
           priv->buffer_pool = g_slist_delete_link (priv->buffer_pool,
                                                    priv->buffer_pool);
@@ -673,18 +679,20 @@ memory_management:
 
       /* could not find a suitable buffer, create a new one */
       if (new_buffer == NULL)
-          new_buffer = clutter_gst_buffer_new (gst_source->sink, request->size);
+          new_buffer = clutter_gst_buffer_new (sink, request->size);
 
       request->buffer = new_buffer;
 
-      fprintf (stderr, "=== (req%d) answering request with %p\n", request->id,
-               request->buffer);
+      GST_DEBUG_OBJECT (sink,
+                        "(req%d) answering request with %p",
+                        request->id,
+                        request->buffer);
       g_cond_signal (request->wait_for_buffer);
     }
 
   g_mutex_unlock (priv->pool_lock);
 
-  fprintf (stderr, "=== dispatch end\n");
+  GST_DEBUG_OBJECT (sink, "dispatch end");
 
   return TRUE;
 }
@@ -742,7 +750,7 @@ clutter_gst_video_sink_queue_buffer_request (ClutterGstVideoSink     *sink,
 
   /* queue the request and wake the main thread up */
   g_queue_push_tail (priv->buffer_requests, request);
-  clutter_gst_source_push (priv->source, NULL);
+  g_main_context_wakeup (priv->clutter_main_context);
 }
 
 /*
@@ -1542,10 +1550,12 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
   ClutterGstVideoSinkPrivate *priv = sink->priv;
   GstCaps *intersection;
   ClutterGstBuffer *new_buffer = NULL;
-  gint i = ++_i;
+  guint i;
 
-  fprintf (stderr, "*** (%d) need buffer from thread %p\n", i,
-           g_thread_self ());
+  GST_DEBUG_OBJECT (sink,
+                    "(%d) need buffer from thread %p",
+                    ++_i,
+                    g_thread_self ());
 
   /* start by validating the caps against what we are currently doing */
   if (G_UNLIKELY (priv->current_caps == NULL ||
@@ -1621,9 +1631,11 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
       request = clutter_gst_buffer_request_new (size);
       clutter_gst_video_sink_queue_buffer_request (sink, request);
 
-      fprintf (stderr, "*** (%d) waiting for new buffer\n", i);
-      fprintf (stderr, "*** (%d) (req%d) waiting for new buffer\n",
-               i, request->id);
+      GST_DEBUG_OBJECT (sink,
+                        "(%d) (req%d) waiting for new buffer\n",
+                        i,
+                        request->id);
+
       g_cond_wait (request->wait_for_buffer, priv->pool_lock);
 
       new_buffer = request->buffer;
@@ -1643,10 +1655,7 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
   if (G_UNLIKELY (new_buffer == NULL || GST_BUFFER_DATA (new_buffer) == NULL))
     goto no_memory;
 
-#if 0
-  GST_LOG_OBJECT (sink, "let's use %p (%d bytes)", new_buffer, size);
-#endif
-  fprintf (stderr, "*** (%d) let's use %p\n", i, new_buffer);
+  GST_DEBUG_OBJECT (sink, "(%d) let's use %p\n", i, new_buffer);
 
   gst_buffer_set_caps (GST_BUFFER_CAST (new_buffer), caps);
   GST_MINI_OBJECT_CAST (new_buffer)->flags = 0;
@@ -1657,21 +1666,20 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
 
 flushing:
   {
-    GST_DEBUG_OBJECT (sink, "The pool is flushing");
+    GST_LOG_OBJECT (sink, "The pool is flushing");
     return GST_FLOW_WRONG_STATE;
   }
 no_memory:
   {
     GST_ERROR_OBJECT (sink, "Could not create a buffer of size %d", size);
-    fprintf (stderr, "Could not create a buffer of size %d\n", size);
     /* FIXME: post a message on the bus */
     return GST_FLOW_ERROR;
   }
 incompatible_caps:
   {
-    GST_ERROR_OBJECT (sink, "Could not create a buffer for caps %"
-                      GST_PTR_FORMAT, intersection);
-    fprintf (stderr, "Could not create a buffer for caps %p", intersection);
+    GST_ERROR_OBJECT (sink,
+                      "Could not create a buffer for caps %" GST_PTR_FORMAT,
+                      intersection);
     gst_caps_unref (intersection);
     return GST_FLOW_NOT_NEGOTIATED;
   }
@@ -1697,11 +1705,6 @@ clutter_gst_video_sink_get_caps (GstBaseSink *bsink)
 
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
   our_caps = gst_caps_ref (sink->priv->available_caps);
-
-#if 0
-  GST_LOG_OBJECT (sink, "we are being asked for our caps: %" GST_PTR_FORMAT,
-                  our_caps);
-#endif
 
   return our_caps;
 }
@@ -1870,9 +1873,6 @@ static gboolean
 clutter_gst_video_sink_start (GstBaseSink *base_sink)
 {
   ClutterGstVideoSink        *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
-#if 0
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
-#endif
 
   GST_INFO_OBJECT (sink, "starting");
 
