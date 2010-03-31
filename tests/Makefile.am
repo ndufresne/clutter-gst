@@ -3,6 +3,7 @@ NULL = #
 noinst_PROGRAMS = 	\
 	test-alpha	\
 	test-rgb-upload \
+	test-seek	\
 	test-start-stop \
 	test-yuv-upload \
 	$(NULL)
@@ -21,6 +22,13 @@ test_alpha_LDFLAGS =		\
 test_rgb_upload_SOURCES = test-rgb-upload.c
 test_rgb_upload_CFLAGS  = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
 test_rgb_upload_LDFLAGS =	\
+	$(CLUTTER_GST_LIBS)	\
+	$(GST_LIBS)		\
+	$(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
+
+test_seek_SOURCES = test-seek.c
+test_seek_CFLAGS  = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
+test_seek_LDFLAGS =		\
 	$(CLUTTER_GST_LIBS)	\
 	$(GST_LIBS)		\
 	$(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
