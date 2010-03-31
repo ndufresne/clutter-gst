@@ -413,7 +413,13 @@ clutter_gst_buffer_new (ClutterGstVideoSink *sink,
   ClutterGstVideoSinkPrivate *priv = sink->priv;
   ClutterGstBuffer *new_buffer;
   guchar *map;
+  static guint last_size = 0;
 
+  if (size == 0)
+    size = last_size;
+  else
+    last_size = size;
+    
   new_buffer =
     (ClutterGstBuffer *) gst_mini_object_new (CLUTTER_GST_TYPE_BUFFER);
 
@@ -687,6 +693,13 @@ memory_management:
                         request->id,
                         request->buffer);
       g_cond_signal (request->wait_for_buffer);
+    }
+
+  if (priv->buffer_pool == NULL)
+    { 
+      ClutterGstBuffer *new_buffer;
+      new_buffer = clutter_gst_buffer_new (sink, 0);
+      priv->buffer_pool = g_slist_prepend (priv->buffer_pool, new_buffer);
     }
 
   g_mutex_unlock (priv->pool_lock);
@@ -1628,6 +1641,7 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
       request = clutter_gst_buffer_request_new (size);
       clutter_gst_video_sink_queue_buffer_request (sink, request);
 
+      printf ("waiting\n");
       GST_DEBUG_OBJECT (sink,
                         "(%d) (req%d) waiting for new buffer\n",
                         i,
