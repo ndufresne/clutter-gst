@@ -583,6 +583,8 @@ clutter_gst_source_dispatch (GSource     *source,
   gst_source->buffer = NULL;
   g_mutex_unlock (gst_source->buffer_lock);
 
+  g_mutex_lock (priv->pool_lock);
+
   if (buffer)
     {
       if (!CLUTTER_GST_IS_BUFFER (buffer))
@@ -598,20 +600,17 @@ clutter_gst_source_dispatch (GSource     *source,
       clutter_gst_video_sink_recycle_buffer (sink, buffer);
 
       /* add the recycled buffer to the pool */
-      g_mutex_lock (priv->pool_lock);
       priv->buffer_pool = g_slist_prepend (priv->buffer_pool, buffer);
       GST_DEBUG_OBJECT (sink,
                         "recycle %p, buffer_pool length is %d)",
                         buffer,
                         g_slist_length (priv->buffer_pool));
-      g_mutex_unlock (priv->pool_lock);
     }
 
   /*
    * memory pool management
    */
 memory_management:
-  g_mutex_lock (priv->pool_lock);
 
   /* purge buffers that do not have the required caps any more */
   while (G_UNLIKELY (priv->purge_pool))
@@ -1616,14 +1615,12 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
           break;
         }
     }
-  g_mutex_unlock (priv->pool_lock);
 
   /* we did not find a free buffer, let's ask and wait for one */
   if (new_buffer == NULL)
     {
       ClutterGstBufferRequest *request;
 
-      g_mutex_lock (priv->pool_lock);
       /* if we are flushing, don't even request a buffer now */
       if (priv->pool_in_flush)
         goto flushing;
@@ -1648,8 +1645,9 @@ clutter_gst_video_sink_buffer_alloc (GstBaseSink  *bsink,
           goto flushing;
         }
 
-      g_mutex_unlock (priv->pool_lock);
     }
+
+  g_mutex_unlock (priv->pool_lock);
 
   /* at this point we should really have one... */
   if (G_UNLIKELY (new_buffer == NULL || GST_BUFFER_DATA (new_buffer) == NULL))
