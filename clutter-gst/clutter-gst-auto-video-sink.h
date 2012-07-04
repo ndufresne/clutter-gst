@@ -98,6 +98,7 @@ struct _ClutterGstAutoVideoSink
   gboolean setup;
 
   ClutterTexture *texture;
+  GstClockTimeDiff ts_offset;
 
   GMutex *lock;
 };
