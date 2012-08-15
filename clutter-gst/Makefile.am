@@ -28,6 +28,7 @@ source_h = 					\
 	$(srcdir)/clutter-gst-actor.h	\
 	$(srcdir)/clutter-gst-video-sink.h	\
 	$(srcdir)/clutter-gst-video-actor.h	\
+	$(srcdir)/clutter-gst-camera-device.h	\
 	$(srcdir)/clutter-gst-player.h		\
 	$(NULL)
 
@@ -44,6 +45,7 @@ source_c = 					\
 	$(srcdir)/clutter-gst-actor.c		\
 	$(srcdir)/clutter-gst-video-sink.c	\
 	$(srcdir)/clutter-gst-video-actor.c	\
+	$(srcdir)/clutter-gst-camera-device.c	\
 	$(srcdir)/clutter-gst-util.c		\
 	$(glib_enum_c)				\
 	$(NULL)
