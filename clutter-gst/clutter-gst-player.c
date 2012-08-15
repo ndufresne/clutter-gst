@@ -817,6 +817,7 @@ player_buffering_timeout (gpointer data)
   ClutterGstPlayerPrivate *priv = PLAYER_GET_PRIVATE (player);
   gdouble start_d, stop_d, seconds_buffered;
   gint64 start, stop, left;
+  gint buffer_percent;
   GstState current_state;
   GstElement *element;
   GstQuery *query;
@@ -851,13 +852,11 @@ player_buffering_timeout (gpointer data)
   g_signal_emit (player, signals[DOWNLOAD_BUFFERING_SIGNAL], 0, start_d, stop_d);
 
   /* handle the "virtual stream buffer" and the associated pipeline state.
-   * We pause the pipeline until 2s of content is buffered. With the current
-   * implementation of queue2, start is always 0, so even when we seek in
-   * the stream the start position of the download-buffering signal is
-   * always 0.0. FIXME: look at gst_query_parse_nth_buffering_range () */
+   * We pause the pipeline until the content is buffered.
+   */
   seconds_buffered = priv->duration * (stop_d - start_d);
-  priv->buffer_fill = seconds_buffered / 2.0;
-  priv->buffer_fill = CLAMP (priv->buffer_fill, 0.0, 1.0);
+  gst_query_parse_buffering_percent (query, NULL, &buffer_percent);
+  priv->buffer_fill = CLAMP ((gdouble) buffer_percent / 100.0, 0.0, 1.0);
 
   if (priv->buffer_fill != 1.0 || !priv->virtual_stream_buffer_signalled)
     {
