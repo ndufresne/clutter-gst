@@ -32,6 +32,8 @@
 #ifndef __CLUTTER_GST_TYPES_H__
 #define __CLUTTER_GST_TYPES_H__
 
+typedef struct _ClutterGstVideoResolution ClutterGstVideoResolution;
+
 /**
  * ClutterGstSeekFlags:
  * @CLUTTER_GST_SEEK_FLAG_NONE: Fast seeks (key frame boundaries, default)
@@ -61,5 +63,18 @@ typedef enum _ClutterGstBufferingMode
   CLUTTER_GST_BUFFERING_MODE_STREAM,
   CLUTTER_GST_BUFFERING_MODE_DOWNLOAD
 } ClutterGstBufferingMode;
+
+/**
+ * ClutterGstVideoResolution:
+ * @width: the width, in pixels
+ * @height: the height, in pixels
+ *
+ * A video resolution.
+ */
+struct _ClutterGstVideoResolution
+{
+  gint width;
+  gint height;
+};
 
 #endif /* __CLUTTER_GST_TYPES_H__ */
