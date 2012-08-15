@@ -28,6 +28,7 @@ source_h = 					\
 	$(srcdir)/clutter-gst-actor.h	\
 	$(srcdir)/clutter-gst-video-sink.h	\
 	$(srcdir)/clutter-gst-video-actor.h	\
+	$(srcdir)/clutter-gst-camera-actor.h	\
 	$(srcdir)/clutter-gst-camera-device.h	\
 	$(srcdir)/clutter-gst-player.h		\
 	$(NULL)
@@ -45,6 +46,7 @@ source_c = 					\
 	$(srcdir)/clutter-gst-actor.c		\
 	$(srcdir)/clutter-gst-video-sink.c	\
 	$(srcdir)/clutter-gst-video-actor.c	\
+	$(srcdir)/clutter-gst-camera-actor.c	\
 	$(srcdir)/clutter-gst-camera-device.c	\
 	$(srcdir)/clutter-gst-util.c		\
 	$(glib_enum_c)				\
@@ -77,12 +79,13 @@ AM_CFLAGS = 				\
 	$(CLUTTER_GST_DEBUG_CFLAGS)	\
 	$(CLUTTER_GST_CFLAGS)		\
 	$(GST_CFLAGS)			\
+	$(GUDEV_CFLAGS)			\
 	$(HW_CFLAGS)			\
 	$(NULL)
 
 lib_LTLIBRARIES = libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
 
-libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = @CLUTTER_GST_LIBS@ $(GST_LIBS) $(HW_LIBS)
+libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = @CLUTTER_GST_LIBS@ $(GST_LIBS) $(GUDEV_LIBS) $(HW_LIBS)
 libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(CLUTTER_GST_LT_LDFLAGS)			\
 	$(GL_LDFLAGS)					\

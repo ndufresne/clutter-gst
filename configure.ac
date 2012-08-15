@@ -152,6 +152,7 @@ PKG_CHECK_MODULES(GST,
                   [gstreamer-$GST_MAJORMINOR >= $GSTREAMER_REQ_VERSION
                    gstreamer-plugins-base-$GST_MAJORMINOR
                    gstreamer-base-$GST_MAJORMINOR
+                   gstreamer-pbutils-$GST_MAJORMINOR
                    gstreamer-video-$GST_MAJORMINOR
                    gstreamer-audio-$GST_MAJORMINOR
                    gstreamer-tag-$GST_MAJORMINOR])
@@ -206,6 +207,14 @@ AS_IF([test "x$have_cogl_osx" = xyes],
                 [AC_CHECK_LIB([GL], [glGetIntegerv], [GL_LDFLAGS="-lGL"])])
         AC_SUBST([GL_LDFLAGS])
       ])
+
+PKG_CHECK_MODULES(GUDEV,
+                 [gudev-1.0],
+                 [
+                   have_gudev=yes
+                   AC_DEFINE([HAVE_GUDEV], [1],
+                             ["Defined if gudev is available"])
+                 ],[ have_gudev=no ])
 
 dnl ========================================================================
 dnl Experimental support for hardware accelerated decoders.
@@ -324,4 +333,5 @@ echo " • Extra:"
 echo "        API documentation : ${enable_gtk_doc}"
 echo "        Introspection data: ${enable_introspection}"
 echo "        HW Decoder support: ${have_hw_decoder_support}"
+echo "        UDEV support      : ${have_gudev}"
 echo ""
