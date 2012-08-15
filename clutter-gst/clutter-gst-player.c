@@ -839,6 +839,7 @@ player_buffering_timeout (gpointer data)
     }
 
   /* signal the current range */
+
   gst_query_parse_buffering_stats (query, NULL, NULL, NULL, &left);
   gst_query_parse_buffering_range (query, NULL, &start, &stop, NULL);
 
@@ -1770,6 +1771,54 @@ clutter_gst_player_set_buffering_mode_impl (ClutterGstPlayer        *player,
   g_object_set (G_OBJECT (priv->pipeline), "flags", flags, NULL);
 }
 
+static gint
+clutter_gst_player_get_buffer_size_impl (ClutterGstPlayer *player)
+{
+  ClutterGstPlayerPrivate *priv;
+  gint size;
+
+  priv = PLAYER_GET_PRIVATE (player);
+
+  g_object_get (G_OBJECT (priv->pipeline), "buffer-size", &size, NULL);
+
+  return size;
+}
+
+static void
+clutter_gst_player_set_buffer_size_impl (ClutterGstPlayer *player,
+                                         gint              size)
+{
+  ClutterGstPlayerPrivate *priv;
+
+  priv = PLAYER_GET_PRIVATE (player);
+
+  g_object_set (G_OBJECT (priv->pipeline), "buffer-size", size, NULL);
+}
+
+static gint64
+clutter_gst_player_get_buffer_duration_impl (ClutterGstPlayer *player)
+{
+  ClutterGstPlayerPrivate *priv;
+  gint64 duration;
+
+  priv = PLAYER_GET_PRIVATE (player);
+
+  g_object_get (G_OBJECT (priv->pipeline), "buffer-duration", &duration, NULL);
+
+  return duration;
+}
+
+static void
+clutter_gst_player_set_buffer_duration_impl (ClutterGstPlayer *player,
+                                             gint64            duration)
+{
+  ClutterGstPlayerPrivate *priv;
+
+  priv = PLAYER_GET_PRIVATE (player);
+
+  g_object_set (G_OBJECT (priv->pipeline), "buffer-duration", duration, NULL);
+}
+
 static GList *
 clutter_gst_player_get_audio_streams_impl (ClutterGstPlayer *player)
 {
@@ -1981,6 +2030,10 @@ clutter_gst_player_init (ClutterGstPlayer *player)
   iface->set_seek_flags = clutter_gst_player_set_seek_flags_impl;
   iface->get_buffering_mode = clutter_gst_player_get_buffering_mode_impl;
   iface->set_buffering_mode = clutter_gst_player_set_buffering_mode_impl;
+  iface->get_buffer_size = clutter_gst_player_get_buffer_size_impl;
+  iface->set_buffer_size = clutter_gst_player_set_buffer_size_impl;
+  iface->get_buffer_duration = clutter_gst_player_get_buffer_duration_impl;
+  iface->set_buffer_duration = clutter_gst_player_set_buffer_duration_impl;
   iface->get_audio_streams = clutter_gst_player_get_audio_streams_impl;
   iface->get_audio_stream = clutter_gst_player_get_audio_stream_impl;
   iface->set_audio_stream = clutter_gst_player_set_audio_stream_impl;
@@ -2720,6 +2773,86 @@ clutter_gst_player_get_buffer_fill (ClutterGstPlayer *player)
   g_object_get (G_OBJECT (player), "buffer-fill", &retval, NULL);
 
   return retval;
+}
+
+/*
+ * clutter_gst_player_get_buffer_size:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the buffer size when buffering network streams.
+ *
+ * Return value: The buffer size
+ */
+gint
+clutter_gst_player_get_buffer_size (ClutterGstPlayer *player)
+{
+  ClutterGstPlayerIface *iface;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), -1);
+
+  iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
+
+  return iface->get_buffer_size (player);
+}
+
+/**
+ * clutter_gst_player_set_buffer_size:
+ * @player: a #ClutterGstPlayer
+ * @size: The new size
+ *
+ * Sets the buffer size to be used when buffering network streams.
+ */
+void
+clutter_gst_player_set_buffer_size (ClutterGstPlayer *player,
+                                    gint              size)
+{
+  ClutterGstPlayerIface *iface;
+
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
+
+  iface->set_buffer_size (player, size);
+}
+
+/**
+ * clutter_gst_player_get_buffer_duration:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the buffer duration when buffering network streams.
+ *
+ * Return value: The buffer duration
+ */
+gint64
+clutter_gst_player_get_buffer_duration (ClutterGstPlayer *player)
+{
+  ClutterGstPlayerIface *iface;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), -1);
+
+  iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
+
+  return iface->get_buffer_duration (player);
+}
+
+/**
+ * clutter_gst_player_set_buffer_duration:
+ * @player: a #ClutterGstPlayer
+ * @duration: The new duration
+ *
+ * Sets the buffer duration to be used when buffering network streams.
+ */
+void
+clutter_gst_player_set_buffer_duration (ClutterGstPlayer *player,
+                                        gint64            duration)
+{
+  ClutterGstPlayerIface *iface;
+
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
+
+  iface->set_buffer_duration (player, duration);
 }
 
 /**

@@ -116,10 +116,14 @@ struct _ClutterGstPlayerIface
 
   gboolean (*get_in_seek) (ClutterGstPlayer *player);
 
-  void (* _iface_reserved16) (void);
-  void (* _iface_reserved17) (void);
-  void (* _iface_reserved18) (void);
-  void (* _iface_reserved19) (void);
+  gint   (* get_buffer_size) (ClutterGstPlayer *player);
+  void   (* set_buffer_size) (ClutterGstPlayer *player,
+                              gint              size);
+
+  gint64 (* get_buffer_duration) (ClutterGstPlayer *player);
+  void   (* set_buffer_duration) (ClutterGstPlayer *player,
+                                  gint64            duration);
+
   void (* _iface_reserved20) (void);
   void (* _iface_reserved21) (void);
   void (* _iface_reserved22) (void);
@@ -186,6 +190,12 @@ ClutterGstBufferingMode   clutter_gst_player_get_buffering_mode  (ClutterGstPlay
 void                      clutter_gst_player_set_buffering_mode  (ClutterGstPlayer        *player,
                                                                   ClutterGstBufferingMode  mode);
 gdouble                   clutter_gst_player_get_buffer_fill     (ClutterGstPlayer        *player);
+gint                      clutter_gst_player_get_buffer_size     (ClutterGstPlayer        *player);
+void                      clutter_gst_player_set_buffer_size     (ClutterGstPlayer        *player,
+                                                                  gint                     size);
+gint64                    clutter_gst_player_get_buffer_duration (ClutterGstPlayer        *player);
+void                      clutter_gst_player_set_buffer_duration (ClutterGstPlayer        *player,
+                                                                  gint64                   duration);
 
 void                      clutter_gst_player_set_audio_volume    (ClutterGstPlayer        *player,
                                                                   gdouble                  volume);
