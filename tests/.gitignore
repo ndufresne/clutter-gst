@@ -1,5 +1,5 @@
 test-alpha
 test-rgb-upload
 test-start-stop
-test-video-texture-new-unref-loop
+test-video-actor-new-unref-loop
 test-yuv-upload

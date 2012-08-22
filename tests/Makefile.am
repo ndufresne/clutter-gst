@@ -5,7 +5,7 @@ noinst_PROGRAMS = 				\
 	test-rgb-upload				\
 	test-start-stop				\
 	test-yuv-upload				\
-	test-video-texture-new-unref-loop	\
+	test-video-actor-new-unref-loop	\
 	$(NULL)
 
 INCLUDES = -I$(top_srcdir)      \
@@ -40,9 +40,9 @@ test_yuv_upload_LDFLAGS =	\
 	$(GST_LIBS)		\
 	$(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
 
-test_video_texture_new_unref_loop_SOURCES = test-video-texture-new-unref-loop.c
-test_video_texture_new_unref_loop_CFLAGS  = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
-test_video_texture_new_unref_loop_LDFLAGS =	\
+test_video_actor_new_unref_loop_SOURCES = test-video-actor-new-unref-loop.c
+test_video_actor_new_unref_loop_CFLAGS  = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
+test_video_actor_new_unref_loop_LDFLAGS =	\
 	$(CLUTTER_GST_LIBS)			\
 	$(GST_LIBS)				\
 	$(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
