@@ -429,6 +429,17 @@ control_actor_new_from_image (const gchar *image_filename)
   return actor;
 }
 
+static void
+on_video_actor_notify_buffer_fill (GObject    *selector,
+                                   GParamSpec *pspec,
+                                   VideoApp   *app)
+{
+  gdouble buffer_fill;
+
+  g_object_get (app->vactor, "buffer-fill", &buffer_fill, NULL);
+  g_print ("Buffering - percentage=%d%%\n", (int) (buffer_fill * 100));
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -462,7 +473,7 @@ main (int argc, char *argv[])
 
   if (argc < 2)
     {
-      g_print ("Usage: %s [OPTIONS] <video file>\n", argv[0]);
+      g_print ("Usage: %s [OPTIONS] <video uri>\n", argv[0]);
       return EXIT_FAILURE;
     }
 
@@ -493,6 +504,18 @@ main (int argc, char *argv[])
                     G_CALLBACK (on_video_actor_eos),
                     app);
 
+  /* configure to 10 seconds of buffer duration */
+  clutter_gst_player_set_buffer_duration (
+                    CLUTTER_GST_PLAYER (app->vactor),
+                    10 * GST_SECOND);
+  clutter_gst_player_set_buffering_mode (
+                    CLUTTER_GST_PLAYER (app->vactor),
+                    CLUTTER_GST_BUFFERING_MODE_STREAM);
+  g_signal_connect (app->vactor,
+                    "notify::buffer-fill",
+                    G_CALLBACK (on_video_actor_notify_buffer_fill),
+                    app);
+
   g_signal_connect (stage,
                     "allocation-changed",
                     G_CALLBACK (on_stage_allocation_changed),
@@ -509,7 +532,7 @@ main (int argc, char *argv[])
                           G_CALLBACK (size_change), app);
 
   /* Load up out video actor */
-  clutter_gst_player_set_filename (CLUTTER_GST_PLAYER (app->vactor), argv[1]);
+  clutter_gst_player_set_uri (CLUTTER_GST_PLAYER (app->vactor), argv[1]);
 
   /* Set up things so that a visualisation is played if there's no video */
   pipe = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (app->vactor));
