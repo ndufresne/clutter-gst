@@ -25,6 +25,7 @@ source_h = 					\
 	$(srcdir)/clutter-gst-types.h		\
 	$(srcdir)/clutter-gst-util.h		\
 	$(srcdir)/clutter-gst-version.h		\
+	$(srcdir)/clutter-gst-actor.h	\
 	$(srcdir)/clutter-gst-video-sink.h	\
 	$(srcdir)/clutter-gst-video-texture.h 	\
 	$(srcdir)/clutter-gst-player.h		\
@@ -40,6 +41,7 @@ source_c = 					\
 	$(srcdir)/clutter-gst-debug.c		\
 	$(srcdir)/clutter-gst-marshal.c		\
 	$(srcdir)/clutter-gst-player.c		\
+	$(srcdir)/clutter-gst-actor.c		\
 	$(srcdir)/clutter-gst-video-sink.c	\
 	$(srcdir)/clutter-gst-video-texture.c	\
         $(srcdir)/clutter-gst-util.c		\
