@@ -3,7 +3,7 @@
  *
  * GStreamer integration library for Clutter.
  *
- * test-video-texture-new-unref-loop.c - Create and free a Video texture in a
+ * test-video-actor-new-unref-loop.c - Create and free a Video actor in a
  * tight loop to quickly check if we are leaking or not.
  *
  * Copyright (C) 2011 Intel Corporation
@@ -35,17 +35,17 @@
 int
 main (int argc, char *argv[])
 {
-  ClutterActor *vtexture;
+  ClutterActor *vactor;
   int i;
 
   clutter_gst_init (&argc, &argv);
 
   for (i = 0; ; i++)
   {
-    g_debug("VideoTexure #%d", i);
-    vtexture = clutter_gst_video_texture_new();
-    g_object_ref_sink (vtexture);
-    g_object_unref (vtexture);
+    g_debug("VideoActor #%d", i);
+    vactor = clutter_gst_video_actor_new ();
+    g_object_ref_sink (vactor);
+    g_object_unref (vactor);
   }
 
   return EXIT_SUCCESS;

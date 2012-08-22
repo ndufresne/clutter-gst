@@ -33,7 +33,7 @@
 char *video_files[] = {NULL, NULL};
 
 void
-size_change (ClutterTexture *texture,
+size_change (ClutterActor   *actor,
              gint            width,
              gint            height,
              gpointer        user_data)
@@ -61,8 +61,8 @@ size_change (ClutterTexture *texture,
       new_y = 0;
     }
 
-  clutter_actor_set_position (CLUTTER_ACTOR (texture), new_x, new_y);
-  clutter_actor_set_size (CLUTTER_ACTOR (texture), new_width, new_height);
+  clutter_actor_set_position (actor, new_x, new_y);
+  clutter_actor_set_size (actor, new_width, new_height);
 }
 
 void
@@ -144,14 +144,14 @@ main (int argc, char *argv[])
   stage = clutter_stage_new ();
   clutter_actor_set_background_color (stage, &stage_color);
 
-  video = clutter_gst_video_texture_new ();
-  g_assert (CLUTTER_GST_IS_VIDEO_TEXTURE(video));
+  video = clutter_gst_video_actor_new ();
+  g_assert (CLUTTER_GST_IS_VIDEO_ACTOR(video));
 
-  g_signal_connect (CLUTTER_TEXTURE(video),
+  g_signal_connect (video,
                     "size-change",
                     G_CALLBACK(size_change),
                     stage);
-  g_signal_connect (CLUTTER_TEXTURE(video),
+  g_signal_connect (video,
                     "error",
                     G_CALLBACK(on_error),
                     stage);

@@ -3,7 +3,7 @@
  *
  * GStreamer integration library for Clutter.
  *
- * video-player.c - A simple video player with an OSD.
+ * video-player.c - A simple video player with an OSD using ClutterGstVideoActor.
  *
  * Copyright (C) 2007,2008 OpenedHand
  * Copyright (C) 2013 Collabora
@@ -29,6 +29,8 @@
 #include <clutter/clutter.h>
 #include <clutter-gst/clutter-gst.h>
 
+#include <gdk-pixbuf/gdk-pixbuf.h>
+
 #define SEEK_H 14
 #define SEEK_W 440
 
@@ -38,7 +40,7 @@ typedef struct _VideoApp
 {
   ClutterActor *stage;
 
-  ClutterActor *vtexture;
+  ClutterActor *vactor;
 
   ClutterActor *control;
   ClutterActor *control_bg;
@@ -156,12 +158,12 @@ show_controls (VideoApp *app, gboolean vis)
 void
 toggle_pause_state (VideoApp *app)
 {
-  if (app->vtexture == NULL)
+  if (app->vactor == NULL)
     return;
 
   if (app->paused)
     {
-      clutter_media_set_playing (CLUTTER_MEDIA(app->vtexture),
+      clutter_media_set_playing (CLUTTER_MEDIA(app->vactor),
                                  TRUE);
       app->paused = FALSE;
       clutter_actor_hide (app->control_play);
@@ -169,7 +171,7 @@ toggle_pause_state (VideoApp *app)
     }
   else
     {
-      clutter_media_set_playing (CLUTTER_MEDIA(app->vtexture),
+      clutter_media_set_playing (CLUTTER_MEDIA(app->vactor),
                                  FALSE);
       app->paused = TRUE;
       clutter_actor_hide (app->control_pause);
@@ -181,8 +183,8 @@ static void
 reset_animation (ClutterTimeline  *animation,
                  VideoApp         *app)
 {
-  if (app->vtexture)
-    clutter_actor_set_rotation_angle (app->vtexture, CLUTTER_Y_AXIS, 0.0);
+  if (app->vactor)
+    clutter_actor_set_rotation_angle (app->vactor, CLUTTER_Y_AXIS, 0.0);
 }
 
 static gboolean
@@ -230,7 +232,7 @@ input_cb (ClutterStage *stage,
 
               progress = (gdouble) dist / SEEK_W;
 
-              clutter_media_set_progress (CLUTTER_MEDIA (app->vtexture),
+              clutter_media_set_progress (CLUTTER_MEDIA (app->vactor),
                                           progress);
             }
         }
@@ -244,10 +246,10 @@ input_cb (ClutterStage *stage,
         switch (clutter_event_get_key_symbol (event))
           {
           case CLUTTER_d:
-            if (app->vtexture)
+            if (app->vactor)
               {
-                clutter_actor_remove_child (app->stage, app->vtexture);
-                app->vtexture = NULL;
+                clutter_actor_remove_child (app->stage, app->vactor);
+                app->vactor = NULL;
               }
             if (app->control)
               {
@@ -261,12 +263,12 @@ input_cb (ClutterStage *stage,
             break;
 
           case CLUTTER_e:
-            if (app->vtexture == NULL)
+            if (app->vactor == NULL)
               break;
 
-            clutter_actor_set_pivot_point (app->vtexture, 0.5, 0);
+            clutter_actor_set_pivot_point (app->vactor, 0.5, 0);
 
-            animation = _actor_animate (app->vtexture, CLUTTER_LINEAR, 500,
+            animation = _actor_animate (app->vactor, CLUTTER_LINEAR, 500,
                                         "rotation-angle-y", 360.0, NULL);
 
             g_signal_connect_after (animation, "completed",
@@ -300,7 +302,7 @@ input_cb (ClutterStage *stage,
 }
 
 static void
-size_change (ClutterTexture *texture,
+size_change (ClutterActor   *actor,
              gint            base_width,
              gint            base_height,
              VideoApp       *app)
@@ -314,8 +316,8 @@ size_change (ClutterTexture *texture,
 
   /* base_width and base_height are the actual dimensions of the buffers before
    * taking the pixel aspect ratio into account. We need to get the actual
-   * size of the texture to display */
-  clutter_actor_get_size (CLUTTER_ACTOR (texture), &frame_width, &frame_height);
+   * size of the actor to display */
+  clutter_actor_get_size (actor, &frame_width, &frame_height);
 
   new_height = (frame_height * stage_width) / frame_width;
   if (new_height <= stage_height)
@@ -334,8 +336,8 @@ size_change (ClutterTexture *texture,
       new_y = 0;
     }
 
-  clutter_actor_set_position (CLUTTER_ACTOR (texture), new_x, new_y);
-  clutter_actor_set_size (CLUTTER_ACTOR (texture), new_width, new_height);
+  clutter_actor_set_position (actor, new_x, new_y);
+  clutter_actor_set_size (actor, new_width, new_height);
 }
 
 static void
@@ -368,8 +370,8 @@ tick (GObject      *object,
       GParamSpec   *pspec,
       VideoApp     *app)
 {
-  ClutterMedia *video_texture = CLUTTER_MEDIA (object);
-  gdouble progress = clutter_media_get_progress (video_texture);
+  ClutterMedia *vactor = CLUTTER_MEDIA (object);
+  gdouble progress = clutter_media_get_progress (vactor);
 
   clutter_actor_set_size (app->control_seekbar,
                           progress * SEEK_W,
@@ -377,7 +379,7 @@ tick (GObject      *object,
 }
 
 static void
-on_video_texture_eos (ClutterMedia *media,
+on_video_actor_eos (ClutterMedia *media,
                       VideoApp     *app)
 {
   if (opt_loop)
@@ -392,6 +394,37 @@ _new_rectangle_with_color (ClutterColor *color)
 {
   ClutterActor *actor = clutter_actor_new ();
   clutter_actor_set_background_color (actor, color);
+
+  return actor;
+}
+
+static ClutterActor *
+control_actor_new_from_image (const gchar *image_filename)
+{
+  ClutterActor *actor;
+  ClutterContent *image;
+  GdkPixbuf *pixbuf;
+
+  actor = clutter_actor_new ();
+
+  image = clutter_image_new ();
+  pixbuf = gdk_pixbuf_new_from_file (image_filename, NULL);
+  clutter_image_set_data (CLUTTER_IMAGE (image),
+                          gdk_pixbuf_get_pixels (pixbuf),
+                          gdk_pixbuf_get_has_alpha (pixbuf)
+                            ? COGL_PIXEL_FORMAT_RGBA_8888
+                            : COGL_PIXEL_FORMAT_RGB_888,
+                          gdk_pixbuf_get_width (pixbuf),
+                          gdk_pixbuf_get_height (pixbuf),
+                          gdk_pixbuf_get_rowstride (pixbuf),
+                          NULL);
+  clutter_actor_set_size (actor,
+                          gdk_pixbuf_get_width (pixbuf),
+                          gdk_pixbuf_get_height (pixbuf));
+  g_object_unref (pixbuf);
+
+  clutter_actor_set_content (actor, image);
+  g_object_unref (image);
 
   return actor;
 }
@@ -442,23 +475,22 @@ main (int argc, char *argv[])
 
   app = g_new0(VideoApp, 1);
   app->stage = stage;
-  app->vtexture = clutter_gst_video_texture_new ();
+  app->vactor = clutter_gst_video_actor_new ();
 
-  if (app->vtexture == NULL)
-    g_error("failed to create vtexture");
+  if (app->vactor == NULL)
+    g_error("failed to create vactor");
 
   /* By default ClutterGst seeks to the nearest key frame (faster). However
    * it has the weird effect that when you click on the progress bar, the fill
    * goes to the key frame position that can be quite far from where you
    * clicked. Using the ACCURATE flag tells playbin2 to seek to the actual
    * frame */
-  clutter_gst_video_texture_set_seek_flags (
-                                    CLUTTER_GST_VIDEO_TEXTURE (app->vtexture),
-                                    CLUTTER_GST_SEEK_FLAG_ACCURATE);
+  clutter_gst_player_set_seek_flags (CLUTTER_GST_PLAYER (app->vactor),
+                                     CLUTTER_GST_SEEK_FLAG_ACCURATE);
 
-  g_signal_connect (app->vtexture,
+  g_signal_connect (app->vactor,
                     "eos",
-                    G_CALLBACK (on_video_texture_eos),
+                    G_CALLBACK (on_video_actor_eos),
                     app);
 
   g_signal_connect (stage,
@@ -472,15 +504,15 @@ main (int argc, char *argv[])
                     NULL);
 
   /* Handle it ourselves so can scale up for fullscreen better */
-  g_signal_connect_after (CLUTTER_TEXTURE (app->vtexture),
+  g_signal_connect_after (app->vactor,
                           "size-change",
                           G_CALLBACK (size_change), app);
 
-  /* Load up out video texture */
-  clutter_media_set_filename (CLUTTER_MEDIA (app->vtexture), argv[1]);
+  /* Load up out video actor */
+  clutter_media_set_filename (CLUTTER_MEDIA (app->vactor), argv[1]);
 
   /* Set up things so that a visualisation is played if there's no video */
-  pipe = clutter_gst_video_texture_get_pipeline (CLUTTER_GST_VIDEO_TEXTURE (app->vtexture));
+  pipe = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (app->vactor));
   if (!pipe)
     g_error ("Unable to get gstreamer pipeline!\n");
 
@@ -513,11 +545,11 @@ main (int argc, char *argv[])
   app->control = clutter_actor_new ();
 
   app->control_bg =
-    clutter_texture_new_from_file ("vid-panel.png", NULL);
+    control_actor_new_from_image ("vid-panel.png");
   app->control_play =
-    clutter_texture_new_from_file ("media-actions-start.png", NULL);
+    control_actor_new_from_image ("media-actions-start.png");
   app->control_pause =
-    clutter_texture_new_from_file ("media-actions-pause.png", NULL);
+    control_actor_new_from_image ("media-actions-pause.png");
 
   g_assert (app->control_bg && app->control_play && app->control_pause);
 
@@ -556,7 +588,7 @@ main (int argc, char *argv[])
   clutter_actor_set_position (app->control_label, 82, 29);
 
   /* Add control UI to stage */
-  clutter_actor_add_child (stage, app->vtexture);
+  clutter_actor_add_child (stage, app->vactor);
   clutter_actor_add_child (stage, app->control);
 
   position_controls (app, app->control);
@@ -569,11 +601,11 @@ main (int argc, char *argv[])
   /* Hook up other events */
   g_signal_connect (stage, "event", G_CALLBACK (input_cb), app);
 
-  g_signal_connect (app->vtexture,
+  g_signal_connect (app->vactor,
                     "notify::progress", G_CALLBACK (tick),
                     app);
 
-  clutter_media_set_playing (CLUTTER_MEDIA (app->vtexture), TRUE);
+  clutter_media_set_playing (CLUTTER_MEDIA (app->vactor), TRUE);
 
   clutter_actor_show (stage);
 
