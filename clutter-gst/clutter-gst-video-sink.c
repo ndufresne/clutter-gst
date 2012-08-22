@@ -375,7 +375,7 @@ clutter_gst_parse_caps (GstCaps * caps,
   if (save) {
     priv->info = vinfo;
 
-    /* If we happen to use a ClutterGstVideoTexture, now is to good time
+    /* If we happen to use a ClutterGstVideoActor, now is to good time
      * to instruct it about the pixel aspect ratio so we can have a
      * correct natural width/height */
     ensure_texture_pixel_aspect_ratio (sink);
