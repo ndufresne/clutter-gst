@@ -1583,7 +1583,7 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass * klass)
    *
    * This is the actor the video is decoded into. It can be any
    * #ClutterGstActor, however Cluter-Gst has a handy subclass,
-   * #ClutterGstVideoActor, that implements the #ClutterMedia
+   * #ClutterGstVideoActor, that implements the #ClutterGstPlayer
    * interface.
    */
   pspec = g_param_spec_object ("actor",

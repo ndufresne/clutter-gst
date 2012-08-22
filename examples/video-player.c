@@ -163,7 +163,7 @@ toggle_pause_state (VideoApp *app)
 
   if (app->paused)
     {
-      clutter_media_set_playing (CLUTTER_MEDIA(app->vactor),
+      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER(app->vactor),
                                  TRUE);
       app->paused = FALSE;
       clutter_actor_hide (app->control_play);
@@ -171,7 +171,7 @@ toggle_pause_state (VideoApp *app)
     }
   else
     {
-      clutter_media_set_playing (CLUTTER_MEDIA(app->vactor),
+      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER(app->vactor),
                                  FALSE);
       app->paused = TRUE;
       clutter_actor_hide (app->control_pause);
@@ -232,7 +232,7 @@ input_cb (ClutterStage *stage,
 
               progress = (gdouble) dist / SEEK_W;
 
-              clutter_media_set_progress (CLUTTER_MEDIA (app->vactor),
+              clutter_gst_player_set_progress (CLUTTER_GST_PLAYER (app->vactor),
                                           progress);
             }
         }
@@ -370,8 +370,8 @@ tick (GObject      *object,
       GParamSpec   *pspec,
       VideoApp     *app)
 {
-  ClutterMedia *vactor = CLUTTER_MEDIA (object);
-  gdouble progress = clutter_media_get_progress (vactor);
+  ClutterGstPlayer *vactor = CLUTTER_GST_PLAYER (object);
+  gdouble progress = clutter_gst_player_get_progress (vactor);
 
   clutter_actor_set_size (app->control_seekbar,
                           progress * SEEK_W,
@@ -379,13 +379,13 @@ tick (GObject      *object,
 }
 
 static void
-on_video_actor_eos (ClutterMedia *media,
-                      VideoApp     *app)
+on_video_actor_eos (ClutterGstPlayer *player,
+                    VideoApp         *app)
 {
   if (opt_loop)
     {
-      clutter_media_set_progress (media, 0.0);
-      clutter_media_set_playing (media, TRUE);
+      clutter_gst_player_set_progress (player, 0.0);
+      clutter_gst_player_set_playing (player, TRUE);
     }
 }
 
@@ -509,7 +509,7 @@ main (int argc, char *argv[])
                           G_CALLBACK (size_change), app);
 
   /* Load up out video actor */
-  clutter_media_set_filename (CLUTTER_MEDIA (app->vactor), argv[1]);
+  clutter_gst_player_set_filename (CLUTTER_GST_PLAYER (app->vactor), argv[1]);
 
   /* Set up things so that a visualisation is played if there's no video */
   pipe = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (app->vactor));
@@ -605,7 +605,7 @@ main (int argc, char *argv[])
                     "notify::progress", G_CALLBACK (tick),
                     app);
 
-  clutter_media_set_playing (CLUTTER_MEDIA (app->vactor), TRUE);
+  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (app->vactor), TRUE);
 
   clutter_actor_show (stage);
 

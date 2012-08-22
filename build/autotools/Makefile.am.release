@@ -81,7 +81,7 @@ release-message: $(sha256_file)
 	@echo ""
 	@echo "Clutter-Gst is an integration library for using GStreamer with Clutter."
 	@echo "It provides a GStreamer sink to upload frames to GL and an actor that"
-	@echo "implements the ClutterMedia interface using playbin2."
+	@echo "implements the ClutterGstPlayer interface using playbin."
 	@echo ""
 	@echo "Clutter-gst depends on:"
 	@echo ""

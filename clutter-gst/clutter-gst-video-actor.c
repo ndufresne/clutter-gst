@@ -56,34 +56,17 @@
 #include "clutter-gst-player.h"
 #include "clutter-gst-private.h"
 
-/*
- * FIXME:
- * - Remove implementation of ClutterMedia which requires updating ClutterGstPlayer.
- */
-
 struct _ClutterGstVideoActorPrivate
 {
 };
 
-static void clutter_gst_video_actor_media_init (ClutterMediaIface *iface);
 static void clutter_gst_video_actor_player_init (ClutterGstPlayerIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (ClutterGstVideoActor,
                          clutter_gst_video_actor,
                          CLUTTER_GST_TYPE_ACTOR,
-                         G_IMPLEMENT_INTERFACE (CLUTTER_TYPE_MEDIA,
-                                                clutter_gst_video_actor_media_init)
                          G_IMPLEMENT_INTERFACE (CLUTTER_GST_TYPE_PLAYER,
                                                 clutter_gst_video_actor_player_init));
-
-/*
- * ClutterMedia implementation
- */
-
-static void
-clutter_gst_video_actor_media_init (ClutterMediaIface *iface)
-{
-}
 
 /*
  * ClutterGstPlayer implementation

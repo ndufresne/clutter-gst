@@ -66,7 +66,7 @@ size_change (ClutterActor   *actor,
 }
 
 void
-on_error (ClutterMedia *media)
+on_error (ClutterGstPlayer *player)
 {
   g_print ("error\n");
   clutter_main_quit ();
@@ -76,17 +76,17 @@ gboolean
 test (gpointer data)
 {
   static int count = 1;
-  static ClutterMedia *media = NULL;
+  static ClutterGstPlayer *player = NULL;
   static char *uri[2] = {NULL, NULL};
   const char *playing_uri = NULL;
 
   /* Check until we get video playing */
-  if (!clutter_media_get_playing (CLUTTER_MEDIA (data)))
+  if (!clutter_gst_player_is_playing (CLUTTER_GST_PLAYER (data)))
     return TRUE;
 
-  if (CLUTTER_MEDIA (data) != media)
+  if (CLUTTER_GST_PLAYER (data) != player)
     {
-      media = CLUTTER_MEDIA (data);
+      player = CLUTTER_GST_PLAYER (data);
       count = 1;
       g_free(uri[0]);
       uri[0] = NULL;
@@ -94,25 +94,25 @@ test (gpointer data)
       uri[1] = NULL;
     }
 
-  clutter_media_set_filename (media, video_files[count & 1]);
+  clutter_gst_player_set_filename (player, video_files[count & 1]);
   g_print ("playing %s\n", video_files[count & 1]);
 
   if (uri[count & 1] == NULL)
     {
-      uri[count & 1] = g_strdup (clutter_media_get_uri (media));
+      uri[count & 1] = g_strdup (clutter_gst_player_get_uri (player));
       g_assert (uri[count & 1] != NULL);
     }
 
   /* See if it's still playing */
-  g_assert (clutter_media_get_playing (media));
+  g_assert (clutter_gst_player_is_playing (player));
 
   /* See if it's already change to play correct file */
-  playing_uri = clutter_media_get_uri (media);
+  playing_uri = clutter_gst_player_get_uri (player);
   g_assert_cmpstr (playing_uri, ==, uri[count & 1]);
 
   if (count ++ > 10)
     {
-      clutter_media_set_playing (media, FALSE);
+      clutter_gst_player_set_playing (player, FALSE);
       clutter_main_quit ();
       return FALSE;
     }
@@ -156,9 +156,9 @@ main (int argc, char *argv[])
                     G_CALLBACK(on_error),
                     stage);
   g_timeout_add (5000, test, video);
-  clutter_media_set_filename (CLUTTER_MEDIA(video), video_files[0]);
-  clutter_media_set_audio_volume (CLUTTER_MEDIA(video), 0.5);
-  clutter_media_set_playing (CLUTTER_MEDIA(video), TRUE);
+  clutter_gst_player_set_filename (CLUTTER_GST_PLAYER (video), video_files[0]);
+  clutter_gst_player_set_audio_volume (CLUTTER_GST_PLAYER (video), 0.5);
+  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (video), TRUE);
 
   clutter_actor_add_child (stage, video);
   clutter_actor_show (stage);

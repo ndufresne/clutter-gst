@@ -11,11 +11,8 @@
 
   <shortdesc xml:lang="en">A GStreamer integration library for Clutter</shortdesc>
 
-  <description xml:lang="en">Clutter-Gst is a gstreamer based clutter actor
-    implementing the ClutterMedia interface. It provides video playback on a
-    clutter texture.
-    The library can also be used for its cluttersink Gstreamer element to build
-    more complex pipelines.</description>
+  <description xml:lang="en">Clutter-Gst is an integration library for using
+    GStreamer with Clutter.</description>
 
 	<homepage rdf:resource="http://clutter-project.org" />
 	<license rdf:resource="http://usefulinc.com/doap/licenses/lgpl" />

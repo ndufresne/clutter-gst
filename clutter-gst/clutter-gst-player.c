@@ -7,8 +7,13 @@
  *
  * Authored By Damien Lespiau    <damien.lespiau@intel.com>
  *             Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>
+ *             Matthew Allum     <mallum@openedhand.com>
+ *             Emmanuele Bassi   <ebassi@linux.intel.com>
+ *             Andre Moreira Magalhaes <andre.magalhaes@collabora.co.uk>
  *
- * Copyright (C) 2011 Intel Corporation
+ * Copyright (C) 2006 OpenedHand
+ * Copyright (C) 2009-2011 Intel Corporation
+ * Copyright (C) 2012 Collabora Ltd. <http://www.collabora.co.uk/>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,11 +39,6 @@
  *  sources. Contrary to most interfaces, you don't need to implement
  *  #ClutterGstPlayer. It already provides an implementation/logic
  *  leaving you only tweak a few properties to get the desired behavior.
- *
- * #ClutterGstPlayer extends and implements #ClutterMedia to create
- * enhanced player.
- *
- * #ClutterMedia is available since Clutter 0.2
  */
 
 #ifdef HAVE_CONFIG_H
@@ -66,9 +66,7 @@
 
 typedef ClutterGstPlayerIface       ClutterGstPlayerInterface;
 
-G_DEFINE_INTERFACE_WITH_CODE (ClutterGstPlayer, clutter_gst_player, G_TYPE_OBJECT,
-                              g_type_interface_add_prerequisite (g_define_type_id,
-                                                                 CLUTTER_TYPE_MEDIA))
+G_DEFINE_INTERFACE (ClutterGstPlayer, clutter_gst_player, G_TYPE_OBJECT)
 
 #define PLAYER_GET_PRIVATE(player)                              \
   (g_object_get_qdata (G_OBJECT (player),                       \
@@ -88,7 +86,9 @@ G_DEFINE_INTERFACE_WITH_CODE (ClutterGstPlayer, clutter_gst_player, G_TYPE_OBJEC
 
 enum
 {
-  DOWNLOAD_BUFFERING,
+  EOS_SIGNAL,
+  ERROR_SIGNAL, /* can't be called 'ERROR' otherwise it clashes with wingdi.h */
+  DOWNLOAD_BUFFERING_SIGNAL,
 
   LAST_SIGNAL
 };
@@ -97,7 +97,7 @@ enum
 {
   PROP_0,
 
-  /* ClutterMedia properties */
+  /* ClutterGstPlayer properties */
   PROP_URI,
   PROP_PLAYING,
   PROP_PROGRESS,
@@ -107,8 +107,6 @@ enum
   PROP_CAN_SEEK,
   PROP_BUFFER_FILL,
   PROP_DURATION,
-
-  /* ClutterGstPlayer properties */
   PROP_IDLE,
   PROP_USER_AGENT,
   PROP_SEEK_FLAGS,
@@ -850,7 +848,7 @@ player_buffering_timeout (gpointer data)
   start_d = (gdouble) start / GST_FORMAT_PERCENT_MAX;
   stop_d = (gdouble) stop / GST_FORMAT_PERCENT_MAX;
 
-  g_signal_emit (player, signals[DOWNLOAD_BUFFERING], 0, start_d, stop_d);
+  g_signal_emit (player, signals[DOWNLOAD_BUFFERING_SIGNAL], 0, start_d, stop_d);
 
   /* handle the "virtual stream buffer" and the associated pipeline state.
    * We pause the pipeline until 2s of content is buffered. With the current
@@ -915,7 +913,7 @@ bus_message_error_cb (GstBus           *bus,
   gst_element_set_state (priv->pipeline, GST_STATE_NULL);
 
   gst_message_parse_error (message, &error, NULL);
-  g_signal_emit_by_name (player, "error", error);
+  g_signal_emit (player, signals[ERROR_SIGNAL], 0, error);
   g_error_free (error);
 
   priv->is_idle = TRUE;
@@ -944,7 +942,7 @@ bus_message_eos_cb (GstBus           *bus,
 
   gst_element_set_state (priv->pipeline, GST_STATE_READY);
 
-  g_signal_emit_by_name (player, "eos");
+  g_signal_emit (player, signals[EOS_SIGNAL], 0);
   g_object_notify (G_OBJECT (player), "progress");
 
   gst_element_get_state (priv->pipeline, &state, &pending, 0);
@@ -1565,7 +1563,7 @@ clutter_gst_player_class_init (GObjectClass *object_class)
   object_class->set_property = clutter_gst_player_set_property;
   object_class->get_property = clutter_gst_player_get_property;
 
-  /* Override ClutterMedia's properties */
+  /* Override ClutterGstPlayer's properties */
   g_object_class_override_property (object_class,
                                     PROP_URI, "uri");
   g_object_class_override_property (object_class,
@@ -1586,7 +1584,6 @@ clutter_gst_player_class_init (GObjectClass *object_class)
   g_object_class_override_property (object_class,
                                     PROP_BUFFER_FILL, "buffer-fill");
 
-  /* Override ClutterGstPlayer's properties */
   g_object_class_override_property (object_class,
                                     PROP_IDLE, "idle");
   g_object_class_override_property (object_class,
@@ -2146,6 +2143,127 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
   GParamSpec *pspec;
 
   /**
+   * ClutterGstPlayer:uri:
+   *
+   * The location of a media file, expressed as a valid URI.
+   */
+  pspec = g_param_spec_string ("uri",
+                               "URI",
+                               "URI of a media file",
+                               NULL,
+                               CLUTTER_GST_PARAM_READWRITE |
+                               G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:playing:
+   *
+   * Whether the #ClutterGstPlayer actor is playing.
+   */
+  pspec = g_param_spec_boolean ("playing",
+                                "Playing",
+                                "Whether the player is playing",
+                                FALSE,
+                                CLUTTER_GST_PARAM_READWRITE |
+                                G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:progress:
+   *
+   * The current progress of the playback, as a normalized
+   * value between 0.0 and 1.0.
+   */
+  pspec = g_param_spec_double ("progress",
+                               "Progress",
+                               "Current progress of the playback",
+                               0.0, 1.0, 0.0,
+                               CLUTTER_GST_PARAM_READWRITE |
+                               G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:subtitle-uri:
+   *
+   * The location of a subtitle file, expressed as a valid URI.
+   */
+  pspec = g_param_spec_string ("subtitle-uri",
+                               "Subtitle URI",
+                               "URI of a subtitle file",
+                               NULL,
+                               CLUTTER_GST_PARAM_READWRITE |
+                               G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:subtitle-font-name:
+   *
+   * The font used to display subtitles. The font description has to
+   * follow the same grammar as the one recognized by
+   * pango_font_description_from_string().
+   */
+  pspec = g_param_spec_string ("subtitle-font-name",
+                               "Subtitle Font Name",
+                               "The font used to display subtitles",
+                               NULL,
+                               CLUTTER_GST_PARAM_READWRITE |
+                               G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:audio-volume:
+   *
+   * The volume of the audio, as a normalized value between
+   * 0.0 and 1.0.
+   */
+  pspec = g_param_spec_double ("audio-volume",
+                               "Audio Volume",
+                               "The volume of the audio",
+                               0.0, 1.0, 0.5,
+                               CLUTTER_GST_PARAM_READWRITE |
+                               G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:can-seek:
+   *
+   * Whether the current stream is seekable.
+   */
+  pspec = g_param_spec_boolean ("can-seek",
+                                "Can Seek",
+                                "Whether the current stream is seekable",
+                                FALSE,
+                                CLUTTER_GST_PARAM_READABLE |
+                                G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:buffer-fill:
+   *
+   * The fill level of the buffer for the current stream,
+   * as a value between 0.0 and 1.0.
+   */
+  pspec = g_param_spec_double ("buffer-fill",
+                               "Buffer Fill",
+                               "The fill level of the buffer",
+                               0.0, 1.0, 0.0,
+                               CLUTTER_GST_PARAM_READABLE |
+                               G_PARAM_DEPRECATED);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
+   * ClutterGstPlayer:duration:
+   *
+   * The duration of the current stream, in seconds
+   */
+  pspec = g_param_spec_double ("duration",
+                               "Duration",
+                               "The duration of the stream, in seconds",
+                               0, G_MAXDOUBLE, 0,
+                               CLUTTER_GST_PARAM_READABLE);
+  g_object_interface_install_property (iface, pspec);
+
+  /**
    * ClutterGstPlayer:idle:
    *
    * Whether the #ClutterGstPlayer is in idle mode.
@@ -2247,6 +2365,37 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
   /* Signals */
 
   /**
+   * ClutterGstPlayer::eos:
+   * @media: the #ClutterGstPlayer instance that received the signal
+   *
+   * The ::eos signal is emitted each time the media stream ends.
+   */
+  signals[EOS_SIGNAL] =
+    g_signal_new ("eos",
+                  CLUTTER_GST_TYPE_PLAYER,
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (ClutterGstPlayerIface, eos),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
+  /**
+   * ClutterGstPlayer::error:
+   * @media: the #ClutterGstPlayer instance that received the signal
+   * @error: the #GError
+   *
+   * The ::error signal is emitted each time an error occurred.
+   */
+  signals[ERROR_SIGNAL] =
+    g_signal_new ("error",
+                  CLUTTER_GST_TYPE_PLAYER,
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (ClutterGstPlayerIface, error),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__BOXED,
+                  G_TYPE_NONE, 1,
+                  G_TYPE_ERROR);
+
+  /**
    * ClutterGstPlayer::download-buffering:
    * @player: the #ClutterGstPlayer instance that received the signal
    * @start: start position of the buffering
@@ -2257,7 +2406,7 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
    *
    * Since: 1.4
    */
-  signals[DOWNLOAD_BUFFERING] =
+  signals[DOWNLOAD_BUFFERING_SIGNAL] =
     g_signal_new ("download-buffering",
                   CLUTTER_GST_TYPE_PLAYER,
                   G_SIGNAL_RUN_LAST,
@@ -2300,6 +2449,122 @@ clutter_gst_player_get_pipeline (ClutterGstPlayer *player)
   iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
 
   return iface->get_pipeline (player);
+}
+
+/**
+ * clutter_gst_player_set_uri:
+ * @player: a #ClutterGstPlayer
+ * @uri: the URI of the media stream
+ *
+ * Sets the URI of @player to @uri.
+ */
+void
+clutter_gst_player_set_uri (ClutterGstPlayer *player,
+                            const gchar      *uri)
+{
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  g_object_set (G_OBJECT (player), "uri", uri, NULL);
+}
+
+/**
+ * clutter_gst_player_get_uri:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the URI from @player.
+ *
+ * Return value: the URI of the media stream. Use g_free()
+ *   to free the returned string
+ */
+gchar *
+clutter_gst_player_get_uri (ClutterGstPlayer *player)
+{
+  gchar *retval = NULL;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), NULL);
+
+  g_object_get (G_OBJECT (player), "uri", &retval, NULL);
+
+  return retval;
+}
+
+/**
+ * clutter_gst_player_set_filename:
+ * @player: a #ClutterGstPlayer
+ * @filename: A filename
+ *
+ * Sets the source of @player using a file path.
+ */
+void
+clutter_gst_player_set_filename (ClutterGstPlayer *player,
+                                 const gchar      *filename)
+{
+  gchar *uri;
+  GError *uri_error = NULL;
+
+  if (!g_path_is_absolute (filename))
+    {
+      gchar *abs_path;
+
+      abs_path = g_build_filename (g_get_current_dir (), filename, NULL);
+      uri = g_filename_to_uri (abs_path, NULL, &uri_error);
+      g_free (abs_path);
+    }
+  else
+    uri = g_filename_to_uri (filename, NULL, &uri_error);
+
+  if (uri_error)
+    {
+      g_signal_emit (player, signals[ERROR_SIGNAL], 0, uri_error);
+      g_error_free (uri_error);
+      return;
+    }
+
+  clutter_gst_player_set_uri (player, uri);
+
+  g_free (uri);
+}
+
+/**
+ * clutter_gst_player_set_playing:
+ * @player: a #ClutterGstPlayer
+ * @playing: %TRUE to start playing
+ *
+ * Starts or stops playing of @player.
+ *
+ * The implementation might be asynchronous, so the way to know whether
+ * the actual playing state of the @player is to use the #GObject::notify
+ * signal on the #ClutterGstPlayer:playing property and then retrieve the
+ * current state with clutter_gst_player_is_playing(). ClutterGstVideoActor
+ * in clutter-gst is an example of such an asynchronous implementation.
+ */
+void
+clutter_gst_player_set_playing (ClutterGstPlayer *player,
+                                gboolean          playing)
+{
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  g_object_set (G_OBJECT (player), "playing", playing, NULL);
+}
+
+/**
+ * clutter_gst_player_is_playing:
+ * @player: A #ClutterGstPlayer object
+ *
+ * Retrieves the playing status of @player.
+ *
+ * Return value: %TRUE if playing, %FALSE if stopped.
+ */
+gboolean
+clutter_gst_player_is_playing (ClutterGstPlayer *player)
+{
+  gboolean is_playing = FALSE;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), FALSE);
+
+  g_object_get (G_OBJECT (player), "playing", &is_playing, NULL);
+
+  return is_playing;
 }
 
 /**
@@ -2439,6 +2704,62 @@ clutter_gst_player_set_buffering_mode (ClutterGstPlayer        *player,
 }
 
 /**
+ * clutter_gst_player_get_buffer_fill:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the amount of the stream that is buffered.
+ *
+ * Return value: the fill level, between 0.0 and 1.0
+ */
+gdouble
+clutter_gst_player_get_buffer_fill (ClutterGstPlayer *player)
+{
+  gdouble retval = 0.0;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), 0);
+
+  g_object_get (G_OBJECT (player), "buffer-fill", &retval, NULL);
+
+  return retval;
+}
+
+/**
+ * clutter_gst_player_set_audio_volume:
+ * @player: a #ClutterGstPlayer
+ * @volume: the volume as a double between 0.0 and 1.0
+ *
+ * Sets the playback volume of @player to @volume.
+ */
+void
+clutter_gst_player_set_audio_volume (ClutterGstPlayer *player,
+                                     gdouble           volume)
+{
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  g_object_set (G_OBJECT (player), "audio-volume", volume, NULL);
+}
+
+/**
+ * clutter_gst_player_get_audio_volume:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the playback volume of @player.
+ *
+ * Return value: The playback volume between 0.0 and 1.0
+ */
+gdouble
+clutter_gst_player_get_audio_volume (ClutterGstPlayer *player)
+{
+  gdouble retval = 0.0;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), 0.0);
+
+  g_object_get (G_OBJECT (player), "audio-volume", &retval, NULL);
+
+  return retval;
+}
+
+/**
  * clutter_gst_player_get_audio_streams:
  * @player: a #ClutterGstPlayer
  *
@@ -2507,6 +2828,87 @@ clutter_gst_player_set_audio_stream (ClutterGstPlayer *player,
   iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
 
   iface->set_audio_stream (player, index_);
+}
+
+/**
+ * clutter_gst_player_set_subtitle_uri:
+ * @player: a #ClutterGstPlayer
+ * @uri: the URI of a subtitle file
+ *
+ * Sets the location of a subtitle file to display while playing @player.
+ */
+void
+clutter_gst_player_set_subtitle_uri (ClutterGstPlayer *player,
+                                     const char       *uri)
+{
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  g_object_set (G_OBJECT (player), "subtitle-uri", uri, NULL);
+}
+
+/**
+ * clutter_gst_player_get_subtitle_uri:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the URI of the subtitle file in use.
+ *
+ * Return value: the URI of the subtitle file. Use g_free()
+ *   to free the returned string
+ */
+gchar *
+clutter_gst_player_get_subtitle_uri (ClutterGstPlayer *player)
+{
+  gchar *retval = NULL;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), NULL);
+
+  g_object_get (G_OBJECT (player), "subtitle-uri", &retval, NULL);
+
+  return retval;
+}
+
+/**
+ * clutter_gst_player_set_subtitle_font_name:
+ * @player: a #ClutterGstPlayer
+ * @font_name: a font name, or %NULL to set the default font name
+ *
+ * Sets the font used by the subtitle renderer. The @font_name string must be
+ * either %NULL, which means that the default font name of the underlying
+ * implementation will be used; or must follow the grammar recognized by
+ * pango_font_description_from_string() like:
+ *
+ * |[
+ *   clutter_gst_player_set_subtitle_font_name (player, "Sans 24pt");
+ * ]|
+ */
+void
+clutter_gst_player_set_subtitle_font_name (ClutterGstPlayer *player,
+                                      const char   *font_name)
+{
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  g_object_set (G_OBJECT (player), "subtitle-font-name", font_name, NULL);
+}
+
+/**
+ * clutter_gst_player_get_subtitle_font_name:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the font name currently used.
+ *
+ * Return value: a string containing the font name. Use g_free()
+ *   to free the returned string
+ */
+gchar *
+clutter_gst_player_get_subtitle_font_name (ClutterGstPlayer *player)
+{
+  gchar *retval = NULL;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), NULL);
+
+  g_object_get (G_OBJECT (player), "subtitle-font-name", &retval, NULL);
+
+  return retval;
 }
 
 /**
@@ -2605,6 +3007,26 @@ clutter_gst_player_get_idle (ClutterGstPlayer *player)
 }
 
 /**
+ * clutter_gst_player_get_can_seek:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves whether @player is seekable or not.
+ *
+ * Return value: %TRUE if @player can seek, %FALSE otherwise.
+ */
+gboolean
+clutter_gst_player_get_can_seek (ClutterGstPlayer *player)
+{
+  gboolean retval = FALSE;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), FALSE);
+
+  g_object_get (G_OBJECT (player), "can-seek", &retval, NULL);
+
+  return retval;
+}
+
+/**
  * clutter_gst_player_get_in_seek:
  * @player: a #ClutterGstPlayer
  *
@@ -2624,4 +3046,61 @@ clutter_gst_player_get_in_seek (ClutterGstPlayer *player)
   iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
 
   return iface->get_in_seek (player);
+}
+
+/**
+ * clutter_gst_player_set_progress:
+ * @player: a #ClutterGstPlayer
+ * @progress: the progress of the playback, between 0.0 and 1.0
+ *
+ * Sets the playback progress of @player. The @progress is
+ * a normalized value between 0.0 (begin) and 1.0 (end).
+ */
+void
+clutter_gst_player_set_progress (ClutterGstPlayer *player,
+                                 gdouble           progress)
+{
+  g_return_if_fail (CLUTTER_GST_IS_PLAYER (player));
+
+  g_object_set (G_OBJECT (player), "progress", progress, NULL);
+}
+
+/**
+ * clutter_gst_player_get_progress:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the playback progress of @player.
+ *
+ * Return value: the playback progress, between 0.0 and 1.0
+ */
+gdouble
+clutter_gst_player_get_progress (ClutterGstPlayer *player)
+{
+  gdouble retval = 0.0;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), 0);
+
+  g_object_get (G_OBJECT (player), "progress", &retval, NULL);
+
+  return retval;
+}
+
+/**
+ * clutter_gst_player_get_duration:
+ * @player: a #ClutterGstPlayer
+ *
+ * Retrieves the duration of the media stream that @player represents.
+ *
+ * Return value: the duration of the media stream, in seconds
+ */
+gdouble
+clutter_gst_player_get_duration (ClutterGstPlayer *player)
+{
+  gdouble retval = 0;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), 0);
+
+  g_object_get (G_OBJECT (player), "duration", &retval, NULL);
+
+  return retval;
 }

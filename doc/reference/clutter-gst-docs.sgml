@@ -48,7 +48,7 @@
   <chapter>
     <title>Clutter Gst Overview</title>
 
-    <para>Clutter-GStreamer provides a ClutterMedia interface implementation
+    <para>Clutter-GStreamer provides a player interface implementation
     using GStreamer for basic video and audio playback.</para>
 
   </chapter>
