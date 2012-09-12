@@ -124,7 +124,8 @@ struct _ClutterGstPlayerIface
   void   (* set_buffer_duration) (ClutterGstPlayer *player,
                                   gint64            duration);
 
-  void (* _iface_reserved20) (void);
+  gboolean (* is_live_media) (ClutterGstPlayer *player);
+
   void (* _iface_reserved21) (void);
   void (* _iface_reserved22) (void);
   void (* _iface_reserved23) (void);
@@ -223,11 +224,12 @@ gboolean                  clutter_gst_player_get_idle            (ClutterGstPlay
 gboolean                  clutter_gst_player_get_can_seek        (ClutterGstPlayer        *player);
 gboolean                  clutter_gst_player_get_in_seek         (ClutterGstPlayer        *player);
 
-
 void                      clutter_gst_player_set_progress        (ClutterGstPlayer        *player,
                                                                   gdouble                  progress);
 gdouble                   clutter_gst_player_get_progress        (ClutterGstPlayer        *player);
 gdouble                   clutter_gst_player_get_duration        (ClutterGstPlayer        *player);
+
+gboolean                  clutter_gst_player_is_live_media       (ClutterGstPlayer        *player);
 
 G_END_DECLS
 

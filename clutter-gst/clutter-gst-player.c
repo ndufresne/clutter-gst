@@ -155,6 +155,7 @@ struct _ClutterGstPlayerPrivate
   gchar *uri;
 
   guint is_idle : 1;
+  guint is_live : 1;
   guint can_seek : 1;
   guint in_seek : 1;
   guint is_changing_uri : 1;
@@ -462,6 +463,31 @@ player_clear_download_buffering (ClutterGstPlayer *player)
   priv->virtual_stream_buffer_signalled = 0;
 }
 
+static gboolean
+is_live_pipeline (GstElement *pipeline)
+{
+  GstState state, pending;
+  GstStateChangeReturn state_change_res;
+  gboolean is_live = FALSE;
+
+  /* get pipeline current state, we need to change the pipeline state to PAUSED to
+   * see if we are dealing with a live source and we want to restore the pipeline
+   * state afterwards */
+  gst_element_get_state (pipeline, &state, &pending, 0);
+
+  /* a pipeline with live source should return NO_PREROLL in PAUSE */
+  state_change_res = gst_element_set_state (pipeline, GST_STATE_PAUSED);
+  is_live = (state_change_res == GST_STATE_CHANGE_NO_PREROLL);
+
+  /* restore pipeline previous state */
+  if (pending == GST_STATE_VOID_PENDING)
+    gst_element_set_state (pipeline, state);
+  else
+    gst_element_set_state (pipeline, pending);
+
+  return is_live;
+}
+
 static void
 set_uri (ClutterGstPlayer *player,
          const gchar      *uri)
@@ -541,6 +567,9 @@ set_uri (ClutterGstPlayer *player,
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
 
       g_object_set (priv->pipeline, "uri", uri, NULL);
+
+      priv->is_live = is_live_pipeline (priv->pipeline);
+
       set_subtitle_uri (player, NULL);
       autoload_subtitle (player, uri);
 
@@ -551,6 +580,7 @@ set_uri (ClutterGstPlayer *player,
   else
     {
       priv->is_idle = TRUE;
+      priv->is_live = FALSE;
       set_subtitle_uri (player, NULL);
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       g_object_notify (G_OBJECT (player), "idle");
@@ -1958,6 +1988,15 @@ clutter_gst_player_get_in_seek_impl (ClutterGstPlayer *player)
   return priv->in_seek;
 }
 
+static gboolean
+clutter_gst_player_is_live_media_impl (ClutterGstPlayer *player)
+{
+  ClutterGstPlayerPrivate *priv;
+
+  priv = PLAYER_GET_PRIVATE (player);
+
+  return priv->is_live;
+}
 
 /**/
 
@@ -2042,6 +2081,7 @@ clutter_gst_player_init (ClutterGstPlayer *player)
   iface->set_subtitle_track = clutter_gst_player_set_subtitle_track_impl;
   iface->get_idle = clutter_gst_player_get_idle_impl;
   iface->get_in_seek = clutter_gst_player_get_in_seek_impl;
+  iface->is_live_media = clutter_gst_player_is_live_media_impl;
 
   priv = g_slice_new0 (ClutterGstPlayerPrivate);
   PLAYER_SET_PRIVATE (player, priv);
@@ -3235,4 +3275,24 @@ clutter_gst_player_get_duration (ClutterGstPlayer *player)
   g_object_get (G_OBJECT (player), "duration", &retval, NULL);
 
   return retval;
+}
+
+/**
+ * clutter_gst_player_is_live_media:
+ * @player: a #ClutterGstPlayer
+ *
+ * Whether the player is using a live media.
+ *
+ * Return value: TRUE if the player is using a live media, FALSE otherwise.
+ */
+gboolean
+clutter_gst_player_is_live_media (ClutterGstPlayer *player)
+{
+  ClutterGstPlayerIface *iface;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (player), FALSE);
+
+  iface = CLUTTER_GST_PLAYER_GET_INTERFACE (player);
+
+  return iface->is_live_media (player);
 }
