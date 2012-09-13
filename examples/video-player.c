@@ -440,9 +440,30 @@ on_video_actor_notify_buffer_fill (GObject    *selector,
   g_print ("Buffering - percentage=%d%%\n", (int) (buffer_fill * 100));
 }
 
+/* check whether a given uri is a local file.
+ * Note that this method won't check if the uri exists,
+ * just if the uri is a valid uri for a local file */
+static gboolean
+is_local_file (const gchar *uri)
+{
+  gboolean ret = FALSE;
+  gchar *scheme;
+
+  scheme = g_uri_parse_scheme (uri);
+
+  /* uris can be considered local if using file:// or
+   * using a relative path/no scheme */
+  if (!scheme || !g_ascii_strcasecmp (scheme, "file"))
+    ret = TRUE;
+
+  g_free (scheme);
+  return ret;
+}
+
 int
 main (int argc, char *argv[])
 {
+  const gchar         *uri;
   VideoApp            *app = NULL;
   GstElement          *pipe;
   GstElement          *playsink;
@@ -477,6 +498,8 @@ main (int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
+  uri = argv[1];
+
   stage = clutter_stage_new ();
   clutter_actor_set_background_color (stage, &stage_color);
   clutter_actor_set_size (stage, 768, 576);
@@ -504,17 +527,24 @@ main (int argc, char *argv[])
                     G_CALLBACK (on_video_actor_eos),
                     app);
 
-  /* configure to 10 seconds of buffer duration */
-  clutter_gst_player_set_buffer_duration (
-                    CLUTTER_GST_PLAYER (app->vactor),
-                    10 * GST_SECOND);
-  clutter_gst_player_set_buffering_mode (
-                    CLUTTER_GST_PLAYER (app->vactor),
-                    CLUTTER_GST_BUFFERING_MODE_STREAM);
-  g_signal_connect (app->vactor,
-                    "notify::buffer-fill",
-                    G_CALLBACK (on_video_actor_notify_buffer_fill),
-                    app);
+  if (!is_local_file (uri))
+    {
+      g_print ("Remote media detected, setting up buffering\n");
+
+      /* configure to 10 seconds of buffer duration */
+      clutter_gst_player_set_buffer_duration (
+                        CLUTTER_GST_PLAYER (app->vactor),
+                        10 * GST_SECOND);
+      clutter_gst_player_set_buffering_mode (
+                        CLUTTER_GST_PLAYER (app->vactor),
+                        CLUTTER_GST_BUFFERING_MODE_STREAM);
+      g_signal_connect (app->vactor,
+                        "notify::buffer-fill",
+                        G_CALLBACK (on_video_actor_notify_buffer_fill),
+                        app);
+    }
+  else
+      g_print ("Local media detected\n");
 
   g_signal_connect (stage,
                     "allocation-changed",
@@ -532,7 +562,12 @@ main (int argc, char *argv[])
                           G_CALLBACK (size_change), app);
 
   /* Load up out video actor */
-  clutter_gst_player_set_uri (CLUTTER_GST_PLAYER (app->vactor), argv[1]);
+  clutter_gst_player_set_uri (CLUTTER_GST_PLAYER (app->vactor), uri);
+
+  if (clutter_gst_player_is_live_media (CLUTTER_GST_PLAYER (app->vactor)))
+    g_print ("Playing live media\n");
+  else
+    g_print ("Playing non-live media\n");
 
   /* Set up things so that a visualisation is played if there's no video */
   pipe = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (app->vactor));
@@ -583,7 +618,7 @@ main (int argc, char *argv[])
 
   app->control_label =
     clutter_text_new_full ("Sans Bold 14",
-                           g_path_get_basename (argv[1]),
+                           g_path_get_basename (uri),
                            &control_color1);
 
   clutter_actor_hide (app->control_play);
