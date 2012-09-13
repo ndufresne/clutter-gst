@@ -53,6 +53,7 @@ clutter_gst_player_get_in_seek
 clutter_gst_player_set_progress
 clutter_gst_player_get_progress
 clutter_gst_player_get_duration
+clutter_gst_player_is_live_media
 <SUBSECTION Standard>
 CLUTTER_GST_PLAYER
 CLUTTER_GST_IS_PLAYER
