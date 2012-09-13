@@ -58,7 +58,10 @@
     <xi:include href="xml/clutter-gst-actor.xml"/>
     <xi:include href="xml/clutter-gst-player.xml"/>
     <xi:include href="xml/clutter-gst-video-actor.xml"/>
+    <xi:include href="xml/clutter-gst-camera-actor.xml"/>
+    <xi:include href="xml/clutter-gst-camera-device.xml"/>
     <xi:include href="xml/clutter-gst-video-sink.xml"/>
+    <xi:include href="xml/clutter-gst-types.xml"/>
     <xi:include href="xml/clutter-gst-util.xml"/>
     <xi:include href="xml/clutter-gst-version.xml"/>
   </chapter>
