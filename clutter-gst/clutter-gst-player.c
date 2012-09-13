@@ -1003,31 +1003,36 @@ bus_message_buffering_cb (GstBus           *bus,
 
   switch (mode)
     {
+    case GST_BUFFERING_LIVE:
     case GST_BUFFERING_STREAM:
       gst_message_parse_buffering (message, &buffer_percent);
       priv->buffer_fill = CLAMP ((gdouble) buffer_percent / 100.0, 0.0, 1.0);
 
       CLUTTER_GST_NOTE (BUFFERING, "buffer-fill: %.02f", priv->buffer_fill);
 
-      /* The playbin documentation says that we need to pause the pipeline
-       * when there's not enough data yet. We try to limit the calls to
-       * gst_element_set_state() */
-      gst_element_get_state (priv->pipeline, &current_state, NULL, 0);
+      /* no state management needed for live pipelines */
+      if (!priv->is_live)
+        {
+          /* The playbin documentation says that we need to pause the pipeline
+           * when there's not enough data yet. We try to limit the calls to
+           * gst_element_set_state() */
+          gst_element_get_state (priv->pipeline, &current_state, NULL, 0);
 
-      if (priv->buffer_fill < 1.0)
-        {
-          if (current_state != GST_STATE_PAUSED)
+          if (priv->buffer_fill < 1.0)
             {
-              CLUTTER_GST_NOTE (BUFFERING, "pausing the pipeline");
-              gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+              if (current_state != GST_STATE_PAUSED)
+                {
+                  CLUTTER_GST_NOTE (BUFFERING, "pausing the pipeline");
+                  gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+                }
             }
-        }
-      else
-        {
-          if (current_state != priv->target_state)
+          else
             {
-              CLUTTER_GST_NOTE (BUFFERING, "restoring the pipeline");
-              gst_element_set_state (priv->pipeline, priv->target_state);
+              if (current_state != priv->target_state)
+                {
+                  CLUTTER_GST_NOTE (BUFFERING, "restoring the pipeline");
+                  gst_element_set_state (priv->pipeline, priv->target_state);
+                }
             }
         }
 
@@ -1060,7 +1065,6 @@ bus_message_buffering_cb (GstBus           *bus,
       break;
 
     case GST_BUFFERING_TIMESHIFT:
-    case GST_BUFFERING_LIVE:
     default:
       g_warning ("Buffering mode %d not handled", mode);
       break;
