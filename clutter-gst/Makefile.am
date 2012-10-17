@@ -27,7 +27,6 @@ source_h = 					\
 	$(srcdir)/clutter-gst-version.h		\
 	$(srcdir)/clutter-gst-actor.h	\
 	$(srcdir)/clutter-gst-video-sink.h	\
-	$(srcdir)/clutter-gst-video-texture.h 	\
 	$(srcdir)/clutter-gst-player.h		\
 	$(NULL)
 
@@ -43,8 +42,7 @@ source_c = 					\
 	$(srcdir)/clutter-gst-player.c		\
 	$(srcdir)/clutter-gst-actor.c		\
 	$(srcdir)/clutter-gst-video-sink.c	\
-	$(srcdir)/clutter-gst-video-texture.c	\
-        $(srcdir)/clutter-gst-util.c		\
+	$(srcdir)/clutter-gst-util.c		\
 	$(glib_enum_c)				\
 	$(NULL)
 
@@ -109,7 +107,8 @@ libgstclutter_la_SOURCES =	\
 
 plugin_LTLIBRARIES = libgstclutter.la
 
-libgstclutter_la_LIBADD  = $(PLUGIN_LIBS) $(HW_LIBS)
+libgstclutter_la_LIBADD  = $(PLUGIN_LIBS) $(HW_LIBS) \
+	libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
 libgstclutter_la_LDFLAGS =	\
 	$(GL_LDFLAGS)		\
 	-module -avoid-version	\

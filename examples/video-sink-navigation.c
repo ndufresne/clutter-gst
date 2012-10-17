@@ -29,7 +29,7 @@
 #include <clutter-gst/clutter-gst.h>
 
 void
-size_change (ClutterTexture *texture,
+size_change (ClutterActor   *actor,
              gint            width,
              gint            height,
              gpointer        user_data)
@@ -38,7 +38,7 @@ size_change (ClutterTexture *texture,
   gfloat new_x, new_y, new_width, new_height;
   gfloat stage_width, stage_height;
 
-  stage = clutter_actor_get_stage (CLUTTER_ACTOR (texture));
+  stage = clutter_actor_get_stage (actor);
   if (stage == NULL)
     return;
 
@@ -61,8 +61,8 @@ size_change (ClutterTexture *texture,
       new_y = 0;
     }
 
-  clutter_actor_set_position (CLUTTER_ACTOR (texture), new_x, new_y);
-  clutter_actor_set_size (CLUTTER_ACTOR (texture), new_width, new_height);
+  clutter_actor_set_position (actor, new_x, new_y);
+  clutter_actor_set_size (actor, new_width, new_height);
 }
 
 int
@@ -70,7 +70,7 @@ main (int argc, char *argv[])
 {
   ClutterTimeline  *timeline;
   ClutterActor     *stage;
-  ClutterActor     *texture;
+  ClutterActor     *actor;
   ClutterConstraint *constraint;
   GstPipeline      *pipeline;
   GstElement       *src;
@@ -99,16 +99,11 @@ main (int argc, char *argv[])
   timeline = clutter_timeline_new (1000);
   g_object_set(timeline, "loop", TRUE, NULL);
 
-  /* We need to set certain props on the target texture currently for
-   * efficient/corrent playback onto the texture (which sucks a bit)
-  */
-  texture = g_object_new (CLUTTER_TYPE_TEXTURE,
-			  "disable-slicing", TRUE,
-			  NULL);
+  actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
 
-  g_signal_connect (CLUTTER_TEXTURE (texture),
-		    "size-change",
-		    G_CALLBACK (size_change), NULL);
+  g_signal_connect (actor,
+                    "size-change",
+                    G_CALLBACK (size_change), NULL);
 
   /* Set up pipeline */
   pipeline = GST_PIPELINE(gst_pipeline_new (NULL));
@@ -119,7 +114,7 @@ main (int argc, char *argv[])
   test = gst_element_factory_make ("navigationtest", NULL);
   colorspace = gst_element_factory_make ("videoconvert", NULL);
   sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (sink, "texture", CLUTTER_TEXTURE (texture), NULL);
+  g_object_set (sink, "actor", actor, NULL);
 
   // g_object_set (src , "pattern", 10, NULL);
 
@@ -129,16 +124,16 @@ main (int argc, char *argv[])
 
   /* Resize with the window */
   constraint = clutter_bind_constraint_new (stage, CLUTTER_BIND_SIZE, 0.0);
-  clutter_actor_add_constraint_with_name (texture, "size", constraint);
+  clutter_actor_add_constraint_with_name (actor, "size", constraint);
 
   /* Rotate a bit */
-  clutter_actor_set_pivot_point (texture, 0.5, 0.5);
-  clutter_actor_set_rotation_angle (texture, CLUTTER_Z_AXIS, 45.0);
+  clutter_actor_set_pivot_point (actor, 0.5, 0.5);
+  clutter_actor_set_rotation_angle (actor, CLUTTER_Z_AXIS, 45.0);
 
   /* start the timeline */
   clutter_timeline_start (timeline);
 
-  clutter_actor_add_child (stage, texture);
+  clutter_actor_add_child (stage, actor);
   // clutter_actor_set_opacity (texture, 0x11);
   clutter_actor_show (stage);
 

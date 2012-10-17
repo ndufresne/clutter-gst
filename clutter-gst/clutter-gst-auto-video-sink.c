@@ -47,7 +47,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
 enum
 {
   PROP_0,
-  PROP_TEXTURE,
+  PROP_ACTOR,
   PROP_TS_OFFSET
 };
 
@@ -195,21 +195,21 @@ _is_clutter_sink (GstElement * element)
   GParamSpec *pspec;
 
   pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (element),
-      "texture");
+      "actor");
 
   if (pspec == NULL) {
-    GST_DEBUG_OBJECT (element, "don't have a texture property");
+    GST_DEBUG_OBJECT (element, "don't have an actor property");
     return FALSE;
   }
 
-  if (CLUTTER_TYPE_TEXTURE == pspec->value_type ||
-      g_type_is_a (pspec->value_type, CLUTTER_TYPE_TEXTURE)) {
-    GST_DEBUG_OBJECT (element, "has a clutter texture property");
+  if (CLUTTER_GST_TYPE_ACTOR == pspec->value_type ||
+      g_type_is_a (pspec->value_type, CLUTTER_GST_TYPE_ACTOR)) {
+    GST_DEBUG_OBJECT (element, "has an actor property");
     return TRUE;
   }
 
-  GST_WARNING_OBJECT (element, "has texture property, but it's of type %s "
-      "and we expected it to be of type CLUTTER_TYPE_TEXTURE",
+  GST_WARNING_OBJECT (element, "has actor property, but it's of type %s "
+      "and we expected it to be of type CLUTTER_GST_TYPE_ACTOR",
       g_type_name (pspec->value_type));
 
   return FALSE;
@@ -234,7 +234,7 @@ _sinks_discover (ClutterGstAutoVideoSink * bin)
       GST_DEBUG_OBJECT (bin, "Testing %s",
           gst_plugin_feature_get_name (GST_PLUGIN_FEATURE (f)));
 
-      /* Check for a texture property with CLUTTER_TYPE_TEXTURE type */
+      /* Check for an actor property with CLUTTER_GST_TYPE_ACTOR type */
       if (!_is_clutter_sink (el)) {
         gst_object_unref (el);
         continue;
@@ -363,7 +363,7 @@ clutter_gst_auto_video_sink_reconfigure (ClutterGstAutoVideoSink * bin,
 
   /* Now we are ready to add the sink to bin */
   bin->child = gst_object_ref (sink);
-  g_object_set (G_OBJECT (bin->child), "texture", bin->texture,
+  g_object_set (G_OBJECT(bin->child), "actor", bin->actor,
       "ts-offset", bin->ts_offset, NULL);
 
   GST_DEBUG_OBJECT (bin, "going to add %" GST_PTR_FORMAT, bin->child);
@@ -648,7 +648,7 @@ clutter_gst_auto_video_sink_dispose (GObject * object)
     bin->sink_block_pad = NULL;
   }
 
-  bin->texture = NULL;
+  bin->actor = NULL;
 
   G_OBJECT_CLASS (parent_class)->dispose ((GObject *) object);
 }
@@ -668,12 +668,12 @@ clutter_gst_auto_video_sink_finalize (GObject * object)
 }
 
 static void
-clutter_gst_auto_video_sink_set_texture (ClutterGstAutoVideoSink * bin,
-    ClutterTexture * texture)
+clutter_gst_auto_video_sink_set_actor (ClutterGstAutoVideoSink * bin,
+    ClutterGstActor * actor)
 {
-  bin->texture = texture;
+  bin->actor = actor;
   if (bin->setup) {
-    g_object_set (G_OBJECT (bin->child), "texture", texture, NULL);
+    g_object_set (G_OBJECT (bin->child), "actor", actor, NULL);
   }
 }
 
@@ -684,8 +684,8 @@ clutter_gst_auto_video_sink_set_property (GObject * object,
   ClutterGstAutoVideoSink *bin = CLUTTER_GST_AUTO_VIDEO_SINK (object);
 
   switch (prop_id) {
-    case PROP_TEXTURE:
-      clutter_gst_auto_video_sink_set_texture (bin, g_value_get_object (value));
+    case PROP_ACTOR:
+      clutter_gst_auto_video_sink_set_actor (bin, g_value_get_object (value));
       break;
     case PROP_TS_OFFSET:
       bin->ts_offset = g_value_get_int64 (value);
@@ -707,8 +707,8 @@ clutter_gst_auto_video_sink_get_property (GObject * object,
   ClutterGstAutoVideoSink *bin = CLUTTER_GST_AUTO_VIDEO_SINK (object);
 
   switch (prop_id) {
-    case PROP_TEXTURE:
-      g_value_set_object (value, bin->texture);
+    case PROP_ACTOR:
+      g_value_set_object (value, bin->actor);
       break;
     case PROP_TS_OFFSET:
       g_value_set_int64 (value, bin->ts_offset);
@@ -742,19 +742,20 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass * klass)
       "Josep Torra <support@fluendo.com>");
 
   /**
-    * ClutterGstAutoVideoSink:texture:
+    * ClutterGstAutoVideoSink:actor:
     *
-    * This is the texture the video is decoded into. It can be any
-    * #ClutterTexture, however Cluter-Gst has a handy subclass,
-    * #ClutterGstVideoTexture, that implements the #ClutterMedia
+    * This is the actor the video is decoded into. It can be any
+    * #ClutterGstActor, however Cluter-Gst has a handy subclass,
+    * #ClutterGstVideoActor, that implements the #ClutterGstPlayer
     * interface.
     */
-  pspec = g_param_spec_object ("texture",
-      "Texture",
-      "Texture the video will be decoded into",
-      CLUTTER_TYPE_TEXTURE, CLUTTER_GST_PARAM_READWRITE);
+  pspec = g_param_spec_object ("actor",
+      "Actor",
+      "Actor the video will be decoded into",
+      CLUTTER_GST_TYPE_ACTOR,
+      CLUTTER_GST_PARAM_READWRITE);
 
-  g_object_class_install_property (oclass, PROP_TEXTURE, pspec);
+  g_object_class_install_property (oclass, PROP_ACTOR, pspec);
 
   g_object_class_install_property (oclass, PROP_TS_OFFSET,
       g_param_spec_int64 ("ts-offset", "TS Offset",
@@ -778,7 +779,7 @@ clutter_gst_auto_video_sink_init (ClutterGstAutoVideoSink * bin)
   GValue val = { 0, };
 
   bin->setup = FALSE;
-  bin->texture = NULL;
+  bin->actor = NULL;
   bin->ts_offset = DEFAULT_TS_OFFSET;
 
   /* Create a ghost pad with no target at first */

@@ -30,6 +30,7 @@
 
 #include <gst/gst.h>
 #include <clutter/clutter.h>
+#include <clutter-gst/clutter-gst-actor.h>
 
 G_BEGIN_DECLS
 
@@ -98,7 +99,7 @@ struct _ClutterGstAutoVideoSink
   gboolean async_pending;
   gboolean setup;
 
-  ClutterTexture *texture;
+  ClutterGstActor *actor;
   GstClockTimeDiff ts_offset;
 
   GMutex lock;

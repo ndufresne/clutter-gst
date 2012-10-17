@@ -147,7 +147,7 @@ clutter_gst_init (int    *argc,
   gst_plugin_register_static (GST_VERSION_MAJOR,
 			      GST_VERSION_MINOR,
 			      "cluttersink",
-			      "Element to render to Clutter textures",
+			      "Element to render to ClutterGst actors",
 			      _internal_plugin_init,
 			      VERSION,
 			      "LGPL", /* license */
@@ -227,7 +227,7 @@ clutter_gst_init_with_args (int            *argc,
   gst_plugin_register_static (GST_VERSION_MAJOR,
 			      GST_VERSION_MINOR,
 			      "cluttersink",
-			      "Element to render to Clutter textures",
+			      "Element to render to ClutterGst actors",
 			      _internal_plugin_init,
 			      VERSION,
 			      "LGPL", /* license */
@@ -238,29 +238,4 @@ clutter_gst_init_with_args (int            *argc,
   clutter_gst_is_initialized = TRUE;
 
   return CLUTTER_INIT_SUCCESS;
-}
-
-/**
- * clutter_gst_video_sink_new:
- * @texture: a #ClutterTexture
- *
- * Creates a new GStreamer video sink which uses @texture as the target
- * for sinking a video stream from GStreamer.
- *
- * <note>This function has to be called from Clutter's main thread. While
- * GStreamer will spawn threads to do its work, we want all the GL calls to
- * happen in the same thread. Clutter-gst knows which thread it is by
- * assuming this constructor is called from the Clutter thread.</note>
- *
- * Return value: a #GstElement for the newly created video sink
- *
- * Deprecated: 1.6: Use gst_element_factory_make ("cluttersink", ...) and the
- * "texture" GObject property instead.
- */
-GstElement *
-clutter_gst_video_sink_new (ClutterTexture *texture)
-{
-  return g_object_new (CLUTTER_GST_TYPE_VIDEO_SINK,
-                       "texture", texture,
-                       NULL);
 }

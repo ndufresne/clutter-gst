@@ -37,7 +37,7 @@
  * @CLUTTER_GST_SEEK_FLAG_NONE: Fast seeks (key frame boundaries, default)
  * @CLUTTER_GST_SEEK_FLAG_ACCURATE: Accurate seeks (potentially slower)
  *
- * Flags that can be given to clutter_gst_video_texture_set_seek_flags().
+ * Flags that can be given to clutter_gst_player_set_seek_flags().
  *
  * Since: 1.4
  */

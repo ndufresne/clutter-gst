@@ -66,7 +66,7 @@ parse_fourcc (const gchar *fourcc)
 }
 
 void
-size_change (ClutterTexture *texture,
+size_change (ClutterActor   *actor,
              gint            width,
              gint            height,
              gpointer        user_data)
@@ -75,7 +75,7 @@ size_change (ClutterTexture *texture,
   gfloat new_x, new_y, new_width, new_height;
   gfloat stage_width, stage_height;
 
-  stage = clutter_actor_get_stage (CLUTTER_ACTOR (texture));
+  stage = clutter_actor_get_stage (actor);
   if (stage == NULL)
     return;
 
@@ -98,8 +98,8 @@ size_change (ClutterTexture *texture,
       new_y = 0;
     }
 
-  clutter_actor_set_position (CLUTTER_ACTOR (texture), new_x, new_y);
-  clutter_actor_set_size (CLUTTER_ACTOR (texture), new_width, new_height);
+  clutter_actor_set_position (actor, new_x, new_y);
+  clutter_actor_set_size (actor, new_width, new_height);
 }
 
 int
@@ -112,7 +112,7 @@ main (int argc, char *argv[])
   const ClutterColor     rectangle_color = { 96,   0,   0, 255};
   const ClutterRect      rectangle_geom  = { {110,  70}, {100, 100}};
   ClutterActor          *stage;
-  ClutterActor          *texture;
+  ClutterActor          *actor;
   ClutterActor          *rectangle;
   ClutterTransition     *animation;
 
@@ -127,7 +127,7 @@ main (int argc, char *argv[])
 
   result = clutter_gst_init_with_args (&argc,
                                        &argv,
-                                       " - Test alpha with video textures",
+                                       " - Test alpha with video actors",
                                        options,
                                        NULL,
                                        &error);
@@ -153,15 +153,10 @@ main (int argc, char *argv[])
                           rectangle_geom.size.width,
                           rectangle_geom.size.height);
 
-  /* We need to set certain props on the target texture currently for
-   * efficient/corrent playback onto the texture (which sucks a bit)
-   */
-  texture = g_object_new (CLUTTER_TYPE_TEXTURE,
-                          "disable-slicing", TRUE,
-                          NULL);
-  clutter_actor_set_opacity (texture, 0);
+  actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
+  clutter_actor_set_opacity (actor, 0);
 
-  g_signal_connect (CLUTTER_TEXTURE (texture),
+  g_signal_connect (actor,
                     "size-change",
                     G_CALLBACK (size_change), NULL);
 
@@ -172,7 +167,7 @@ main (int argc, char *argv[])
   g_object_set (G_OBJECT (src), "pattern", 1, NULL);
   capsfilter = gst_element_factory_make ("capsfilter", NULL);
   sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (G_OBJECT (sink), "texture", CLUTTER_TEXTURE (texture), NULL);
+  g_object_set (G_OBJECT (sink), "actor", actor, NULL);
 
   /* make videotestsrc spit the format we want */
   if (g_strcmp0 (opt_fourcc, "RGB ") == 0)
@@ -204,18 +199,18 @@ main (int argc, char *argv[])
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
 
   clutter_actor_add_child (stage, rectangle);
-  clutter_actor_add_child (stage, texture);
+  clutter_actor_add_child (stage, actor);
   clutter_actor_show (stage);
 
-  clutter_actor_save_easing_state (texture);
-  clutter_actor_set_easing_mode (texture, CLUTTER_LINEAR);
-  clutter_actor_set_easing_duration (texture, 6000);
+  clutter_actor_save_easing_state (actor);
+  clutter_actor_set_easing_mode (actor, CLUTTER_LINEAR);
+  clutter_actor_set_easing_duration (actor, 6000);
 
-  clutter_actor_set_opacity (texture, 0xff);
+  clutter_actor_set_opacity (actor, 0xff);
 
-  clutter_actor_restore_easing_state (texture);
+  clutter_actor_restore_easing_state (actor);
 
-  animation = clutter_actor_get_transition (texture, "opacity");
+  animation = clutter_actor_get_transition (actor, "opacity");
   clutter_timeline_set_repeat_count (CLUTTER_TIMELINE (animation), -1);
 
   clutter_main();

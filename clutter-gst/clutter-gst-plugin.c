@@ -85,7 +85,7 @@ plugin_init (GstPlugin *plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
                    GST_VERSION_MINOR,
                    clutter,
-                   "Elements to render to Clutter textures",
+                   "Elements to render to ClutterGst actors",
                    plugin_init,
                    VERSION,
                    "LGPL",        /* license */

@@ -53,7 +53,7 @@ static GOptionEntry options[] =
 };
 
 void
-size_change (ClutterTexture *texture,
+size_change (ClutterActor   *actor,
              gint            width,
              gint            height,
              gpointer        user_data)
@@ -62,7 +62,7 @@ size_change (ClutterTexture *texture,
   gfloat new_x, new_y, new_width, new_height;
   gfloat stage_width, stage_height;
 
-  stage = clutter_actor_get_stage (CLUTTER_ACTOR (texture));
+  stage = clutter_actor_get_stage (actor);
   if (stage == NULL)
     return;
 
@@ -85,8 +85,8 @@ size_change (ClutterTexture *texture,
       new_y = 0;
     }
 
-  clutter_actor_set_position (CLUTTER_ACTOR (texture), new_x, new_y);
-  clutter_actor_set_size (CLUTTER_ACTOR (texture), new_width, new_height);
+  clutter_actor_set_position (actor, new_x, new_y);
+  clutter_actor_set_size (actor, new_width, new_height);
 }
 
 int
@@ -95,7 +95,7 @@ main (int argc, char *argv[])
   GError           *error = NULL;
   gboolean          result;
   ClutterActor     *stage;
-  ClutterActor     *texture;
+  ClutterActor     *actor;
   GstPipeline      *pipeline;
   GstElement       *src;
   GstElement       *capsfilter;
@@ -122,14 +122,9 @@ main (int argc, char *argv[])
   stage = clutter_stage_new ();
   clutter_actor_set_size (CLUTTER_ACTOR(stage), 320.0f, 240.0f);
 
-  /* We need to set certain props on the target texture currently for
-   * efficient/corrent playback onto the texture (which sucks a bit)
-   */
-  texture = g_object_new (CLUTTER_TYPE_TEXTURE,
-                          "disable-slicing", TRUE,
-                          NULL);
+  actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
 
-  g_signal_connect (CLUTTER_TEXTURE (texture),
+  g_signal_connect (actor,
                     "size-change",
                     G_CALLBACK (size_change), NULL);
 
@@ -139,7 +134,7 @@ main (int argc, char *argv[])
   src = gst_element_factory_make ("videotestsrc", NULL);
   capsfilter = gst_element_factory_make ("capsfilter", NULL);
   sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (sink, "texture", CLUTTER_TEXTURE (texture), NULL);
+  g_object_set (sink, "actor", actor, NULL);
 
   /* make videotestsrc spit the format we want */
   caps = gst_caps_new_simple ("video/x-raw",
@@ -155,7 +150,7 @@ main (int argc, char *argv[])
     g_critical("Could not link elements");
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
 
-  clutter_actor_add_child (stage, texture);
+  clutter_actor_add_child (stage, actor);
   /* clutter_actor_set_opacity (texture, 0x11); */
   clutter_actor_show (stage);
 

@@ -4,7 +4,7 @@
  * GStreamer integration library for Clutter.
  *
  * clutter-gst-video-sink.h - Gstreamer Video Sink that renders to a
- *                            Clutter Texture.
+ *                            ClutterGst actor.
  *
  * Authored by Jonathan Matthew  <jonathan@kaolin.wh9.net>
  *
@@ -73,7 +73,7 @@ typedef struct _ClutterGstVideoSinkPrivate ClutterGstVideoSinkPrivate;
 /**
  * ClutterGstVideoSink:
  *
- * Class implementing a GStreamer sink element for #ClutterTexture<!-- -->s.
+ * Class implementing a GStreamer sink element for #ClutterGstActor<!-- -->s.
  *
  * The #ClutterGstVideoSink structure contains only private data and should
  * not be accessed directly.
