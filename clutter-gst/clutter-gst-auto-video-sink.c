@@ -60,6 +60,9 @@ enum
 
 #define DEFAULT_TS_OFFSET           0
 
+static gboolean clutter_gst_auto_video_sink_add_func (GstBin * bin, GstElement * element);
+static gboolean clutter_gst_auto_video_sink_remove_func (GstBin * bin, GstElement * element);
+
 GST_BOILERPLATE (ClutterGstAutoVideoSink,
                  clutter_gst_auto_video_sink,
                  GstBin,
@@ -649,6 +652,35 @@ activate_failed:
   }
 }
 
+/*
+ * Call the base class implementation and make
+ * sure that the GST_ELEMENT_IS_SINK flag is still
+ * set afterwards.
+ */
+static gboolean
+clutter_gst_auto_video_sink_add_func (GstBin * bin, GstElement * element)
+{
+  gboolean result;
+
+  result = GST_BIN_CLASS (parent_class)->add_element (bin, element);
+  GST_OBJECT_FLAG_SET (bin, GST_ELEMENT_IS_SINK);
+  return result;
+}
+
+/*
+ * Call the base class implementation and make
+ * sure that the GST_ELEMENT_IS_SINK flag is still
+ * set afterwards.
+ */
+static gboolean
+clutter_gst_auto_video_sink_remove_func (GstBin * bin, GstElement * element) {
+  gboolean result;
+
+  result = GST_BIN_CLASS (parent_class)->remove_element (bin, element);
+  GST_OBJECT_FLAG_SET (bin, GST_ELEMENT_IS_SINK);
+  return result;
+}
+
 static void
 clutter_gst_auto_video_sink_dispose (GObject *object)
 {
@@ -768,6 +800,7 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
 {
   GObjectClass *oclass = G_OBJECT_CLASS (klass);
   GstElementClass *gstelement_class;
+  GstBinClass *gstbin_class;
   GParamSpec *pspec;
 
   oclass->dispose = clutter_gst_auto_video_sink_dispose;
@@ -799,6 +832,10 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
   gstelement_class = (GstElementClass *)klass;
   gstelement_class->change_state =
     GST_DEBUG_FUNCPTR (clutter_gst_auto_video_sink_change_state);
+
+  gstbin_class = (GstBinClass *)klass;
+  gstbin_class->add_element = GST_DEBUG_FUNCPTR (clutter_gst_auto_video_sink_add_func);
+  gstbin_class->remove_element = GST_DEBUG_FUNCPTR (clutter_gst_auto_video_sink_remove_func);
 }
 
 static void
