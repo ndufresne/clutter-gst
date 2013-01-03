@@ -62,11 +62,12 @@
 
 #ifdef HAVE_HW_DECODER_SUPPORT
 #define GST_USE_UNSTABLE_API 1
+#include <gst/video/videocontext.h>
 #include <gst/video/gstsurfacebuffer.h>
 #endif
 
 #if defined (CLUTTER_WINDOWING_X11)
-#include <X11/Xlib.h>
+#include <clutter/x11/clutter-x11.h>
 #endif
 
 #include <glib.h>
@@ -1522,6 +1523,48 @@ clutter_gst_video_sink_stop (GstBaseSink *base_sink)
   return TRUE;
 }
 
+#ifdef HAVE_HW_DECODER_SUPPORT
+static gboolean
+clutter_gst_video_sink_query(GstBaseSink *base_sink, GstQuery *query)
+{
+  GstStructure * const structure = gst_query_get_structure (query);
+  const gchar **types;
+  gpointer display;
+  guint i;
+
+  if (!structure || strcmp (gst_structure_get_name (structure),
+                            "prepare-video-context") != 0)
+    return FALSE;
+
+  types = gst_video_context_query_get_supported_types (query);
+  if (!types)
+    return FALSE;
+
+#if defined (CLUTTER_WINDOWING_X11)
+  display = clutter_x11_get_default_display ();
+  if (!display)
+    return FALSE;
+#endif
+
+  for (i = 0; types[i] != NULL; i++) {
+    const gchar * const type = types[i];
+
+#if defined (CLUTTER_WINDOWING_X11)
+    if (!strcmp(type, "x11-display")) {
+      gst_video_context_query_set_pointer (query, "x11-display", display);
+      return TRUE;
+    }
+    if (!strcmp(type, "x11-display-name")) {
+      gst_video_context_query_set_string (query, "x11-display-name",
+          DisplayString (display));
+      return TRUE;
+    }
+#endif
+  }
+  return FALSE;
+}
+#endif
+
 static void
 clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
 {
@@ -1548,6 +1591,9 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
   gstbase_sink_class->stop = clutter_gst_video_sink_stop;
   gstbase_sink_class->set_caps = clutter_gst_video_sink_set_caps;
   gstbase_sink_class->get_caps = clutter_gst_video_sink_get_caps;
+#ifdef HAVE_HW_DECODER_SUPPORT
+  gstbase_sink_class->query = clutter_gst_video_sink_query;
+#endif
 
   /**
    * ClutterGstVideoSink:texture:
