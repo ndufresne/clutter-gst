@@ -53,14 +53,6 @@ static GOptionEntry options[] =
 };
 
 static void
-reset_animation (ClutterAnimation *animation,
-                 CameraApp         *app)
-{
-  if (app->camera_actor)
-    clutter_actor_set_rotation (app->camera_actor, CLUTTER_Y_AXIS, 0.0, 0, 0, 0);
-}
-
-static void
 update_gamma (CameraApp *app)
 {
   gdouble min, max, cur;
@@ -405,8 +397,8 @@ main (int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
-  stage = clutter_stage_get_default ();
-  clutter_stage_set_color (CLUTTER_STAGE (stage), &stage_color);
+  stage = clutter_stage_new ();
+  clutter_actor_set_background_color (stage, &stage_color);
   clutter_actor_set_size (stage, 768, 576);
   clutter_stage_set_minimum_size (CLUTTER_STAGE (stage), 640, 480);
   if (opt_fullscreen)
@@ -458,9 +450,7 @@ main (int argc, char *argv[])
                           G_CALLBACK (size_change), app);
 
   /* Add control UI to stage */
-  clutter_container_add (CLUTTER_CONTAINER (stage),
-                         app->camera_actor,
-                         NULL);
+  clutter_actor_add_child (stage, app->camera_actor);
 
   clutter_stage_hide_cursor (CLUTTER_STAGE (stage));
 
