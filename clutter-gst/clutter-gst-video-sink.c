@@ -184,9 +184,9 @@ typedef struct _ClutterGstRenderer
   int flags;                    /* ClutterGstFeatures ORed flags */
   GstStaticCaps caps;           /* caps handled by the renderer */
 
-  void (*init) (ClutterGstVideoSink * sink);
-  void (*deinit) (ClutterGstVideoSink * sink);
-  gboolean (*upload) (ClutterGstVideoSink * sink, GstBuffer * buffer);
+  CoglMaterial * (*init)   (ClutterGstVideoSink * sink);
+  void           (*deinit) (ClutterGstVideoSink * sink);
+  gboolean       (*upload) (ClutterGstVideoSink * sink, GstBuffer * buffer);
 } ClutterGstRenderer;
 
 struct _ClutterGstVideoSinkPrivate
@@ -516,7 +516,11 @@ clutter_gst_source_dispatch (GSource * source,
         goto negotiation_fail;
     }
 
-    priv->renderer->init (gst_source->sink);
+    if (priv->material_template)
+      cogl_object_unref (priv->material_template);
+    priv->material_template =
+      cogl_object_ref (priv->renderer->init (gst_source->sink));
+
     gst_source->has_new_caps = FALSE;
 
     ensure_texture_pixel_aspect_ratio (gst_source->sink);
@@ -671,16 +675,12 @@ _create_cogl_program (const char *source)
   return program;
 }
 
-static void
-_create_template_material (ClutterGstVideoSink * sink,
-    const char *source, gboolean set_uniforms, int n_layers)
+static CoglMaterial *
+_create_template_material (const char *source,
+                           gboolean set_uniforms, int n_layers)
 {
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
   CoglMaterial *template;
   int i;
-
-  if (priv->material_template)
-    cogl_object_unref (priv->material_template);
 
   template = cogl_material_new ();
 
@@ -713,7 +713,7 @@ _create_template_material (ClutterGstVideoSink * sink,
   for (i = 0; i < n_layers; i++)
     cogl_material_set_layer (template, i, COGL_INVALID_HANDLE);
 
-  priv->material_template = template;
+  return template;
 }
 
 static void
@@ -745,10 +745,15 @@ clutter_gst_dummy_deinit (ClutterGstVideoSink * sink)
 {
 }
 
-static void
+static CoglMaterial *
 clutter_gst_rgb_init (ClutterGstVideoSink * sink)
 {
-  _create_template_material (sink, NULL, FALSE, 1);
+  static CoglMaterial *material = COGL_INVALID_HANDLE;
+
+  if (G_UNLIKELY (material == COGL_INVALID_HANDLE))
+    material = _create_template_material (NULL, FALSE, 1);
+
+  return material;
 }
 
 /*
@@ -899,10 +904,15 @@ no_map:
   }
 }
 
-static void
+static CoglMaterial *
 clutter_gst_yv12_glsl_init (ClutterGstVideoSink * sink)
 {
-  _create_template_material (sink, yv12_to_rgba_shader, TRUE, 3);
+  static CoglMaterial *material = COGL_INVALID_HANDLE;
+
+  if (G_UNLIKELY (material == COGL_INVALID_HANDLE))
+    material = _create_template_material (yv12_to_rgba_shader, TRUE, 3);
+
+  return material;
 }
 
 
@@ -923,15 +933,20 @@ static ClutterGstRenderer yv12_glsl_renderer = {
  */
 
 #ifdef CLUTTER_COGL_HAS_GL
-static void
+static CoglMaterial *
 clutter_gst_yv12_fp_init (ClutterGstVideoSink * sink)
 {
-  char *shader = g_malloc (YV12_FP_SZ + 1);
-  _string_array_to_char_array (shader, YV12_fp);
+  static CoglMaterial *material = COGL_INVALID_HANDLE;
 
-  _create_template_material (sink, shader, FALSE, 3);
+  if (G_UNLIKELY (material == COGL_INVALID_HANDLE))
+    {
+      gchar *shader = g_malloc (YV12_FP_SZ + 1);
+      _string_array_to_char_array (shader, YV12_fp);
+      material = _create_template_material (shader, FALSE, 3);
+      g_free (shader);
+    }
 
-  g_free (shader);
+  return material;
 }
 
 static ClutterGstRenderer yv12_fp_renderer = {
@@ -952,10 +967,15 @@ static ClutterGstRenderer yv12_fp_renderer = {
  * Basically the same as YV12, but with the 2 chroma planes switched.
  */
 
-static void
+static CoglMaterial *
 clutter_gst_i420_glsl_init (ClutterGstVideoSink * sink)
 {
-  _create_template_material (sink, yv12_to_rgba_shader, TRUE, 3);
+  static CoglMaterial *material = COGL_INVALID_HANDLE;
+
+  if (G_UNLIKELY (material == COGL_INVALID_HANDLE))
+    material = _create_template_material (yv12_to_rgba_shader, TRUE, 3);
+
+  return material;
 }
 
 static ClutterGstRenderer i420_glsl_renderer = {
@@ -976,15 +996,20 @@ static ClutterGstRenderer i420_glsl_renderer = {
  */
 
 #ifdef CLUTTER_COGL_HAS_GL
-static void
+static CoglMaterial *
 clutter_gst_i420_fp_init (ClutterGstVideoSink * sink)
 {
-  char *shader = g_malloc (I420_FP_SZ + 1);
-  _string_array_to_char_array (shader, I420_fp);
+  static CoglMaterial *material = COGL_INVALID_HANDLE;
 
-  _create_template_material (sink, shader, FALSE, 3);
+  if (G_UNLIKELY (material == COGL_INVALID_HANDLE))
+    {
+      gchar *shader = g_malloc(I420_FP_SZ + 1);
+      _string_array_to_char_array (shader, I420_fp);
+      material = _create_template_material (shader, FALSE, 3);
+      g_free (shader);
+    }
 
-  g_free (shader);
+ return material;
 }
 
 static ClutterGstRenderer i420_fp_renderer = {
@@ -1006,10 +1031,15 @@ static ClutterGstRenderer i420_fp_renderer = {
  * (as the name suggests).
  */
 
-static void
+static CoglMaterial *
 clutter_gst_ayuv_glsl_init (ClutterGstVideoSink * sink)
 {
-  _create_template_material (sink, ayuv_to_rgba_shader, TRUE, 1);
+  static CoglMaterial *material = COGL_INVALID_HANDLE;
+
+  if (G_UNLIKELY (material == COGL_INVALID_HANDLE))
+    material = _create_template_material (ayuv_to_rgba_shader, TRUE, 1);
+
+  return material;
 }
 
 static gboolean
@@ -1059,7 +1089,7 @@ static ClutterGstRenderer ayuv_glsl_renderer = {
  */
 
 #ifdef HAVE_HW_DECODER_SUPPORT
-static void
+static CoglMaterial *
 clutter_gst_hw_init (ClutterGstVideoSink * sink)
 {
   ClutterGstVideoSinkPrivate *priv = sink->priv;
@@ -1075,7 +1105,8 @@ clutter_gst_hw_init (ClutterGstVideoSink * sink)
   clutter_texture_set_cogl_material (priv->texture, material);
 
   cogl_object_unref (tex);
-  cogl_object_unref (material);
+
+  return material;
 }
 
 static void
