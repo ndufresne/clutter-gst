@@ -32,7 +32,7 @@
  */
 
 /**
- * SECTION:clutter-gst-video-actor
+ * SECTION:clutter-gst-actor
  * @short_description: Actor for playback of video files.
  *
  * #ClutterGstVideoActor is a #ClutterActor that plays video files.
