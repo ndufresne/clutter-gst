@@ -382,7 +382,7 @@ clutter_gst_camera_device_class_init (ClutterGstCameraDeviceClass *klass)
    * ClutterGstCameraDevice::capture-resolution-changed:
    * @device: the device which received the signal
    * @width: The new width
-   * @width: The new height
+   * @height: The new height
    *
    * The ::capture-resolution-changed signal is emitted whenever the value of
    * clutter_gst_camera_device_get_capture_resolution changes.
@@ -452,7 +452,7 @@ clutter_gst_camera_device_get_name (ClutterGstCameraDevice *device)
  *
  * Retrieve the supported resolutions of the @device.
  *
- * Return value: (transfer none): an array of #ClutterGstVideoResolution with the
+ * Return value: (transfer none) (element-type ClutterGst.VideoResolution): an array of #ClutterGstVideoResolution with the
  *                                supported resolutions.
  */
 const GPtrArray *

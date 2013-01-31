@@ -790,7 +790,7 @@ clutter_gst_camera_actor_get_camerabin (ClutterGstCameraActor *camera_actor)
  *
  * Retrieve an array of supported camera devices.
  *
- * Return value: (transfer none): An array of #ClutterGstCameraDevice representing
+ * Return value: (transfer none) (element-type ClutterGst.CameraDevice): An array of #ClutterGstCameraDevice representing
  *                                the supported camera devices
  */
 const GPtrArray *
