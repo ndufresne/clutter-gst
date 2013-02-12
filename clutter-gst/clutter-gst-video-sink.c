@@ -131,8 +131,15 @@ GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
 enum
 {
   PROP_0,
-  PROP_ACTOR,
+  PROP_COGL_PIPELINE,
   PROP_UPDATE_PRIORITY
+};
+
+enum
+{
+  SEND_EVENT,
+
+  LAST_SIGNAL
 };
 
 typedef enum
@@ -194,8 +201,10 @@ typedef struct _ClutterGstRenderer
 
 struct _ClutterGstVideoSinkPrivate
 {
-  ClutterActor *actor;
+  ClutterStage *default_stage;
+
   CoglMaterial *material_template;
+  CoglMaterial *cogl_pipeline;
 
   GstFlowReturn flow_ret;
 
@@ -227,8 +236,7 @@ G_DEFINE_TYPE_WITH_CODE (ClutterGstVideoSink, clutter_gst_video_sink,
     GST_TYPE_BASE_SINK, G_IMPLEMENT_INTERFACE (GST_TYPE_NAVIGATION,
         clutter_gst_navigation_interface_init));
 
-static void clutter_gst_video_sink_set_actor (ClutterGstVideoSink * sink,
-    ClutterActor * actor);
+static guint sink_signals[LAST_SIGNAL] = { 0, };
 
 /*
  * ClutterGstSource implementation
@@ -297,18 +305,19 @@ ensure_texture_pixel_aspect_ratio (ClutterGstVideoSink * sink)
   GParamSpec *pspec;
   GValue par = { 0, };
 
-  if (priv->actor == NULL)
-    return;
+  /* if (priv->actor == NULL) */
+  /*   return; */
 
-  pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (priv->actor),
-      "pixel-aspect-ratio");
-  if (pspec) {
+  /* pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (priv->actor), */
+  /*     "pixel-aspect-ratio"); */
+  /* if (pspec) { */
     g_value_init (&par, GST_TYPE_FRACTION);
     gst_value_set_fraction (&par, priv->info.par_n, priv->info.par_d);
-    g_object_set_property (G_OBJECT (priv->actor),
-        "pixel-aspect-ratio", &par);
+    /* TODO: propagate the value through property/signal */
+    /* g_object_set_property (G_OBJECT (priv->actor), */
+    /*     "pixel-aspect-ratio", &par); */
     g_value_unset (&par);
-  }
+  /* } */
 }
 
 static gboolean
@@ -417,47 +426,47 @@ no_suitable_renderer:
   }
 }
 
-static gboolean
-on_stage_destroyed (ClutterStage * stage,
-    ClutterEvent * event, gpointer user_data)
-{
-  ClutterGstSource *gst_source = user_data;
-  ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv;
+/* static gboolean */
+/* on_stage_destroyed (ClutterStage * stage, */
+/*     ClutterEvent * event, gpointer user_data) */
+/* { */
+/*   ClutterGstSource *gst_source = user_data; */
+/*   ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv; */
 
-  g_mutex_lock (&gst_source->buffer_lock);
+/*   g_mutex_lock (&gst_source->buffer_lock); */
 
-  clutter_actor_hide (CLUTTER_ACTOR (stage));
-  clutter_actor_remove_child (CLUTTER_ACTOR (stage), priv->actor);
+/*   clutter_actor_hide (CLUTTER_ACTOR (stage)); */
+/*   clutter_actor_remove_child (CLUTTER_ACTOR (stage), priv->actor); */
 
-  if (gst_source->buffer)
-    gst_buffer_unref (gst_source->buffer);
+/*   if (gst_source->buffer) */
+/*     gst_buffer_unref (gst_source->buffer); */
 
-  gst_source->stage_lost = TRUE;
-  gst_source->buffer = NULL;
-  priv->actor = NULL;
+/*   gst_source->stage_lost = TRUE; */
+/*   gst_source->buffer = NULL; */
+/*   priv->actor = NULL; */
 
-  g_mutex_unlock (&gst_source->buffer_lock);
+/*   g_mutex_unlock (&gst_source->buffer_lock); */
 
-  return TRUE;
-}
+/*   return TRUE; */
+/* } */
 
-static void
-on_stage_allocation_changed (ClutterStage * stage,
-    ClutterActorBox * box, ClutterAllocationFlags flags, gpointer user_data)
-{
-  ClutterGstSource *gst_source = user_data;
-  ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv;
-  gint width, height;
+/* static void */
+/* on_stage_allocation_changed (ClutterStage * stage, */
+/*     ClutterActorBox * box, ClutterAllocationFlags flags, gpointer user_data) */
+/* { */
+/*   ClutterGstSource *gst_source = user_data; */
+/*   ClutterGstVideoSinkPrivate *priv = gst_source->sink->priv; */
+/*   gint width, height; */
 
-  if (gst_source->stage_lost)
-    return;
+/*   if (gst_source->stage_lost) */
+/*     return; */
 
-  width = (gint) (box->x2 - box->x1);
-  height = (gint) (box->y2 - box->y1);
+/*   width = (gint) (box->x2 - box->x1); */
+/*   height = (gint) (box->y2 - box->y1); */
 
-  GST_DEBUG ("Size changed to %i/%i", width, height);
-  clutter_actor_set_size (priv->actor, width, height);
-}
+/*   GST_DEBUG ("Size changed to %i/%i", width, height); */
+/*   clutter_actor_set_size (priv->actor, width, height); */
+/* } */
 
 static gboolean
 clutter_gst_source_dispatch (GSource * source,
@@ -486,35 +495,35 @@ clutter_gst_source_dispatch (GSource * source,
       goto negotiation_fail;
     gst_source->has_new_caps = FALSE;
 
-    if (!priv->actor) {
-      ClutterActor *stage;
-      ClutterActor *actor;
+    /* if (!priv->actor) { */
+      /* ClutterActor *stage; */
+      /* ClutterActor *actor; */
 
-      GST_DEBUG_OBJECT (gst_source->sink,
-          "No existing texture, creating stage and actor");
-      stage = clutter_stage_new ();
-      actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
+      /* GST_DEBUG_OBJECT (gst_source->sink, */
+      /*     "No existing texture, creating stage and actor"); */
+      /* stage = clutter_stage_new (); */
+      /* actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL); */
 
-      clutter_gst_video_sink_set_actor (gst_source->sink, actor);
-      clutter_stage_set_user_resizable (CLUTTER_STAGE (stage), TRUE);
-      clutter_actor_add_child (stage, actor);
-      clutter_stage_set_no_clear_hint (CLUTTER_STAGE (stage), TRUE);
+      /* clutter_gst_video_sink_set_actor (gst_source->sink, actor); */
+      /* clutter_stage_set_user_resizable (CLUTTER_STAGE (stage), TRUE); */
+      /* clutter_actor_add_child (stage, actor); */
+      /* clutter_stage_set_no_clear_hint (CLUTTER_STAGE (stage), TRUE); */
 
-      g_signal_connect (stage, "delete-event",
-          G_CALLBACK (on_stage_destroyed), gst_source);
-      g_signal_connect (stage, "allocation-changed",
-          G_CALLBACK (on_stage_allocation_changed), gst_source);
+      /* g_signal_connect (stage, "delete-event", */
+      /*     G_CALLBACK (on_stage_destroyed), gst_source); */
+      /* g_signal_connect (stage, "allocation-changed", */
+      /*     G_CALLBACK (on_stage_allocation_changed), gst_source); */
 
       /* FIXME : We already call this above ? */
       if (!clutter_gst_parse_caps (caps, gst_source->sink, TRUE))
         goto negotiation_fail;
-      clutter_actor_set_size (stage, priv->info.width, priv->info.height);
-      clutter_actor_show (stage);
-    } else {
+      /* clutter_actor_set_size (stage, priv->info.width, priv->info.height); */
+      /* clutter_actor_show (stage); */
+    /* } else { */
       /* FIXME : We already call this above ? */
-      if (!clutter_gst_parse_caps (caps, gst_source->sink, TRUE))
-        goto negotiation_fail;
-    }
+    /*   if (!clutter_gst_parse_caps (caps, gst_source->sink, TRUE)) */
+    /*     goto negotiation_fail; */
+    /* } */
 
     if (priv->material_template)
       cogl_object_unref (priv->material_template);
@@ -736,8 +745,13 @@ _create_paint_material (ClutterGstVideoSink * sink,
     cogl_handle_unref (tex2);
   }
 
-  clutter_gst_actor_set_cogl_material (CLUTTER_GST_ACTOR (priv->actor), material);
-  cogl_object_unref (material);
+  cogl_handle_unref (priv->cogl_pipeline);
+  priv->cogl_pipeline = material;
+
+  g_object_notify (sink, "cogl-pipeline");
+
+  /* clutter_gst_actor_set_cogl_material (CLUTTER_GST_ACTOR (priv->actor), material); */
+  /* cogl_object_unref (material); */
 }
 
 static void
@@ -1088,78 +1102,78 @@ static ClutterGstRenderer ayuv_glsl_renderer = {
  * HW Surfaces
  */
 
-#ifdef HAVE_HW_DECODER_SUPPORT
-static CoglMaterial *
-clutter_gst_hw_init (ClutterGstVideoSink * sink)
-{
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
-  CoglHandle tex;
-  CoglHandle material;
+/* #ifdef HAVE_HW_DECODER_SUPPORT */
+/* static CoglMaterial * */
+/* clutter_gst_hw_init (ClutterGstVideoSink * sink) */
+/* { */
+/*   ClutterGstVideoSinkPrivate *priv = sink->priv; */
+/*   CoglHandle tex; */
+/*   CoglHandle material; */
 
-  /* Default texture is 1x1, let's replace it with one big enough. */
-  tex = cogl_texture_new_with_size (priv->info.width, priv->info.height,
-      CLUTTER_GST_TEXTURE_FLAGS, COGL_PIXEL_FORMAT_BGRA_8888);
+/*   /\* Default texture is 1x1, let's replace it with one big enough. *\/ */
+/*   tex = cogl_texture_new_with_size (priv->info.width, priv->info.height, */
+/*       CLUTTER_GST_TEXTURE_FLAGS, COGL_PIXEL_FORMAT_BGRA_8888); */
 
-  material = cogl_material_new ();
-  cogl_material_set_layer (material, 0, tex);
-  clutter_gst_actor_set_cogl_material (CLUTTER_GST_ACTOR (priv->actor), material);
+/*   material = cogl_material_new (); */
+/*   cogl_material_set_layer (material, 0, tex); */
+/*   clutter_gst_actor_set_cogl_material (CLUTTER_GST_ACTOR (priv->actor), material); */
 
-  cogl_object_unref (tex);
+/*   cogl_object_unref (tex); */
 
-  return material;
-}
+/*   return material; */
+/* } */
 
-static void
-clutter_gst_hw_deinit (ClutterGstVideoSink * sink)
-{
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
+/* static void */
+/* clutter_gst_hw_deinit (ClutterGstVideoSink * sink) */
+/* { */
+/*   ClutterGstVideoSinkPrivate *priv = sink->priv; */
 
-  if (priv->converter != NULL)
-    g_object_unref (priv->converter);
-  priv->converter = NULL;
-}
+/*   if (priv->converter != NULL) */
+/*     g_object_unref (priv->converter); */
+/*   priv->converter = NULL; */
+/* } */
 
-static void
-clutter_gst_hw_upload (ClutterGstVideoSink * sink, GstBuffer * buffer)
-{
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
-  GstSurfaceMeta *surface = gst_buffer_get_surface_meta (buffer);
+/* static void */
+/* clutter_gst_hw_upload (ClutterGstVideoSink * sink, GstBuffer * buffer) */
+/* { */
+/*   ClutterGstVideoSinkPrivate *priv = sink->priv; */
+/*   GstSurfaceMeta *surface = gst_buffer_get_surface_meta (buffer); */
 
-  g_return_if_fail (surface != NULL);
+/*   g_return_if_fail (surface != NULL); */
 
-  if (G_UNLIKELY (priv->converter == NULL)) {
-    CoglHandle tex;
-    unsigned int gl_texture;
-    unsigned int gl_target;
-    GValue value = { 0 };
+/*   if (G_UNLIKELY (priv->converter == NULL)) { */
+/*     CoglHandle tex; */
+/*     unsigned int gl_texture; */
+/*     unsigned int gl_target; */
+/*     GValue value = { 0 }; */
 
-    tex = clutter_gst_actor_get_cogl_texture (CLUTTER_GST_ACTOR (priv->actor));
-    cogl_texture_get_gl_texture (tex, &gl_texture, &gl_target);
+/*     tex = clutter_gst_actor_get_cogl_texture (CLUTTER_GST_ACTOR (priv->actor)); */
+/*     cogl_texture_get_gl_texture (tex, &gl_texture, &gl_target); */
 
-    g_value_init (&value, G_TYPE_UINT);
-    g_value_set_uint (&value, gl_texture);
+/*     g_value_init (&value, G_TYPE_UINT); */
+/*     g_value_set_uint (&value, gl_texture); */
 
-    priv->converter =
-        gst_surface_meta_create_converter (surface, "opengl", &value);
-    g_return_if_fail (priv->converter);
-  }
+/*     priv->converter = */
+/*         gst_surface_meta_create_converter (surface, "opengl", &value); */
+/*     g_return_if_fail (priv->converter); */
+/*   } */
 
-  gst_surface_converter_upload (priv->converter, buffer);
+/*   gst_surface_converter_upload (priv->converter, buffer); */
 
-  /* The actor is dirty, schedule a redraw */
-  clutter_actor_queue_redraw (priv->actor);
-}
+/*   /\* The actor is dirty, schedule a redraw *\/ */
+/*   clutter_actor_queue_redraw (priv->actor); */
+/* } */
 
-static ClutterGstRenderer hw_renderer = {
-  "HW surface",
-  CLUTTER_GST_SURFACE,
-  0,
-  GST_STATIC_CAPS ("x-video/surface, opengl=true"),
-  clutter_gst_hw_init,
-  clutter_gst_hw_deinit,
-  clutter_gst_hw_upload,
-};
-#endif
+/* static ClutterGstRenderer hw_renderer = { */
+/*   "HW surface", */
+/*   CLUTTER_GST_SURFACE, */
+/*   0, */
+/*   GST_STATIC_CAPS ("x-video/surface, opengl=true"), */
+/*   clutter_gst_hw_init, */
+/*   clutter_gst_hw_deinit, */
+/*   clutter_gst_hw_upload, */
+/* }; */
+/* #endif */
 
 static GSList *
 clutter_gst_build_renderers_list (void)
@@ -1295,9 +1309,20 @@ navigation_event (ClutterActor * actor,
 }
 
 static void
+_default_stage_changed (ClutterStageManager *manager,
+                        GParamSpec *param,
+                        ClutterGstVideoSink *self)
+{
+  ClutterGstVideoSinkPrivate *priv = self->priv;
+
+  priv->default_stage = clutter_stage_manager_get_default_stage (manager);
+}
+
+static void
 clutter_gst_video_sink_init (ClutterGstVideoSink * sink)
 {
   ClutterGstVideoSinkPrivate *priv;
+  ClutterStageManager *manager;
 
   sink->priv = priv =
       G_TYPE_INSTANCE_GET_PRIVATE (sink, CLUTTER_GST_TYPE_VIDEO_SINK,
@@ -1312,6 +1337,11 @@ clutter_gst_video_sink_init (ClutterGstVideoSink * sink)
 
   priv->signal_handler_ids = g_array_new (FALSE, TRUE, sizeof (gulong));
   priv->priority = CLUTTER_GST_DEFAULT_PRIORITY;
+
+  manager = clutter_stage_manager_get_default ();
+  priv->default_stage = clutter_stage_manager_get_default_stage (manager);
+  g_signal_connect (manager, "notify::default-stage",
+                    G_CALLBACK (_default_stage_changed), sink);
 }
 
 static GstFlowReturn
@@ -1390,7 +1420,6 @@ clutter_gst_video_sink_set_caps (GstBaseSink * bsink, GstCaps * caps)
   return TRUE;
 }
 
-
 static void
 clutter_gst_video_sink_dispose (GObject * object)
 {
@@ -1405,8 +1434,9 @@ clutter_gst_video_sink_dispose (GObject * object)
     priv->renderer = NULL;
   }
 
-  if (priv->actor)
-    clutter_gst_video_sink_set_actor (self, NULL);
+  g_object_notify (self, "cogl-pipeline");
+  /* if (priv->actor) */
+  /*   clutter_gst_video_sink_set_actor (self, NULL); */
 
   if (priv->caps) {
     gst_caps_unref (priv->caps);
@@ -1433,52 +1463,12 @@ clutter_gst_video_sink_finalize (GObject * object)
 }
 
 static void
-clutter_gst_video_sink_set_actor (ClutterGstVideoSink * sink,
-    ClutterActor * actor)
-{
-  const char const *events[] = {
-    "key-press-event",
-    "key-release-event",
-    "button-press-event",
-    "button-release-event",
-    "motion-event"
-  };
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
-  guint i;
-
-  if (priv->actor) {
-    for (i = 0; i < priv->signal_handler_ids->len; i++) {
-      gulong id = g_array_index (priv->signal_handler_ids, gulong, i);
-      g_signal_handler_disconnect (priv->actor, id);
-    }
-    g_array_set_size (priv->signal_handler_ids, 0);
-  }
-
-  priv->actor = actor;
-  if (priv->actor == NULL)
-    return;
-
-  clutter_actor_set_reactive (priv->actor, TRUE);
-  g_object_add_weak_pointer (G_OBJECT (priv->actor), (gpointer *) &(priv->actor));
-
-  for (i = 0; i < G_N_ELEMENTS (events); i++) {
-    gulong id;
-    id = g_signal_connect (priv->actor, events[i],
-        G_CALLBACK (navigation_event), sink);
-    g_array_append_val (priv->signal_handler_ids, id);
-  }
-}
-
-static void
 clutter_gst_video_sink_set_property (GObject * object,
     guint prop_id, const GValue * value, GParamSpec * pspec)
 {
   ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (object);
 
   switch (prop_id) {
-    case PROP_ACTOR:
-      clutter_gst_video_sink_set_actor (sink, g_value_get_object (value));
-      break;
     case PROP_UPDATE_PRIORITY:
       clutter_gst_video_sink_set_priority (sink, g_value_get_int (value));
       break;
@@ -1496,8 +1486,8 @@ clutter_gst_video_sink_get_property (GObject * object,
   ClutterGstVideoSinkPrivate *priv = sink->priv;
 
   switch (prop_id) {
-    case PROP_ACTOR:
-      g_value_set_object (value, priv->actor);
+    case PROP_COGL_PIPELINE:
+      g_value_set_object (value, priv->cogl_pipeline);
       break;
     case PROP_UPDATE_PRIORITY:
       g_value_set_int (value, priv->priority);
@@ -1542,6 +1532,22 @@ clutter_gst_video_sink_stop (GstBaseSink * base_sink)
   return TRUE;
 }
 
+static gboolean
+_clutter_gst_point_handled_accumulator (GSignalInvocationHint *ihint,
+                                        GValue                *return_accu,
+                                        const GValue          *handler_return,
+                                        gpointer               dummy)
+{
+  gboolean continue_emission;
+  gpointer translated_point;
+
+  translated_point = g_value_get_boxed (handler_return);
+  g_value_set_boxed (return_accu, translated_point);
+  continue_emission = (translated_point == NULL);
+
+  return continue_emission;
+}
+
 static void
 clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass * klass)
 {
@@ -1579,35 +1585,61 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass * klass)
   gstbase_sink_class->get_caps = clutter_gst_video_sink_get_caps;
 
   /**
-   * ClutterGstVideoSink:actor:
-   *
-   * This is the actor the video is decoded into. It can be any
-   * #ClutterGstActor, however Cluter-Gst has a handy subclass,
-   * #ClutterGstVideoActor, that implements the #ClutterGstPlayer
-   * interface.
-   */
-  pspec = g_param_spec_object ("actor",
-      "Actor",
-      "ClutterGstActor the video will be decoded into",
-      CLUTTER_GST_TYPE_ACTOR,
-      CLUTTER_GST_PARAM_READWRITE);
-  g_object_class_install_property (gobject_class, PROP_ACTOR, pspec);
-
-  /**
    * ClutterGstVideoSink:update-priority:
    *
    * Clutter-Gst installs a #GSource to signal that a new frame is ready to
    * the Clutter thread. This property allows to tweak the priority of the
    * source (Lower value is higher priority).
    *
-   * Since 1.0
+   * Since 3.0
    */
   pspec = g_param_spec_int ("update-priority",
-      "Update Priority",
-      "Priority of video updates in the Clutter thread",
-      -G_MAXINT, G_MAXINT,
-      CLUTTER_GST_DEFAULT_PRIORITY, CLUTTER_GST_PARAM_READWRITE);
+                            "Update Priority",
+                            "Priority of video updates in the Clutter thread",
+                            -G_MAXINT, G_MAXINT,
+                            CLUTTER_GST_DEFAULT_PRIORITY,
+                            CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (gobject_class, PROP_UPDATE_PRIORITY, pspec);
+
+  /**
+   * ClutterGstVideoSink:cogl-pipeline:
+   *
+   * Cogl pipeline to be used to paint a video frame
+   *
+   * Since 3.0
+   */
+  pspec = g_param_spec_boxed ("frame",
+                              "Update Priority",
+                              "Priority of video updates in the Clutter thread",
+                              COGL_TYPE_HANDLE,
+                              CLUTTER_GST_PARAM_READABLE);
+  g_object_class_install_property (gobject_class, PROP_COGL_PIPELINE, pspec);
+
+  /**
+   * ClutterGstVideoSink::send-event:
+   * @sink: the #ClutterGstVideoSink that emitted the signal
+   * @point: the position of the event
+   *
+   * The #ClutterGstVideoSink::send-event signal is emitted each time
+   * there is a need to get the coordinates of an event onto the
+   * screen.
+   *
+   * Return value: a #ClutterPoint if the position of the point in the
+   * stream can be translated into the window's coordinates, NULL
+   * otherwise.
+   *
+   * Since: 3.0
+   */
+  sink_signals[SEND_EVENT] =
+    g_signal_new ("send-event",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_NO_RECURSE,
+                  0,
+                  _clutter_gst_point_handled_accumulator,
+                  NULL,
+                  NULL,
+                  CLUTTER_TYPE_POINT, 1,
+                  CLUTTER_TYPE_POINT);
 }
 
 static void
@@ -1625,20 +1657,23 @@ clutter_gst_navigation_send_event (GstNavigation * navigation,
    * if the structure contains pointer coordinates */
   if (gst_structure_get_double (structure, "pointer_x", &x) &&
       gst_structure_get_double (structure, "pointer_y", &y)) {
-    if (clutter_actor_transform_stage_point (CLUTTER_ACTOR (priv->actor), x,
-            y, &x_out, &y_out) == FALSE) {
-      g_warning ("Failed to convert non-scaled coordinates for video-sink");
-      return;
-    }
 
-    x = x_out * priv->info.width /
-        clutter_actor_get_width (CLUTTER_ACTOR (priv->actor));
-    y = y_out * priv->info.height /
-        clutter_actor_get_height (CLUTTER_ACTOR (priv->actor));
+    /* TODO: emit signal to get transformed point */
 
-    gst_structure_set (structure,
-        "pointer_x", G_TYPE_DOUBLE, (gdouble) x,
-        "pointer_y", G_TYPE_DOUBLE, (gdouble) y, NULL);
+    /* if (clutter_actor_transform_stage_point (CLUTTER_ACTOR (priv->actor), x, */
+    /*         y, &x_out, &y_out) == FALSE) { */
+    /*   g_warning ("Failed to convert non-scaled coordinates for video-sink"); */
+    /*   return; */
+    /* } */
+
+    /* x = x_out * priv->info.width / */
+    /*     clutter_actor_get_width (CLUTTER_ACTOR (priv->actor)); */
+    /* y = y_out * priv->info.height / */
+    /*     clutter_actor_get_height (CLUTTER_ACTOR (priv->actor)); */
+
+    /* gst_structure_set (structure, */
+    /*     "pointer_x", G_TYPE_DOUBLE, (gdouble) x, */
+    /*     "pointer_y", G_TYPE_DOUBLE, (gdouble) y, NULL); */
   }
 
   event = gst_event_new_navigation (structure);
@@ -1658,16 +1693,37 @@ clutter_gst_navigation_interface_init (GstNavigationInterface * iface)
   iface->send_event = clutter_gst_navigation_send_event;
 }
 
+/**
+ * clutter_gst_video_sink_get_frame:
+ * @self: a #ClutterGstVideoSink
+ *
+ * Retrieves the last frame from @self to present on the screen.
+ *
+ * Return value: (transfer none): A CoglHandle on a CoglPipeline
+ */
+ClutterGstFrame *
+clutter_gst_video_sink_get_frame (ClutterGstVideoSink *self)
+{
+  ClutterGstVideoSinkPrivate *priv;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_VIDEO_SINK (self), COGL_INVALID_HANDLE);
+
+  priv = self->priv;
+
+  return priv->cogl_pipeline;
+}
+
+
 gboolean
 _internal_plugin_init (GstPlugin * plugin)
 {
   gboolean ret = gst_element_register (plugin,
-      "cluttersink",
-      GST_RANK_PRIMARY,
-      CLUTTER_GST_TYPE_VIDEO_SINK);
+                                       "coglsink",
+                                       GST_RANK_PRIMARY,
+                                       CLUTTER_GST_TYPE_VIDEO_SINK);
 
   GST_DEBUG_CATEGORY_INIT (clutter_gst_video_sink_debug,
-      "cluttersink", 0, "clutter video sink");
+                           "coglsink", 0, "cogl video sink");
 
   return ret;
 }

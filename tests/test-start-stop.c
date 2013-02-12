@@ -76,17 +76,17 @@ gboolean
 test (gpointer data)
 {
   static int count = 1;
-  static ClutterGstPlayer *player = NULL;
+  static ClutterGstPlayback *player = NULL;
   static char *uri[2] = {NULL, NULL};
   const char *playing_uri = NULL;
 
   /* Check until we get video playing */
-  if (!clutter_gst_player_is_playing (CLUTTER_GST_PLAYER (data)))
+  if (!clutter_gst_player_get_playing (CLUTTER_GST_PLAYER (data)))
     return TRUE;
 
-  if (CLUTTER_GST_PLAYER (data) != player)
+  if (CLUTTER_GST_PLAYBACK (data) != player)
     {
-      player = CLUTTER_GST_PLAYER (data);
+      player = CLUTTER_GST_PLAYBACK (data);
       count = 1;
       g_free(uri[0]);
       uri[0] = NULL;
@@ -94,25 +94,25 @@ test (gpointer data)
       uri[1] = NULL;
     }
 
-  clutter_gst_player_set_filename (player, video_files[count & 1]);
+  clutter_gst_playback_set_filename (player, video_files[count & 1]);
   g_print ("playing %s\n", video_files[count & 1]);
 
   if (uri[count & 1] == NULL)
     {
-      uri[count & 1] = g_strdup (clutter_gst_player_get_uri (player));
+      uri[count & 1] = g_strdup (clutter_gst_playback_get_uri (player));
       g_assert (uri[count & 1] != NULL);
     }
 
   /* See if it's still playing */
-  g_assert (clutter_gst_player_is_playing (player));
+  g_assert (clutter_gst_player_get_playing (CLUTTER_GST_PLAYER (player)));
 
   /* See if it's already change to play correct file */
-  playing_uri = clutter_gst_player_get_uri (player);
+  playing_uri = clutter_gst_playback_get_uri (player);
   g_assert_cmpstr (playing_uri, ==, uri[count & 1]);
 
   if (count ++ > 10)
     {
-      clutter_gst_player_set_playing (player, FALSE);
+      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (player), FALSE);
       clutter_main_quit ();
       return FALSE;
     }
@@ -124,10 +124,11 @@ test (gpointer data)
 int
 main (int argc, char *argv[])
 {
-  ClutterInitError error;
-  ClutterColor     stage_color = { 0x00, 0x00, 0x00, 0x00 };
-  ClutterActor    *stage = NULL;
-  ClutterActor    *video = NULL;
+  ClutterInitError    error;
+  ClutterColor        stage_color = { 0x00, 0x00, 0x00, 0x00 };
+  ClutterActor       *stage = NULL;
+  ClutterActor       *video = NULL;
+  ClutterGstPlayback *player = NULL;
 
   if (argc < 3)
     {
@@ -144,23 +145,27 @@ main (int argc, char *argv[])
   stage = clutter_stage_new ();
   clutter_actor_set_background_color (stage, &stage_color);
 
-  video = clutter_gst_video_actor_new ();
-  g_assert (CLUTTER_GST_IS_VIDEO_ACTOR(video));
+  player = clutter_gst_playback_new ();
+
+  video = /* clutter_gst_actor_new () */ g_object_new (CLUTTER_GST_TYPE_ACTOR,
+                                                       NULL);
+  g_assert (CLUTTER_GST_IS_ACTOR (video));
+  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (video), CLUTTER_GST_PLAYER (player));
+  clutter_actor_add_child (stage, video);
 
   g_signal_connect (video,
                     "size-change",
                     G_CALLBACK(size_change),
                     stage);
-  g_signal_connect (video,
+  g_signal_connect (player,
                     "error",
                     G_CALLBACK(on_error),
                     stage);
   g_timeout_add (5000, test, video);
-  clutter_gst_player_set_filename (CLUTTER_GST_PLAYER (video), video_files[0]);
-  clutter_gst_player_set_audio_volume (CLUTTER_GST_PLAYER (video), 0.5);
-  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (video), TRUE);
+  clutter_gst_playback_set_filename (player, video_files[0]);
+  clutter_gst_player_set_audio_volume (CLUTTER_GST_PLAYER (player), 0.5);
+  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (player), TRUE);
 
-  clutter_actor_add_child (stage, video);
   clutter_actor_show (stage);
   clutter_main ();
 

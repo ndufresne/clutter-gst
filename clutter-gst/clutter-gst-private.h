@@ -27,6 +27,7 @@
 #define __CLUTTER_GST_PRIVATE_H__
 
 #include <glib.h>
+#include "clutter-gst.h"
 
 G_BEGIN_DECLS
 
@@ -46,6 +47,12 @@ G_BEGIN_DECLS
 
 gboolean
 _internal_plugin_init (GstPlugin *plugin);
+
+ClutterGstFrame *clutter_gst_frame_new (CoglPipeline *pipeline);
+
+void clutter_gst_util_update_frame (ClutterGstPlayer *player,
+                                    ClutterGstFrame **frame,
+                                    CoglPipeline     *pipeline);
 
 G_END_DECLS
 

@@ -106,6 +106,8 @@ struct _ClutterGstVideoSinkClass
 
 GType       clutter_gst_video_sink_get_type    (void) G_GNUC_CONST;
 
+CoglHandle  clutter_gst_video_sink_get_frame   (ClutterGstVideoSink *self);
+
 G_END_DECLS
 
 #endif /* __CLUTTER_GST_VIDEO_SINK_H__ */

@@ -33,12 +33,11 @@
 #include "clutter-gst-types.h"
 #include "clutter-gst-enum-types.h"
 #include "clutter-gst-actor.h"
-#include "clutter-gst-video-sink.h"
-#include "clutter-gst-video-actor.h"
 #include "clutter-gst-camera-device.h"
-#include "clutter-gst-camera-actor.h"
+#include "clutter-gst-camera.h"
 #include "clutter-gst-util.h"
 #include "clutter-gst-version.h"
 #include "clutter-gst-player.h"
+#include "clutter-gst-playback.h"
 
 #endif /* __CLUTTER_GST_H__ */

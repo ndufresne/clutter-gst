@@ -29,10 +29,10 @@
 #include <clutter-gst/clutter-gst.h>
 
 void
-size_change (ClutterActor   *actor,
-             gint            width,
-             gint            height,
-             gpointer        user_data)
+size_change (ClutterGstPlayer *player,
+             gint              width,
+             gint              height,
+             ClutterActor     *actor)
 {
   ClutterActor *stage;
   gfloat new_x, new_y, new_width, new_height;
@@ -68,14 +68,14 @@ size_change (ClutterActor   *actor,
 int
 main (int argc, char *argv[])
 {
-  ClutterTimeline  *timeline;
-  ClutterActor     *stage;
-  ClutterActor     *actor;
-  GstPipeline      *pipeline;
-  GstElement       *src;
-  GstElement       *warp;
-  GstElement       *colorspace;
-  GstElement       *sink;
+  ClutterTimeline    *timeline;
+  ClutterActor       *stage;
+  ClutterActor       *actor;
+  GstElement         *src;
+  GstElement         *warp;
+  GstElement         *bin;
+  GstElement         *pipeline;
+  ClutterGstPlayback *player;
 
   if (argc < 1)
     {
@@ -98,24 +98,23 @@ main (int argc, char *argv[])
 
   actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
 
-  g_signal_connect (actor,
-                    "size-change",
-                    G_CALLBACK (size_change), NULL);
-
   /* Set up pipeline */
-  pipeline = GST_PIPELINE (gst_pipeline_new (NULL));
+  player = clutter_gst_playback_new ();
+  pipeline = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (player));
+
+  g_signal_connect (player, "size-change",
+                    G_CALLBACK (size_change), actor);
 
   src = gst_element_factory_make ("videotestsrc", NULL);
   warp = gst_element_factory_make ("warptv", NULL);
-  colorspace = gst_element_factory_make ("videoconvert", NULL);
-  sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (sink, "actor", actor, NULL);
+  bin = gst_bin_new ("video-test-source");
 
-  // g_object_set (src , "pattern", 10, NULL);
+  gst_bin_add_many (GST_BIN (bin), src, warp, NULL);
+  gst_element_link_many (src, warp, NULL);
 
-  gst_bin_add_many (GST_BIN (pipeline), src, warp, colorspace, sink, NULL);
-  gst_element_link_many (src, warp, colorspace, sink, NULL);
-  gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
+  g_object_set (pipeline, "source", bin);
+
+  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (player), TRUE);
 
   /* start the timeline */
   clutter_timeline_start (timeline);

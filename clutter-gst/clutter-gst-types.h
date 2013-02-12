@@ -29,9 +29,14 @@
 #error "Only <clutter-gst/clutter-gst.h> can be included directly."
 #endif
 
+#include <cogl/cogl.h>
+
 #ifndef __CLUTTER_GST_TYPES_H__
 #define __CLUTTER_GST_TYPES_H__
 
+#define CLUTTER_GST_TYPE_FRAME            (clutter_gst_frame_get_type ())
+
+typedef struct _ClutterGstFrame           ClutterGstFrame;
 typedef struct _ClutterGstVideoResolution ClutterGstVideoResolution;
 
 /**
@@ -76,5 +81,21 @@ struct _ClutterGstVideoResolution
   gint width;
   gint height;
 };
+
+/**
+ * ClutterGstFrame:
+ * @resolution: a #ClutterGstVideoResolution
+ * @frame: a #CoglHandle to the pipeline to paint a frame
+ *
+ * Represents a frame outputted by the #ClutterGstVideoSink.
+ */
+struct _ClutterGstFrame
+{
+  ClutterGstVideoResolution  resolution;
+  CoglPipeline              *pipeline;
+};
+
+
+GType clutter_gst_frame_get_type (void) G_GNUC_CONST;
 
 #endif /* __CLUTTER_GST_TYPES_H__ */

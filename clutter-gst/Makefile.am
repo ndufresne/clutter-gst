@@ -25,11 +25,10 @@ source_h = 					\
 	$(srcdir)/clutter-gst-types.h		\
 	$(srcdir)/clutter-gst-util.h		\
 	$(srcdir)/clutter-gst-version.h		\
-	$(srcdir)/clutter-gst-actor.h	\
-	$(srcdir)/clutter-gst-video-sink.h	\
-	$(srcdir)/clutter-gst-video-actor.h	\
-	$(srcdir)/clutter-gst-camera-actor.h	\
+	$(srcdir)/clutter-gst-actor.h		\
+	$(srcdir)/clutter-gst-camera.h		\
 	$(srcdir)/clutter-gst-camera-device.h	\
+	$(srcdir)/clutter-gst-playback.h	\
 	$(srcdir)/clutter-gst-player.h		\
 	$(NULL)
 
@@ -41,13 +40,13 @@ source_priv_h =					\
 
 source_c = 					\
 	$(srcdir)/clutter-gst-debug.c		\
+	$(srcdir)/clutter-gst-types.c		\
 	$(srcdir)/clutter-gst-marshal.c		\
 	$(srcdir)/clutter-gst-player.c		\
 	$(srcdir)/clutter-gst-actor.c		\
-	$(srcdir)/clutter-gst-video-sink.c	\
-	$(srcdir)/clutter-gst-video-actor.c	\
-	$(srcdir)/clutter-gst-camera-actor.c	\
+	$(srcdir)/clutter-gst-camera.c		\
 	$(srcdir)/clutter-gst-camera-device.c	\
+	$(srcdir)/clutter-gst-playback.c	\
 	$(srcdir)/clutter-gst-util.c		\
 	$(glib_enum_c)				\
 	$(NULL)
@@ -102,8 +101,7 @@ cluttergstheaders_HEADERS = $(source_h) $(glib_enum_h)
 #
 
 plugin_source_c = 				\
-	$(srcdir)/clutter-gst-plugin.c	\
-	$(srcdir)/clutter-gst-video-sink.c	\
+	$(srcdir)/clutter-gst-plugin.c		\
 	$(srcdir)/clutter-gst-auto-video-sink.c	\
 	$(srcdir)/clutter-gst-auto-video-sink.h	\
 	$(NULL)
@@ -139,7 +137,9 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--add-include-path=$(srcdir) --add-include=path=. \
 		--c-include="clutter-gst/clutter-gst.h" \
 		--include=GObject-2.0 \
+		--include=Cogl-1.0 \
 		--include=Clutter-1.0 \
+		--include=GdkPixbuf-2.0 \
 		--add-include-path=`$(PKG_CONFIG) --variable=girdir gstreamer-1.0` \
 		--include=Gst-1.0 \
 		--add-include-path=`$(PKG_CONFIG) --variable=girdir gstreamer-base-1.0` \
@@ -148,12 +148,16 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--include=GstVideo-1.0 \
 		--add-include-path=`$(PKG_CONFIG) --variable=girdir gstreamer-audio-1.0` \
 		--include=GstAudio-1.0 \
+		--add-include-path=`$(PKG_CONFIG) --variable=girdir gstreamer-pbutils-1.0` \
+		--include=GstPbutils-1.0 \
 		--add-init-section="clutter_gst_init(0,NULL);" \
 		--library=libclutter-gst-@CLUTTER_GST_API_VERSION@.la \
 		--libtool="$(top_builddir)/libtool" \
 		--output $@ \
 		--pkg gobject-2.0 \
+		--pkg cogl-1.0 \
 		--pkg clutter-1.0 \
+		--pkg gdk-pixbuf-2.0 \
 		--pkg gstreamer-1.0 \
 		--pkg gstreamer-base-1.0 \
 		--pkg-export clutter-gst-@CLUTTER_GST_API_VERSION@ \
@@ -178,6 +182,7 @@ typelibs_DATA = $(BUILT_GIRSOURCES:.gir=.typelib)
 		--includedir=`$(PKG_CONFIG) --variable=girdir gstreamer-base-1.0` \
 		--includedir=`$(PKG_CONFIG) --variable=girdir gstreamer-video-1.0` \
 		--includedir=`$(PKG_CONFIG) --variable=girdir gstreamer-audio-1.0` \
+		--includedir=`$(PKG_CONFIG) --variable=girdir gstreamer-pbutils-1.0` \
 		$(INTROSPECTION_COMPILER_OPTS) $< -o $(builddir)/$(@F)
 
 CLEANFILES += $(BUILT_GIRSOURCES) $(typelibs_DATA)

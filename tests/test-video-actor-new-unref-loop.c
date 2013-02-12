@@ -43,7 +43,7 @@ main (int argc, char *argv[])
   for (i = 0; ; i++)
   {
     g_debug("VideoActor #%d", i);
-    vactor = clutter_gst_video_actor_new ();
+    vactor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
     g_object_ref_sink (vactor);
     g_object_unref (vactor);
   }

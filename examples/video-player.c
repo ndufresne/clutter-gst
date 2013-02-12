@@ -41,6 +41,7 @@ typedef struct _VideoApp
   ClutterActor *stage;
 
   ClutterActor *vactor;
+  ClutterGstPlayback *player;
 
   ClutterActor *control;
   ClutterActor *control_bg;
@@ -163,16 +164,16 @@ toggle_pause_state (VideoApp *app)
 
   if (app->paused)
     {
-      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER(app->vactor),
-                                 TRUE);
+      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (app->player),
+                                      TRUE);
       app->paused = FALSE;
       clutter_actor_hide (app->control_play);
       clutter_actor_show (app->control_pause);
     }
   else
     {
-      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER(app->vactor),
-                                 FALSE);
+      clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (app->player),
+                                      FALSE);
       app->paused = TRUE;
       clutter_actor_hide (app->control_pause);
       clutter_actor_show (app->control_play);
@@ -232,8 +233,7 @@ input_cb (ClutterStage *stage,
 
               progress = (gdouble) dist / SEEK_W;
 
-              clutter_gst_player_set_progress (CLUTTER_GST_PLAYER (app->vactor),
-                                          progress);
+              clutter_gst_playback_set_progress (app->player, progress);
             }
         }
       handled = TRUE;
@@ -302,10 +302,10 @@ input_cb (ClutterStage *stage,
 }
 
 static void
-size_change (ClutterActor   *actor,
-             gint            base_width,
-             gint            base_height,
-             VideoApp       *app)
+size_change (ClutterGstPlayer *player,
+             gint              base_width,
+             gint              base_height,
+             VideoApp         *app)
 {
   ClutterActor *stage = app->stage;
   gfloat new_x, new_y, new_width, new_height;
@@ -317,7 +317,9 @@ size_change (ClutterActor   *actor,
   /* base_width and base_height are the actual dimensions of the buffers before
    * taking the pixel aspect ratio into account. We need to get the actual
    * size of the actor to display */
-  clutter_actor_get_size (actor, &frame_width, &frame_height);
+  /* clutter_actor_get_size (app->vactor, &frame_width, &frame_height); */
+  frame_width = base_width;
+  frame_height = base_height;
 
   new_height = (frame_height * stage_width) / frame_width;
   if (new_height <= stage_height)
@@ -336,8 +338,8 @@ size_change (ClutterActor   *actor,
       new_y = 0;
     }
 
-  clutter_actor_set_position (actor, new_x, new_y);
-  clutter_actor_set_size (actor, new_width, new_height);
+  clutter_actor_set_position (app->vactor, new_x, new_y);
+  clutter_actor_set_size (app->vactor, new_width, new_height);
 }
 
 static void
@@ -370,8 +372,7 @@ tick (GObject      *object,
       GParamSpec   *pspec,
       VideoApp     *app)
 {
-  ClutterGstPlayer *vactor = CLUTTER_GST_PLAYER (object);
-  gdouble progress = clutter_gst_player_get_progress (vactor);
+  gdouble progress = clutter_gst_playback_get_progress (app->player);
 
   clutter_actor_set_size (app->control_seekbar,
                           progress * SEEK_W,
@@ -384,7 +385,7 @@ on_video_actor_eos (ClutterGstPlayer *player,
 {
   if (opt_loop)
     {
-      clutter_gst_player_set_progress (player, 0.0);
+      clutter_gst_playback_set_progress (CLUTTER_GST_PLAYBACK (player), 0.0);
       clutter_gst_player_set_playing (player, TRUE);
     }
 }
@@ -509,7 +510,10 @@ main (int argc, char *argv[])
 
   app = g_new0(VideoApp, 1);
   app->stage = stage;
-  app->vactor = clutter_gst_video_actor_new ();
+  app->vactor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
+  app->player = clutter_gst_playback_new ();
+
+  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (app->vactor), CLUTTER_GST_PLAYER (app->player));
 
   if (app->vactor == NULL)
     g_error("failed to create vactor");
@@ -519,10 +523,10 @@ main (int argc, char *argv[])
    * goes to the key frame position that can be quite far from where you
    * clicked. Using the ACCURATE flag tells playbin2 to seek to the actual
    * frame */
-  clutter_gst_player_set_seek_flags (CLUTTER_GST_PLAYER (app->vactor),
-                                     CLUTTER_GST_SEEK_FLAG_ACCURATE);
+  clutter_gst_playback_set_seek_flags (app->player,
+                                       CLUTTER_GST_SEEK_FLAG_ACCURATE);
 
-  g_signal_connect (app->vactor,
+  g_signal_connect (app->player,
                     "eos",
                     G_CALLBACK (on_video_actor_eos),
                     app);
@@ -532,13 +536,9 @@ main (int argc, char *argv[])
       g_print ("Remote media detected, setting up buffering\n");
 
       /* configure to 10 seconds of buffer duration */
-      clutter_gst_player_set_buffer_duration (
-                        CLUTTER_GST_PLAYER (app->vactor),
-                        10 * GST_SECOND);
-      clutter_gst_player_set_buffering_mode (
-                        CLUTTER_GST_PLAYER (app->vactor),
-                        CLUTTER_GST_BUFFERING_MODE_STREAM);
-      g_signal_connect (app->vactor,
+      clutter_gst_playback_set_buffer_duration (app->player, 10 * GST_SECOND);
+      clutter_gst_playback_set_buffering_mode (app->player, CLUTTER_GST_BUFFERING_MODE_STREAM);
+      g_signal_connect (app->player,
                         "notify::buffer-fill",
                         G_CALLBACK (on_video_actor_notify_buffer_fill),
                         app);
@@ -557,20 +557,20 @@ main (int argc, char *argv[])
                     NULL);
 
   /* Handle it ourselves so can scale up for fullscreen better */
-  g_signal_connect_after (app->vactor,
+  g_signal_connect_after (app->player,
                           "size-change",
                           G_CALLBACK (size_change), app);
 
   /* Load up out video actor */
-  clutter_gst_player_set_uri (CLUTTER_GST_PLAYER (app->vactor), uri);
+  clutter_gst_playback_set_filename (app->player, uri);
 
-  if (clutter_gst_player_is_live_media (CLUTTER_GST_PLAYER (app->vactor)))
+  if (clutter_gst_playback_is_live_media (app->player))
     g_print ("Playing live media\n");
   else
     g_print ("Playing non-live media\n");
 
   /* Set up things so that a visualisation is played if there's no video */
-  pipe = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (app->vactor));
+  pipe = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (app->player));
   if (!pipe)
     g_error ("Unable to get gstreamer pipeline!\n");
 
@@ -659,11 +659,11 @@ main (int argc, char *argv[])
   /* Hook up other events */
   g_signal_connect (stage, "event", G_CALLBACK (input_cb), app);
 
-  g_signal_connect (app->vactor,
+  g_signal_connect (app->player,
                     "notify::progress", G_CALLBACK (tick),
                     app);
 
-  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (app->vactor), TRUE);
+  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (app->player), TRUE);
 
   clutter_actor_show (stage);
 

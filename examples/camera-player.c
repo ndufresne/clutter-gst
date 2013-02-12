@@ -33,6 +33,7 @@ typedef struct _CameraApp
 {
   ClutterActor *stage;
   ClutterActor *camera_actor;
+  ClutterGstCamera *camera_player;
   const GPtrArray *camera_devices;
   guint selected_camera_device;
   gboolean decrease_selected;
@@ -57,24 +58,20 @@ update_gamma (CameraApp *app)
 {
   gdouble min, max, cur;
 
-  if (!clutter_gst_camera_actor_supports_gamma_correction (
-          CLUTTER_GST_CAMERA_ACTOR (app->camera_actor)))
+  if (!clutter_gst_camera_supports_gamma_correction (app->camera_player))
     {
       g_print ("Cannot update gamma, not supported\n");
       return;
     }
 
-  if (!clutter_gst_camera_actor_get_gamma_range (
-          CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-          &min, &max, NULL))
+  if (!clutter_gst_camera_get_gamma_range (app->camera_player,
+                                           &min, &max, NULL))
     {
       g_print ("Cannot update gamma, unable to get allowed range\n");
       return;
     }
 
-  if (!clutter_gst_camera_actor_get_gamma (
-          CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-          &cur))
+  if (!clutter_gst_camera_get_gamma (app->camera_player, &cur))
     {
       g_print ("Cannot update gamma, unable to get current value\n");
       return;
@@ -98,9 +95,7 @@ update_gamma (CameraApp *app)
     }
 
   g_print ("\tnew value: %0.2f\n", cur);
-  clutter_gst_camera_actor_set_gamma (
-      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-      cur);
+  clutter_gst_camera_set_gamma (app->camera_player, cur);
 }
 
 static void
@@ -109,8 +104,7 @@ update_color_balance (CameraApp *app,
 {
   gdouble min, max, cur;
 
-  if (!clutter_gst_camera_actor_supports_color_balance (
-          CLUTTER_GST_CAMERA_ACTOR (app->camera_actor)))
+  if (!clutter_gst_camera_supports_color_balance (app->camera_player))
     {
       g_print ("Cannot update color balance property %s, "
                "not supported\n",
@@ -118,9 +112,8 @@ update_color_balance (CameraApp *app,
       return;
     }
 
-  if (!clutter_gst_camera_actor_get_color_balance_property_range (
-          CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-          property, &min, &max, NULL))
+  if (!clutter_gst_camera_get_color_balance_property_range (app->camera_player,
+                                                            property, &min, &max, NULL))
     {
       g_print ("Cannot update color balance property %s, "
                "unable to get allowed range\n",
@@ -128,9 +121,8 @@ update_color_balance (CameraApp *app,
       return;
     }
 
-  if (!clutter_gst_camera_actor_get_color_balance_property (
-          CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-          property, &cur))
+  if (!clutter_gst_camera_get_color_balance_property (app->camera_player,
+                                                      property, &cur))
     {
       g_print ("Cannot update color balance property %s, "
                "unable to get current value\n",
@@ -156,9 +148,8 @@ update_color_balance (CameraApp *app,
     }
 
   g_print ("\tnew value: %0.2f\n", cur);
-  clutter_gst_camera_actor_set_color_balance_property (
-      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-      property, cur);
+  clutter_gst_camera_set_color_balance_property (app->camera_player,
+                                                 property, cur);
 }
 
 static gboolean
@@ -214,8 +205,7 @@ input_cb (ClutterStage *stage,
               g_print ("Selecting device %s (node=%s)\n",
                        clutter_gst_camera_device_get_name (device),
                        clutter_gst_camera_device_get_node (device));
-              clutter_gst_camera_actor_set_camera_device (
-                  CLUTTER_GST_CAMERA_ACTOR (app->camera_actor), device);
+              clutter_gst_camera_set_camera_device (app->camera_player, device);
               break;
             }
 
@@ -229,16 +219,13 @@ input_cb (ClutterStage *stage,
               gchar *filename;
               static guint photos_cnt = 0;
 
-              if (clutter_gst_camera_actor_is_recording_video (
-                      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor)))
+              if (clutter_gst_camera_is_recording_video (app->camera_player))
                 {
                   g_print ("Stopping video recording\n");
 
-                  clutter_gst_camera_actor_stop_video_recording (
-                      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor));
+                  clutter_gst_camera_stop_video_recording (app->camera_player);
                 }
-              else if (!clutter_gst_camera_actor_is_ready_for_capture (
-                           CLUTTER_GST_CAMERA_ACTOR (app->camera_actor)))
+              else if (!clutter_gst_camera_is_ready_for_capture (app->camera_player))
                 g_print ("Unable to record video as the camera is not ready for capture\n");
               else
                 {
@@ -246,9 +233,8 @@ input_cb (ClutterStage *stage,
 
                   filename = g_strdup_printf ("camera-video-%d.ogv", photos_cnt++);
 
-                  clutter_gst_camera_actor_start_video_recording (
-                      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-                      filename);
+                  clutter_gst_camera_start_video_recording (app->camera_player,
+                                                            filename);
                   g_free (filename);
                 }
               break;
@@ -259,11 +245,9 @@ input_cb (ClutterStage *stage,
               gchar *filename;
               static guint photos_cnt = 0;
 
-              if (clutter_gst_camera_actor_is_recording_video (
-                      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor)))
+              if (clutter_gst_camera_is_recording_video (app->camera_player))
                 g_print ("Unable to take photo as the camera is recording video\n");
-              else if (!clutter_gst_camera_actor_is_ready_for_capture (
-                           CLUTTER_GST_CAMERA_ACTOR (app->camera_actor)))
+              else if (!clutter_gst_camera_is_ready_for_capture (app->camera_player))
                 g_print ("Unable to take photo as the camera is not ready for capture\n");
               else
                 {
@@ -271,9 +255,8 @@ input_cb (ClutterStage *stage,
 
                   filename = g_strdup_printf ("camera-photo-%d.jpg", photos_cnt++);
 
-                  clutter_gst_camera_actor_take_photo (
-                      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor),
-                      filename);
+                  clutter_gst_camera_take_photo (app->camera_player,
+                                                 filename);
                   g_free (filename);
                 }
               break;
@@ -289,8 +272,7 @@ input_cb (ClutterStage *stage,
                 {
                   g_print ("ERROR: Unable to create 'dicetv' element, cannot set filter\n");
                 }
-              ret = clutter_gst_camera_actor_set_filter (
-                CLUTTER_GST_CAMERA_ACTOR (app->camera_actor), filter);
+              ret = clutter_gst_camera_set_filter (app->camera_player, filter);
               if (ret)
                 g_print ("Filter set successfully\n");
               else
@@ -300,8 +282,7 @@ input_cb (ClutterStage *stage,
             }
 
           case CLUTTER_r:
-            clutter_gst_camera_actor_remove_filter (
-                CLUTTER_GST_CAMERA_ACTOR (app->camera_actor));
+            clutter_gst_camera_remove_filter (app->camera_player);
             break;
 
           default:
@@ -316,7 +297,7 @@ input_cb (ClutterStage *stage,
 }
 
 static void
-ready_for_capture (ClutterGstCameraActor *camera_actor,
+ready_for_capture (ClutterGstCamera *camera_player,
                    gboolean ready)
 {
   if (ready)
@@ -324,13 +305,13 @@ ready_for_capture (ClutterGstCameraActor *camera_actor,
 }
 
 static void
-photo_saved (ClutterGstCameraActor *camera_actor)
+photo_saved (ClutterGstCamera *camera_player)
 {
   g_print ("Photo saved!\n");
 }
 
 static void
-video_saved (ClutterGstCameraActor *camera_actor)
+video_saved (ClutterGstCamera *camera_player)
 {
   g_print ("Video saved!\n");
 }
@@ -406,16 +387,16 @@ main (int argc, char *argv[])
 
   app = g_new0(CameraApp, 1);
   app->stage = stage;
-  app->camera_actor = clutter_gst_camera_actor_new ();
+  app->camera_actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
 
-  if (app->camera_actor == NULL)
+  app->camera_player = clutter_gst_camera_new ();
+  if (app->camera_player == NULL)
     {
-      g_error ("failed to create camera_actor");
+      g_error ("failed to create camera player");
       return EXIT_FAILURE;
     }
 
-  app->camera_devices = clutter_gst_camera_actor_get_camera_devices (
-      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor));
+  app->camera_devices = clutter_gst_camera_get_camera_devices (app->camera_player);
   if (!app->camera_devices)
     {
       g_error ("no suitable camera device available");
@@ -435,13 +416,13 @@ main (int argc, char *argv[])
     }
   app->selected_camera_device = 0;
 
-  g_signal_connect (app->camera_actor, "ready-for-capture",
+  g_signal_connect (app->camera_player, "ready-for-capture",
                     G_CALLBACK (ready_for_capture),
                     app);
-  g_signal_connect (app->camera_actor, "photo-saved",
+  g_signal_connect (app->camera_player, "photo-saved",
                     G_CALLBACK (photo_saved),
                     app);
-  g_signal_connect (app->camera_actor, "video-saved",
+  g_signal_connect (app->camera_player, "video-saved",
                     G_CALLBACK (video_saved),
                     app);
   /* Handle it ourselves so can scale up for fullscreen better */
@@ -457,8 +438,7 @@ main (int argc, char *argv[])
   /* Hook up other events */
   g_signal_connect (stage, "event", G_CALLBACK (input_cb), app);
 
-  clutter_gst_camera_actor_set_playing (
-      CLUTTER_GST_CAMERA_ACTOR (app->camera_actor), TRUE);
+  clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (app->camera_player), TRUE);
 
   clutter_actor_show (stage);
 

@@ -148,7 +148,7 @@ clutter_gst_init (int    *argc,
 			      GST_VERSION_MINOR,
 			      "cluttersink",
 			      "Element to render to ClutterGst actors",
-			      _internal_plugin_init,
+			      /* _internal_plugin_init */NULL,
 			      VERSION,
 			      "LGPL", /* license */
 			      "clutter-gst", PACKAGE,
@@ -228,7 +228,7 @@ clutter_gst_init_with_args (int            *argc,
 			      GST_VERSION_MINOR,
 			      "cluttersink",
 			      "Element to render to ClutterGst actors",
-			      _internal_plugin_init,
+			      /* _internal_plugin_init */NULL,
 			      VERSION,
 			      "LGPL", /* license */
 			      "clutter-gst", PACKAGE,
@@ -238,4 +238,29 @@ clutter_gst_init_with_args (int            *argc,
   clutter_gst_is_initialized = TRUE;
 
   return CLUTTER_INIT_SUCCESS;
+}
+
+void
+clutter_gst_util_update_frame (ClutterGstPlayer *player,
+                               ClutterGstFrame **frame,
+                               CoglPipeline     *pipeline)
+{
+  ClutterGstFrame *old_frame = *frame;
+  ClutterGstFrame *new_frame = clutter_gst_frame_new (pipeline);
+
+  *frame = new_frame;
+
+  if (old_frame == NULL ||
+      new_frame->resolution.width != old_frame->resolution.width ||
+      new_frame->resolution.height != old_frame->resolution.height)
+    {
+      g_signal_emit_by_name (player, "size-change",
+                             new_frame->resolution.width,
+                             new_frame->resolution.height);
+    }
+
+  if (old_frame)
+    g_boxed_free (CLUTTER_GST_TYPE_FRAME, old_frame);
+
+  g_signal_emit_by_name (player, "new-frame", new_frame);
 }

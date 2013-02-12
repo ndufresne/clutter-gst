@@ -6,8 +6,10 @@
  * clutter-gst-actor.h - ClutterActor using GStreamer
  *
  * Authored By Andre Moreira Magalhaes <andre.magalhaes@collabora.co.uk>
+ *             Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>
  *
  * Copyright (C) 2012 Collabora Ltd. <http://www.collabora.co.uk/>
+ * Copyright (C) 2013 Intel Corporation.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,33 +36,36 @@
 
 #include <glib-object.h>
 #include <clutter/clutter.h>
-#include <gst/gstelement.h>
 
 #include <clutter-gst/clutter-gst-types.h>
+#include <clutter-gst/clutter-gst-player.h>
 
 G_BEGIN_DECLS
 
 #define CLUTTER_GST_TYPE_ACTOR clutter_gst_actor_get_type()
 
 #define CLUTTER_GST_ACTOR(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), \
-  CLUTTER_GST_TYPE_ACTOR, ClutterGstActor))
+  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                                   \
+                               CLUTTER_GST_TYPE_ACTOR,                  \
+                               ClutterGstActor))
 
-#define CLUTTER_GST_ACTOR_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), \
-  CLUTTER_GST_TYPE_ACTOR, ClutterGstActorClass))
+#define CLUTTER_GST_ACTOR_CLASS(klass)                                  \
+  (G_TYPE_CHECK_CLASS_CAST ((klass),                                    \
+                            CLUTTER_GST_TYPE_ACTOR,                     \
+                            ClutterGstActorClass))
 
-#define CLUTTER_GST_IS_ACTOR(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), \
-  CLUTTER_GST_TYPE_ACTOR))
+#define CLUTTER_GST_IS_ACTOR(obj)                       \
+  (G_TYPE_CHECK_INSTANCE_TYPE ((obj),                   \
+                               CLUTTER_GST_TYPE_ACTOR))
 
-#define CLUTTER_GST_IS_ACTOR_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), \
-  CLUTTER_GST_TYPE_ACTOR))
+#define CLUTTER_GST_IS_ACTOR_CLASS(klass)               \
+  (G_TYPE_CHECK_CLASS_TYPE ((klass),                    \
+                            CLUTTER_GST_TYPE_ACTOR))
 
-#define CLUTTER_GST_ACTOR_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), \
-  CLUTTER_GST_TYPE_ACTOR, ClutterGstActorClass))
+#define CLUTTER_GST_ACTOR_GET_CLASS(obj)                                \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj),                                    \
+                              CLUTTER_GST_TYPE_ACTOR,                   \
+                              ClutterGstActorClass))
 
 typedef struct _ClutterGstActor        ClutterGstActor;
 typedef struct _ClutterGstActorClass   ClutterGstActorClass;
@@ -90,33 +95,23 @@ struct _ClutterGstActorClass
   ClutterActorClass parent_class;
 
   /*< public >*/
-  void     (* size_change) (ClutterGstActor *actor,
-                            gint             width,
-                            gint             height);
-  gboolean (* is_idle)     (ClutterGstActor *actor);
+  void (* paint_frame) (ClutterGstActor *actor, ClutterGstFrame *frame);
 
   /* Future padding */
-  void (* _clutter_reserved1) (void);
   void (* _clutter_reserved2) (void);
   void (* _clutter_reserved3) (void);
   void (* _clutter_reserved4) (void);
   void (* _clutter_reserved5) (void);
   void (* _clutter_reserved6) (void);
+  void (* _clutter_reserved7) (void);
+  void (* _clutter_reserved8) (void);
 };
 
 GType clutter_gst_actor_get_type (void) G_GNUC_CONST;
 
-CoglHandle     clutter_gst_actor_get_cogl_texture  (ClutterGstActor *actor);
-void           clutter_gst_actor_set_cogl_texture  (ClutterGstActor *actor,
-                                                    CoglHandle       cogl_tex);
-CoglHandle     clutter_gst_actor_get_cogl_material (ClutterGstActor *actor);
-void           clutter_gst_actor_set_cogl_material (ClutterGstActor *actor,
-                                                    CoglHandle       cogl_material);
-
-gboolean       clutter_gst_actor_is_idle           (ClutterGstActor *actor);
-CoglHandle     clutter_gst_actor_get_idle_material (ClutterGstActor *actor);
-void           clutter_gst_actor_set_idle_material (ClutterGstActor *actor,
-                                                    CoglHandle       cogl_material);
+ClutterGstPlayer *clutter_gst_actor_get_player        (ClutterGstActor  *self);
+void              clutter_gst_actor_set_player        (ClutterGstActor  *self,
+                                                       ClutterGstPlayer *player);
 
 G_END_DECLS
 
