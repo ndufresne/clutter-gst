@@ -311,32 +311,29 @@ size_change (ClutterGstPlayer *player,
   gfloat new_x, new_y, new_width, new_height;
   gfloat stage_width, stage_height;
   gfloat frame_width, frame_height;
+  gdouble frame_aspect, stage_aspect;
 
-  clutter_actor_get_size (stage, &stage_width, &stage_height);
-
-  /* base_width and base_height are the actual dimensions of the buffers before
-   * taking the pixel aspect ratio into account. We need to get the actual
-   * size of the actor to display */
-  /* clutter_actor_get_size (app->vactor, &frame_width, &frame_height); */
   frame_width = base_width;
   frame_height = base_height;
 
-  new_height = (frame_height * stage_width) / frame_width;
-  if (new_height <= stage_height)
+  clutter_actor_get_size (stage, &stage_width, &stage_height);
+
+  frame_aspect = frame_width / frame_height;
+  stage_aspect = stage_width / stage_height;
+
+  if (stage_aspect < frame_aspect)
     {
       new_width = stage_width;
-
-      new_x = 0;
-      new_y = (stage_height - new_height) / 2;
+      new_height = stage_width / frame_aspect;
     }
   else
     {
-      new_width  = (frame_width * stage_height) / frame_height;
       new_height = stage_height;
-
-      new_x = (stage_width - new_width) / 2;
-      new_y = 0;
+      new_width = stage_height * frame_aspect;
     }
+
+  new_x = (stage_width - new_width) / 2;
+  new_y = (stage_height - new_height) / 2;
 
   clutter_actor_set_position (app->vactor, new_x, new_y);
   clutter_actor_set_size (app->vactor, new_width, new_height);
