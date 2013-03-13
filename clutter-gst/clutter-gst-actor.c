@@ -136,9 +136,6 @@ clutter_gst_actor_get_property (GObject    *object,
 
   switch (property_id)
     {
-    /* case PROP_PAR: */
-    /*   gst_value_set_fraction (value, priv->par_n, priv->par_d); */
-    /*   break; */
     case PROP_PLAYER:
       g_value_set_object (value, priv->player);
       break;
@@ -158,10 +155,6 @@ clutter_gst_actor_set_property (GObject      *object,
 
   switch (property_id)
     {
-    /* case PROP_PAR: */
-    /*   priv->par_n = gst_value_get_fraction_numerator (value); */
-    /*   priv->par_d = gst_value_get_fraction_denominator (value); */
-    /*   break; */
     case PROP_PLAYER:
       g_clear_object (&priv->player);
       priv->player = g_value_dup_object (value);
@@ -187,13 +180,6 @@ clutter_gst_actor_class_init (ClutterGstActorClass *klass)
   actor_class->paint = clutter_gst_actor_paint;
 
   klass->paint_frame = clutter_gst_actor_paint_frame;
-
-  /* pspec = gst_param_spec_fraction ("pixel-aspect-ratio", */
-  /*                                  "Pixel Aspect Ratio", */
-  /*                                  "Pixel aspect ratio of incoming frames", */
-  /*                                  1, 100, 100, 1, 1, 1, */
-  /*                                  CLUTTER_GST_PARAM_READWRITE); */
-  /* g_object_class_install_property (object_class, PROP_PAR, pspec); */
 
   pspec = g_param_spec_object ("player",
                                "Player",
