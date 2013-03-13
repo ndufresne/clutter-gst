@@ -105,7 +105,6 @@
 
 #include "clutter-gst-private.h"
 #include "clutter-gst-debug.h"
-#include "clutter-gst-video-sink.h"
 #include "clutter-gst-util.h"
 
 static gboolean clutter_gst_is_initialized = FALSE;

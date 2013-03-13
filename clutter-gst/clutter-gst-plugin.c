@@ -35,7 +35,6 @@
 #include <X11/Xlib.h>
 #endif
 
-#include "clutter-gst-video-sink.h"
 #include "clutter-gst-auto-video-sink.h"
 
 GST_DEBUG_CATEGORY (clutter_gst_video_sink_debug);
@@ -65,12 +64,12 @@ plugin_init (GstPlugin *plugin)
   if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
     return FALSE;
 
-  ret = gst_element_register (plugin,
-                              "cluttersink",
-                              GST_RANK_MARGINAL,
-                              CLUTTER_GST_TYPE_VIDEO_SINK);
-  if (!ret)
-    return FALSE;
+  /* ret = gst_element_register (plugin, */
+  /*                             "cluttersink", */
+  /*                             GST_RANK_MARGINAL, */
+  /*                             CLUTTER_GST_TYPE_VIDEO_SINK); */
+  /* if (!ret) */
+  /*   return FALSE; */
 
   ret = gst_element_register (plugin,
                               "autocluttersink",
@@ -91,4 +90,3 @@ GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
                    "LGPL",        /* license */
                    PACKAGE,
                    "http://www.clutter-project.org");
-
