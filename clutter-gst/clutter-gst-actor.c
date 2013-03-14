@@ -104,6 +104,49 @@ clutter_gst_actor_paint (ClutterActor *actor)
     }
 }
 
+static void
+_player_new_frame (ClutterGstPlayer *player,
+                   ClutterGstFrame  *frame,
+                   ClutterGstActor  *self)
+{
+  ClutterGstActorPrivate *priv = self->priv;
+
+  if (priv->frame)
+    g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->frame);
+  priv->frame = g_boxed_copy (CLUTTER_GST_TYPE_FRAME, frame);
+
+  clutter_actor_queue_redraw (CLUTTER_ACTOR (self));
+}
+
+static void
+clutter_gst_actor_set_player_internal (ClutterGstActor  *self,
+                                       ClutterGstPlayer *player)
+{
+  ClutterGstActorPrivate *priv = self->priv;
+
+  if (priv->player) {
+    g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->frame);
+    priv->frame = NULL;
+    g_signal_handlers_disconnect_by_func (priv->player,
+                                          _player_new_frame,
+                                          self);
+
+    g_clear_object (&priv->player);
+  }
+
+  if (player != NULL) {
+    priv->player = g_object_ref_sink (player);
+    priv->frame = g_boxed_copy (CLUTTER_GST_TYPE_FRAME,
+                                clutter_gst_player_get_frame (player));
+
+    g_signal_connect (priv->player, "new-frame",
+                      G_CALLBACK (_player_new_frame), self);
+  }
+
+  clutter_actor_queue_redraw (CLUTTER_ACTOR (self));
+  g_object_notify (G_OBJECT (self), "player");
+}
+
 /*
  * GObject implementation
  */
@@ -150,13 +193,12 @@ clutter_gst_actor_set_property (GObject      *object,
                                 GParamSpec   *pspec)
 {
   ClutterGstActor *actor = CLUTTER_GST_ACTOR (object);
-  ClutterGstActorPrivate *priv = actor->priv;
 
   switch (property_id)
     {
     case PROP_PLAYER:
-      g_clear_object (&priv->player);
-      priv->player = g_value_dup_object (value);
+      clutter_gst_actor_set_player_internal (actor,
+                                             CLUTTER_GST_PLAYER (g_value_get_object (value)));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -205,20 +247,6 @@ clutter_gst_actor_init (ClutterGstActor *actor)
                                              ClutterGstActorPrivate);
 }
 
-static void
-_player_new_frame (ClutterGstPlayer *player,
-                   ClutterGstFrame  *frame,
-                   ClutterGstActor  *self)
-{
-  ClutterGstActorPrivate *priv = self->priv;
-
-  if (priv->frame)
-    g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->frame);
-  priv->frame = g_boxed_copy (CLUTTER_GST_TYPE_FRAME, frame);
-
-  clutter_actor_queue_redraw (CLUTTER_ACTOR (self));
-}
-
 /*
  * Public symbols
  */
@@ -259,32 +287,8 @@ void
 clutter_gst_actor_set_player (ClutterGstActor  *self,
                               ClutterGstPlayer *player)
 {
-  ClutterGstActorPrivate *priv;
-
   g_return_if_fail (CLUTTER_GST_IS_ACTOR (self));
   g_return_if_fail (CLUTTER_GST_IS_PLAYER (player) || player == NULL);
 
-  priv = self->priv;
-
-  if (priv->player) {
-    g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->frame);
-    priv->frame = NULL;
-    g_signal_handlers_disconnect_by_func (priv->player,
-                                          _player_new_frame,
-                                          self);
-
-    g_clear_object (&priv->player);
-  }
-
-  if (player != NULL) {
-    priv->player = g_object_ref_sink (player);
-    priv->frame = g_boxed_copy (CLUTTER_GST_TYPE_FRAME,
-                                clutter_gst_player_get_frame (player));
-
-    g_signal_connect (priv->player, "new-frame",
-                      G_CALLBACK (_player_new_frame), self);
-  }
-
-  clutter_actor_queue_redraw (CLUTTER_ACTOR (self));
-  g_object_notify (G_OBJECT (self), "player");
+  clutter_gst_actor_set_player_internal (self, player);
 }
