@@ -26,6 +26,10 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#if !defined(__CLUTTER_GST_H_INSIDE__) && !defined(CLUTTER_GST_COMPILATION)
+#error "Only <clutter-gst/clutter-gst.h> can be include directly."
+#endif
+
 #ifndef __CLUTTER_GST_ASPECTRATIO_H__
 #define __CLUTTER_GST_ASPECTRATIO_H__
 
