@@ -80,6 +80,9 @@ struct _ClutterGstVideoResolution
 {
   gint width;
   gint height;
+
+  gint par_n;
+  gint par_d;
 };
 
 /**

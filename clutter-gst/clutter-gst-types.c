@@ -38,6 +38,8 @@ clutter_gst_frame_new (CoglPipeline *pipeline)
 
   frame->resolution.width = cogl_texture_get_width (texture);
   frame->resolution.height = cogl_texture_get_height (texture);
+  frame->resolution.par_n = 1;
+  frame->resolution.par_d = 1;
 }
 
 static gpointer
