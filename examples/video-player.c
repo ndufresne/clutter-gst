@@ -302,44 +302,6 @@ input_cb (ClutterStage *stage,
 }
 
 static void
-size_change (ClutterGstPlayer *player,
-             gint              base_width,
-             gint              base_height,
-             VideoApp         *app)
-{
-  ClutterActor *stage = app->stage;
-  gfloat new_x, new_y, new_width, new_height;
-  gfloat stage_width, stage_height;
-  gfloat frame_width, frame_height;
-  gdouble frame_aspect, stage_aspect;
-
-  frame_width = base_width;
-  frame_height = base_height;
-
-  clutter_actor_get_size (stage, &stage_width, &stage_height);
-
-  frame_aspect = frame_width / frame_height;
-  stage_aspect = stage_width / stage_height;
-
-  if (stage_aspect < frame_aspect)
-    {
-      new_width = stage_width;
-      new_height = stage_width / frame_aspect;
-    }
-  else
-    {
-      new_height = stage_height;
-      new_width = stage_height * frame_aspect;
-    }
-
-  new_x = (stage_width - new_width) / 2;
-  new_y = (stage_height - new_height) / 2;
-
-  clutter_actor_set_position (app->vactor, new_x, new_y);
-  clutter_actor_set_size (app->vactor, new_width, new_height);
-}
-
-static void
 position_controls (VideoApp     *app,
                    ClutterActor *controls)
 {
@@ -507,7 +469,8 @@ main (int argc, char *argv[])
 
   app = g_new0(VideoApp, 1);
   app->stage = stage;
-  app->vactor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
+  app->vactor = g_object_new (CLUTTER_GST_TYPE_ASPECTRATIO, NULL);
+  clutter_actor_set_size (app->vactor, clutter_actor_get_width (stage), clutter_actor_get_height (stage));
   app->player = clutter_gst_playback_new ();
 
   clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (app->vactor), CLUTTER_GST_PLAYER (app->player));
@@ -552,11 +515,6 @@ main (int argc, char *argv[])
                     "destroy",
                     G_CALLBACK (clutter_main_quit),
                     NULL);
-
-  /* Handle it ourselves so can scale up for fullscreen better */
-  g_signal_connect_after (app->player,
-                          "size-change",
-                          G_CALLBACK (size_change), app);
 
   /* Load up out video actor */
   clutter_gst_playback_set_filename (app->player, uri);
