@@ -29,6 +29,8 @@
 #include <glib.h>
 #include "clutter-gst.h"
 
+#include <cogl-gst/cogl-gst.h>
+
 G_BEGIN_DECLS
 
 /* GLib has some define for that, but defining it ourselves allows to require a
@@ -55,9 +57,13 @@ ClutterGstFrame *clutter_gst_frame_new (CoglPipeline *pipeline);
 
 ClutterGstFrame *clutter_gst_create_blank_frame (const ClutterColor *color);
 
-void clutter_gst_util_update_frame (ClutterGstPlayer *player,
-                                    ClutterGstFrame **frame,
-                                    CoglPipeline     *pipeline);
+void clutter_gst_player_update_frame (ClutterGstPlayer *player,
+                                      ClutterGstFrame **frame,
+                                      CoglPipeline     *pipeline);
+
+void clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame  *frame,
+                                                  CoglGstVideoSink *sink);
+
 
 G_END_DECLS
 

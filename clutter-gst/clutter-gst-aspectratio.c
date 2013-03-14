@@ -1,4 +1,30 @@
-/* clutter-gst-aspectratio.c */
+/*
+ * Clutter-GStreamer.
+ *
+ * GStreamer integration library for Clutter.
+ *
+ * clutter-gst-aspectratio.c - An actor rendering a video with respect
+ * to its aspect ratio.
+ *
+ * Authored by Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>
+ *
+ * Copyright (C) 2013 Intel Corporation
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ */
 
 #include "clutter-gst-aspectratio.h"
 
@@ -94,8 +120,6 @@ _recompute_paint_box (ClutterGstAspectratio *self)
   actor_width = box.x2 - box.x1;
   actor_height = box.y2 - box.y1;
 
-  g_message ("alloc=(%fx%f)", actor_width, actor_height);
-
   if (actor_width <= 0 || actor_height <= 0)
     return;
 
@@ -117,10 +141,6 @@ _recompute_paint_box (ClutterGstAspectratio *self)
   priv->paint_box.y1 = (actor_height - new_height) / 2;
   priv->paint_box.x2 = priv->paint_box.x1 + new_width;
   priv->paint_box.y2 = priv->paint_box.y1 + new_height;
-
-  g_message ("output=(%fx%f) box=(%fx%f-%fx%f)", new_width, new_height,
-             priv->paint_box.x1, priv->paint_box.y1,
-             priv->paint_box.x2, priv->paint_box.y2);
 }
 
 static void
@@ -139,9 +159,9 @@ _player_size_changed (ClutterGstPlayer      *player,
 }
 
 static void
-clutter_gst_aspectratio_player_changed (ClutterGstAspectratio *self,
-                                        GParamSpec            *spec,
-                                        gpointer               user_data)
+_player_changed (ClutterGstAspectratio *self,
+                 GParamSpec            *spec,
+                 gpointer               user_data)
 {
   ClutterGstAspectratioPrivate *priv = self->priv;
   ClutterGstPlayer *player = clutter_gst_actor_get_player (CLUTTER_GST_ACTOR (self));
@@ -162,7 +182,6 @@ clutter_gst_aspectratio_player_changed (ClutterGstAspectratio *self,
 
   _recompute_paint_box (self);
 }
-
 
 /**/
 
@@ -230,7 +249,7 @@ clutter_gst_aspectratio_init (ClutterGstAspectratio *self)
   self->priv = ASPECTRATIO_PRIVATE (self);
 
   g_signal_connect (self, "notify::player",
-                    G_CALLBACK (clutter_gst_aspectratio_player_changed), NULL);
+                    G_CALLBACK (_player_changed), NULL);
   g_signal_connect_swapped (self, "allocation-changed",
                             G_CALLBACK (_recompute_paint_box), self);
 }

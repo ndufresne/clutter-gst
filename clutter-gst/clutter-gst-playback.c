@@ -1889,15 +1889,23 @@ _new_frame_from_pipeline (CoglGstVideoSink *sink, ClutterGstPlayback *self)
 {
   ClutterGstPlaybackPrivate *priv = self->priv;
 
-  clutter_gst_util_update_frame (CLUTTER_GST_PLAYER (self),
-                                 &priv->current_frame,
-                                 cogl_gst_video_sink_get_pipeline (sink));
+  clutter_gst_player_update_frame (CLUTTER_GST_PLAYER (self),
+                                   &priv->current_frame,
+                                   cogl_gst_video_sink_get_pipeline (sink));
 }
 
 static void
 _ready_from_pipeline (CoglGstVideoSink *sink, ClutterGstPlayback *self)
 {
   g_signal_emit_by_name (self, "ready");
+}
+
+static void
+_pixel_aspect_ratio_changed (CoglGstVideoSink   *sink,
+                             GParamSpec         *spec,
+                             ClutterGstPlayback *self)
+{
+  clutter_gst_frame_update_pixel_aspect_ratio (self->priv->current_frame, sink);
 }
 
 static GstElement *
@@ -1930,12 +1938,13 @@ get_pipeline (ClutterGstPlayback *self)
     }
 
   video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
-  /* gst_element_factory_make ("coglsink", "video-sink"); */
 
   g_signal_connect (video_sink, "new-frame",
                     G_CALLBACK (_new_frame_from_pipeline), self);
   g_signal_connect (video_sink, "pipeline-ready",
                     G_CALLBACK (_ready_from_pipeline), self);
+  g_signal_connect (video_sink, "notify::pixel-aspect-ratio",
+                    G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
   g_object_set (G_OBJECT (pipeline),
                 "audio-sink", audio_sink,

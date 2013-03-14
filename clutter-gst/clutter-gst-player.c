@@ -363,14 +363,17 @@ clutter_gst_player_get_idle (ClutterGstPlayer *self)
 /* Internal functions */
 
 void
-clutter_gst_util_update_frame (ClutterGstPlayer *player,
-                               ClutterGstFrame **frame,
-                               CoglPipeline     *pipeline)
+clutter_gst_player_update_frame (ClutterGstPlayer *player,
+                                 ClutterGstFrame **frame,
+                                 CoglPipeline     *pipeline)
 {
   ClutterGstFrame *old_frame = *frame;
   ClutterGstFrame *new_frame = clutter_gst_frame_new (pipeline);
 
   *frame = new_frame;
+
+  new_frame->resolution.par_n = old_frame->resolution.par_n;
+  new_frame->resolution.par_d = old_frame->resolution.par_d;
 
   if (old_frame == NULL ||
       new_frame->resolution.width != old_frame->resolution.width ||
@@ -385,4 +388,21 @@ clutter_gst_util_update_frame (ClutterGstPlayer *player,
     g_boxed_free (CLUTTER_GST_TYPE_FRAME, old_frame);
 
   g_signal_emit_by_name (player, "new-frame", new_frame);
+}
+
+void
+clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame  *frame,
+                                             CoglGstVideoSink *sink)
+{
+  GValue value = G_VALUE_INIT;
+
+  g_value_init (&value, GST_TYPE_FRACTION);
+  g_object_get_property (G_OBJECT (sink),
+                         "pixel-aspect-ratio",
+                         &value);
+
+  frame->resolution.par_n = gst_value_get_fraction_numerator (&value);
+  frame->resolution.par_d = gst_value_get_fraction_denominator (&value);
+
+  g_value_unset (&value);
 }
