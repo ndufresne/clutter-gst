@@ -30,6 +30,7 @@ source_h = 					\
 	$(srcdir)/clutter-gst-camera-device.h	\
 	$(srcdir)/clutter-gst-playback.h	\
 	$(srcdir)/clutter-gst-player.h		\
+	$(srcdir)/clutter-gst-aspectratio.h	\
 	$(NULL)
 
 source_priv_h =					\
@@ -48,6 +49,7 @@ source_c = 					\
 	$(srcdir)/clutter-gst-camera-device.c	\
 	$(srcdir)/clutter-gst-playback.c	\
 	$(srcdir)/clutter-gst-util.c		\
+	$(srcdir)/clutter-gst-aspectratio.c	\
 	$(glib_enum_c)				\
 	$(NULL)
 
