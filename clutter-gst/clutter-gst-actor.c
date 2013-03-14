@@ -74,13 +74,12 @@ static void
 clutter_gst_actor_paint_frame (ClutterGstActor *self,
                                ClutterGstFrame *frame)
 {
-  ClutterGstActorPrivate *priv = self->priv;
   ClutterActorBox box;
   guint8 paint_opacity;
 
   clutter_actor_get_allocation_box (CLUTTER_ACTOR (self), &box);
   paint_opacity = clutter_actor_get_paint_opacity (CLUTTER_ACTOR (self));
-  cogl_pipeline_set_color4ub (priv->frame->pipeline,
+  cogl_pipeline_set_color4ub (frame->pipeline,
                               paint_opacity,
                               paint_opacity,
                               paint_opacity,
