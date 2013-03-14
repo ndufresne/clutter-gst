@@ -379,15 +379,15 @@ clutter_gst_player_update_frame (ClutterGstPlayer *player,
       new_frame->resolution.width != old_frame->resolution.width ||
       new_frame->resolution.height != old_frame->resolution.height)
     {
-      g_signal_emit_by_name (player, "size-change",
-                             new_frame->resolution.width,
-                             new_frame->resolution.height);
+      g_signal_emit (player, signals[SIZE_CHANGE], 0,
+                     new_frame->resolution.width,
+                     new_frame->resolution.height);
     }
 
   if (old_frame)
     g_boxed_free (CLUTTER_GST_TYPE_FRAME, old_frame);
 
-  g_signal_emit_by_name (player, "new-frame", new_frame);
+  g_signal_emit (player, signals[NEW_FRAME], 0, new_frame);
 }
 
 void
