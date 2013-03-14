@@ -1434,7 +1434,7 @@ clutter_gst_playback_get_property (GObject    *object,
                                    GValue     *value,
                                    GParamSpec *pspec)
 {
-  ClutterGstPlayback *self;
+  ClutterGstPlayback *self = CLUTTER_GST_PLAYBACK (object);
   ClutterGstPlaybackPrivate *priv = self->priv;
   gchar *str;
 
@@ -1897,20 +1897,12 @@ _new_frame_from_pipeline (CoglGstVideoSink *sink, ClutterGstPlayback *self)
 static void
 _ready_from_pipeline (CoglGstVideoSink *sink, ClutterGstPlayback *self)
 {
-
-  ClutterGstPlaybackPrivate *priv = self->priv;
-
   g_signal_emit_by_name (self, "ready");
-
-  /* clutter_gst_util_update_frame (CLUTTER_GST_PLAYER (self), */
-  /*                                &priv->current_frame, */
-  /*                                cogl_gst_video_sink_get_pipeline (sink)); */
 }
 
 static GstElement *
 get_pipeline (ClutterGstPlayback *self)
 {
-  ClutterGstPlaybackPrivate *priv = self->priv;
   GstElement *pipeline, *audio_sink;
   CoglGstVideoSink *video_sink;
 
@@ -1937,7 +1929,7 @@ get_pipeline (ClutterGstPlayback *self)
 	}
     }
 
-  video_sink = cogl_gst_video_sink_new (clutter_backend_get_cogl_context (clutter_get_default_backend ()));
+  video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
   /* gst_element_factory_make ("coglsink", "video-sink"); */
 
   g_signal_connect (video_sink, "new-frame",
@@ -1968,6 +1960,8 @@ clutter_gst_playback_init (ClutterGstPlayback *self)
 
   priv->pipeline = get_pipeline (self);
   g_assert (priv->pipeline != NULL);
+
+  priv->current_frame = clutter_gst_create_blank_frame (NULL);
 
   g_signal_connect (priv->pipeline, "notify::source",
                     G_CALLBACK (on_source_changed), self);
@@ -2462,7 +2456,7 @@ clutter_gst_playback_get_audio_stream (ClutterGstPlayback *self)
   ClutterGstPlaybackPrivate *priv;
   gint index_ = -1;
 
-  g_return_if_fail (CLUTTER_GST_IS_PLAYBACK (self));
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYBACK (self), -1);
 
   priv = self->priv;
 
@@ -2791,8 +2785,6 @@ clutter_gst_playback_get_duration (ClutterGstPlayback *self)
 gboolean
 clutter_gst_playback_is_live_media (ClutterGstPlayback *self)
 {
-  ClutterGstPlaybackPrivate *priv;
-
   g_return_val_if_fail (CLUTTER_GST_IS_PLAYBACK (self), FALSE);
 
   return self->priv->is_live;
