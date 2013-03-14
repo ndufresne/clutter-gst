@@ -231,15 +231,6 @@ clutter_gst_actor_class_init (ClutterGstActorClass *klass)
 }
 
 static void
-idle_cb (ClutterGstActor *actor,
-         GParamSpec      *pspec,
-         gpointer         data)
-{
-  /* restore the idle material so we don't just display the last frame */
-  clutter_actor_queue_redraw (CLUTTER_ACTOR (actor));
-}
-
-static void
 clutter_gst_actor_init (ClutterGstActor *actor)
 {
   actor->priv = G_TYPE_INSTANCE_GET_PRIVATE (actor,
