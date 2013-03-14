@@ -65,6 +65,8 @@ struct _ClutterGstCameraPrivate
   GPtrArray *camera_devices;
   ClutterGstCameraDevice *camera_device;
 
+  ClutterGstFrame *current_frame;
+
   GstBus *bus;
   GstElement *camerabin;
   GstElement *camera_source;
@@ -118,6 +120,14 @@ G_DEFINE_TYPE_WITH_CODE (ClutterGstCamera, clutter_gst_camera, G_TYPE_OBJECT,
 /*
  * ClutterGstPlayer implementation
  */
+
+static ClutterGstFrame *
+clutter_gst_camera_get_frame (ClutterGstPlayer *self)
+{
+  ClutterGstCameraPrivate *priv = CLUTTER_GST_CAMERA (self)->priv;
+
+  return priv->current_frame;
+}
 
 static GstElement *
 clutter_gst_camera_get_pipeline (ClutterGstPlayer *player)
@@ -186,6 +196,7 @@ clutter_gst_camera_set_playing (ClutterGstPlayer *player,
 static void
 player_iface_init (ClutterGstPlayerIface *iface)
 {
+  iface->get_frame = clutter_gst_camera_get_frame;
   iface->get_pipeline = clutter_gst_camera_get_pipeline;
   iface->get_idle = clutter_gst_camera_get_idle;
 
@@ -286,7 +297,6 @@ static void
 clutter_gst_camera_class_init (ClutterGstCameraClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  ClutterGstActorClass *gst_actor_class = CLUTTER_GST_ACTOR_CLASS (klass);
 
   g_type_class_add_private (klass, sizeof (ClutterGstCameraPrivate));
 
@@ -790,11 +800,35 @@ setup_camera_source (ClutterGstCamera *self)
   return TRUE;
 }
 
+static void
+_new_frame_from_pipeline (CoglGstVideoSink *sink, ClutterGstCamera *self)
+{
+  ClutterGstCameraPrivate *priv = self->priv;
+
+  clutter_gst_player_update_frame (CLUTTER_GST_PLAYER (self),
+                                   &priv->current_frame,
+                                   cogl_gst_video_sink_get_pipeline (sink));
+}
+
+static void
+_ready_from_pipeline (CoglGstVideoSink *sink, ClutterGstCamera *self)
+{
+  g_signal_emit_by_name (self, "ready");
+}
+
+static void
+_pixel_aspect_ratio_changed (CoglGstVideoSink *sink,
+                             GParamSpec       *spec,
+                             ClutterGstCamera *self)
+{
+  clutter_gst_frame_update_pixel_aspect_ratio (self->priv->current_frame, sink);
+}
+
 static gboolean
 setup_pipeline (ClutterGstCamera *self)
 {
   ClutterGstCameraPrivate *priv = self->priv;
-  GstElement *camera_sink;
+  CoglGstVideoSink *video_sink;
 
   if (!probe_camera_devices (self))
     {
@@ -830,9 +864,18 @@ setup_pipeline (ClutterGstCamera *self)
       return FALSE;
     }
 
-  camera_sink = gst_element_factory_make ("coglsink", NULL);
+  video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
+
+  g_signal_connect (video_sink, "new-frame",
+                    G_CALLBACK (_new_frame_from_pipeline), self);
+  g_signal_connect (video_sink, "pipeline-ready",
+                    G_CALLBACK (_ready_from_pipeline), self);
+  g_signal_connect (video_sink, "notify::pixel-aspect-ratio",
+                    G_CALLBACK (_pixel_aspect_ratio_changed), self);
+
+
   g_object_set (priv->camerabin,
-                "viewfinder-sink", camera_sink,
+                "viewfinder-sink", video_sink,
                 NULL);
 
   set_video_profile (self);
@@ -861,6 +904,8 @@ clutter_gst_camera_init (ClutterGstCamera *self)
       g_warning ("Failed to initiate suitable elements for pipeline.");
       return;
     }
+
+  priv->current_frame = clutter_gst_create_blank_frame (NULL);
 
   priv->is_idle = TRUE;
 }
@@ -985,7 +1030,7 @@ clutter_gst_camera_set_camera_device (ClutterGstCamera       *self,
   if (priv->is_recording)
     clutter_gst_camera_stop_video_recording (self);
 
-  if (clutter_gst_camera_is_playing (self))
+  if (clutter_gst_camera_get_playing (CLUTTER_GST_PLAYER (self)))
     {
       gst_element_set_state (priv->camerabin, GST_STATE_NULL);
       was_playing = TRUE;
@@ -1519,7 +1564,7 @@ clutter_gst_camera_set_filter (ClutterGstCamera *self,
           goto err_restore;
         }
 
-      if (clutter_gst_camera_is_playing (self))
+      if (clutter_gst_camera_get_playing (CLUTTER_GST_PLAYER (self)))
         gst_element_set_state (priv->custom_filter, GST_STATE_PLAYING);
     }
   else
@@ -1550,37 +1595,6 @@ gboolean
 clutter_gst_camera_remove_filter (ClutterGstCamera *self)
 {
   return clutter_gst_camera_set_filter (self, NULL);
-}
-
-/**
- * clutter_gst_camera_is_playing:
- * @self: a #ClutterGstCamera
- *
- * Retrieve whether the @self is playing.
- *
- * Return value: %TRUE if playing, %FALSE otherwise
- */
-gboolean
-clutter_gst_camera_is_playing (ClutterGstCamera *self)
-{
-  ClutterGstCameraPrivate *priv;
-  GstState state, pending;
-  gboolean playing;
-
-  g_return_val_if_fail (CLUTTER_GST_IS_CAMERA (self), FALSE);
-
-  priv = self->priv;
-  if (!priv->camerabin)
-    return FALSE;
-
-  gst_element_get_state (priv->camerabin, &state, &pending, 0);
-
-  if (pending)
-    playing = (pending == GST_STATE_PLAYING);
-  else
-    playing = (state == GST_STATE_PLAYING);
-
-  return playing;
 }
 
 /**
@@ -1679,7 +1693,7 @@ clutter_gst_camera_start_video_recording (ClutterGstCamera *self,
   if (priv->is_recording)
     return TRUE;
 
-  if (!clutter_gst_camera_is_playing (self))
+  if (!clutter_gst_camera_get_playing (CLUTTER_GST_PLAYER (self)))
     return FALSE;
 
   if (!clutter_gst_camera_is_ready_for_capture (self))
@@ -1714,7 +1728,7 @@ clutter_gst_camera_stop_video_recording (ClutterGstCamera *self)
   if (!priv->is_recording)
     return;
 
-  if (!clutter_gst_camera_is_playing (self))
+  if (!clutter_gst_camera_get_playing (CLUTTER_GST_PLAYER (self)))
     return;
 
   gst_element_get_state (priv->camerabin, &state, NULL, 0);
@@ -1782,7 +1796,7 @@ clutter_gst_camera_take_photo (ClutterGstCamera *self,
   if (!priv->camerabin)
     return FALSE;
 
-  if (!clutter_gst_camera_is_playing (self))
+  if (!clutter_gst_camera_get_playing (CLUTTER_GST_PLAYER (self)))
     return FALSE;
 
   if (!clutter_gst_camera_is_ready_for_capture (self))
@@ -1821,7 +1835,7 @@ clutter_gst_camera_take_photo_pixbuf (ClutterGstCamera *self)
   if (!priv->camerabin)
     return FALSE;
 
-  if (!clutter_gst_camera_is_playing (self))
+  if (!clutter_gst_camera_get_playing (CLUTTER_GST_PLAYER (self)))
     return FALSE;
 
   if (!clutter_gst_camera_is_ready_for_capture (self))
