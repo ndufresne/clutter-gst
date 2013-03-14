@@ -239,6 +239,8 @@ clutter_gst_init_with_args (int            *argc,
   return CLUTTER_INIT_SUCCESS;
 }
 
+/**/
+
 void
 clutter_gst_util_update_frame (ClutterGstPlayer *player,
                                ClutterGstFrame **frame,
@@ -262,4 +264,36 @@ clutter_gst_util_update_frame (ClutterGstPlayer *player,
     g_boxed_free (CLUTTER_GST_TYPE_FRAME, old_frame);
 
   g_signal_emit_by_name (player, "new-frame", new_frame);
+}
+
+CoglContext *
+clutter_gst_get_cogl_context (void)
+{
+  return clutter_backend_get_cogl_context (clutter_get_default_backend ());
+}
+
+ClutterGstFrame *
+clutter_gst_create_blank_frame (const ClutterColor *color)
+{
+  CoglTexture *texture;
+  CoglPipeline *pipeline;
+  ClutterGstFrame *frame;
+  ClutterColor black_color = { 0x0, 0x0, 0x0, 0xff };
+  const guint8 *color_ptr = color != NULL ?
+    (const guint8 *) color : (const guint8 *) &black_color;
+
+  texture = cogl_texture_new_from_data (1, 1, COGL_TEXTURE_NONE,
+                                        COGL_PIXEL_FORMAT_RGBA_8888,
+                                        COGL_PIXEL_FORMAT_RGBA_8888,
+                                        1,
+                                        color_ptr);
+  pipeline = cogl_pipeline_new (clutter_gst_get_cogl_context ());
+  cogl_pipeline_set_layer_texture (pipeline, 0, texture);
+
+  frame = clutter_gst_frame_new (pipeline);
+
+  cogl_object_unref (pipeline);
+  cogl_object_unref (texture);
+
+  return frame;
 }

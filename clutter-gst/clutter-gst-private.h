@@ -48,7 +48,12 @@ G_BEGIN_DECLS
 gboolean
 _internal_plugin_init (GstPlugin *plugin);
 
+
+CoglContext *clutter_gst_get_cogl_context (void);
+
 ClutterGstFrame *clutter_gst_frame_new (CoglPipeline *pipeline);
+
+ClutterGstFrame *clutter_gst_create_blank_frame (const ClutterColor *color);
 
 void clutter_gst_util_update_frame (ClutterGstPlayer *player,
                                     ClutterGstFrame **frame,
