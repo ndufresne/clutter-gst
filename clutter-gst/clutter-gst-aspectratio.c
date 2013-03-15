@@ -27,6 +27,7 @@
  */
 
 #include "clutter-gst-aspectratio.h"
+#include "clutter-gst-private.h"
 
 G_DEFINE_TYPE (ClutterGstAspectratio, clutter_gst_aspectratio, CLUTTER_GST_TYPE_ACTOR)
 
@@ -40,6 +41,15 @@ struct _ClutterGstAspectratioPrivate
   gint frame_width;
   gint frame_height;
   ClutterActorBox paint_box;
+
+  gboolean paint_borders;
+};
+
+enum
+{
+  PROP_0,
+
+  PROP_PAINT_BORDERS
 };
 
 /**/
@@ -104,6 +114,35 @@ clutter_gst_aspectratio_paint_frame (ClutterGstActor *self,
 
   cogl_rectangle (priv->paint_box.x1, priv->paint_box.y1,
                   priv->paint_box.x2, priv->paint_box.y2);
+
+  if (priv->paint_borders)
+    {
+      ClutterColor bg_color;
+      ClutterActorBox box;
+      gfloat box_width, box_height;
+
+      clutter_actor_get_background_color (CLUTTER_ACTOR (self), &bg_color);
+      clutter_actor_get_allocation_box (CLUTTER_ACTOR (self), &box);
+
+      box_width = clutter_actor_box_get_width (&box);
+      box_height = clutter_actor_box_get_height (&box);
+
+      cogl_set_source_color4ub (bg_color.red,
+                                bg_color.green,
+                                bg_color.blue,
+                                paint_opacity);
+
+      if (box_width != clutter_actor_box_get_width (&priv->paint_box))
+        {
+          cogl_rectangle (0, 0, priv->paint_box.x1, box_height);
+          cogl_rectangle (priv->paint_box.x2, 0, box_width, box_height);
+        }
+      if (box_height != clutter_actor_box_get_height (&priv->paint_box))
+        {
+          cogl_rectangle (0, 0, box_width, priv->paint_box.y1);
+          cogl_rectangle (0, priv->paint_box.y2, box_width, box_height);
+        }
+    }
 }
 
 static void
@@ -191,8 +230,13 @@ clutter_gst_aspectratio_get_property (GObject    *object,
                                       GValue     *value,
                                       GParamSpec *pspec)
 {
+  ClutterGstAspectratioPrivate *priv = CLUTTER_GST_ASPECTRATIO (object)->priv;
+
   switch (property_id)
     {
+    case PROP_PAINT_BORDERS:
+      g_value_set_boolean (value, priv->paint_borders);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -204,8 +248,13 @@ clutter_gst_aspectratio_set_property (GObject      *object,
                                       const GValue *value,
                                       GParamSpec   *pspec)
 {
+  ClutterGstAspectratioPrivate *priv = CLUTTER_GST_ASPECTRATIO (object)->priv;
+
   switch (property_id)
     {
+    case PROP_PAINT_BORDERS:
+      priv->paint_borders = g_value_get_boolean (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -229,6 +278,7 @@ clutter_gst_aspectratio_class_init (ClutterGstAspectratioClass *klass)
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   ClutterActorClass *actor_class = CLUTTER_ACTOR_CLASS (klass);
   ClutterGstActorClass *gst_actor_class = CLUTTER_GST_ACTOR_CLASS (klass);
+  GParamSpec *pspec;
 
   g_type_class_add_private (klass, sizeof (ClutterGstAspectratioPrivate));
 
@@ -241,6 +291,20 @@ clutter_gst_aspectratio_class_init (ClutterGstAspectratioClass *klass)
   actor_class->get_preferred_height = clutter_gst_aspectratio_get_preferred_height;
 
   gst_actor_class->paint_frame = clutter_gst_aspectratio_paint_frame;
+
+  /**
+   * ClutterGstAspectratio:paint-borders:
+   *
+   * Whether or not paint borders on the sides of the video
+   *
+   * Since: 3.0
+   */
+  pspec = g_param_spec_boolean ("paint-borders",
+                                "Paint borders",
+                                "Paint borders on side of video",
+                                FALSE,
+                                CLUTTER_GST_PARAM_READWRITE);
+  g_object_class_install_property (object_class, PROP_PAINT_BORDERS, pspec);
 }
 
 static void
