@@ -79,7 +79,7 @@ struct _ClutterGstAspectratioClass
 
 GType clutter_gst_aspectratio_get_type (void) G_GNUC_CONST;
 
-ClutterGstAspectratio *clutter_gst_aspectratio_new (void);
+ClutterActor *clutter_gst_aspectratio_new (void);
 
 G_END_DECLS
 

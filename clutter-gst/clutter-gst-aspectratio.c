@@ -318,7 +318,7 @@ clutter_gst_aspectratio_init (ClutterGstAspectratio *self)
                             G_CALLBACK (_recompute_paint_box), self);
 }
 
-ClutterGstAspectratio *
+ClutterActor *
 clutter_gst_aspectratio_new (void)
 {
   return g_object_new (CLUTTER_GST_TYPE_ASPECTRATIO, NULL);
