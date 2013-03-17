@@ -143,15 +143,15 @@ clutter_gst_init (int    *argc,
 #ifdef CLUTTER_GST_ENABLE_DEBUG
   _clutter_gst_debug_init();
 #endif
-  gst_plugin_register_static (GST_VERSION_MAJOR,
-			      GST_VERSION_MINOR,
-			      "cluttersink",
-			      "Element to render to ClutterGst actors",
-			      /* _internal_plugin_init */NULL,
-			      VERSION,
-			      "LGPL", /* license */
-			      "clutter-gst", PACKAGE,
-			      "http://www.clutter-project.org");
+  /* gst_plugin_register_static (GST_VERSION_MAJOR, */
+  /*       		      GST_VERSION_MINOR, */
+  /*       		      "cluttersink", */
+  /*       		      "Element to render to ClutterGst actors", */
+  /*       		      /\* _internal_plugin_init *\/NULL, */
+  /*       		      VERSION, */
+  /*       		      "LGPL", /\* license *\/ */
+  /*       		      "clutter-gst", PACKAGE, */
+  /*       		      "http://www.clutter-project.org"); */
 
 
   clutter_gst_is_initialized = TRUE;
@@ -223,15 +223,15 @@ clutter_gst_init_with_args (int            *argc,
 #ifdef CLUTTER_GST_ENABLE_DEBUG
   _clutter_gst_debug_init ();
 #endif
-  gst_plugin_register_static (GST_VERSION_MAJOR,
-			      GST_VERSION_MINOR,
-			      "cluttersink",
-			      "Element to render to ClutterGst actors",
-			      /* _internal_plugin_init */NULL,
-			      VERSION,
-			      "LGPL", /* license */
-			      "clutter-gst", PACKAGE,
-			      "http://www.clutter-project.org");
+  /* gst_plugin_register_static (GST_VERSION_MAJOR, */
+  /*       		      GST_VERSION_MINOR, */
+  /*       		      "cluttersink", */
+  /*       		      "Element to render to ClutterGst actors", */
+  /*       		      /\* _internal_plugin_init *\/NULL, */
+  /*       		      VERSION, */
+  /*       		      "LGPL", /\* license *\/ */
+  /*       		      "clutter-gst", PACKAGE, */
+  /*       		      "http://www.clutter-project.org"); */
 
 
   clutter_gst_is_initialized = TRUE;
