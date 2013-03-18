@@ -60,8 +60,6 @@ struct _ClutterGstActorPrivate
   ClutterGstFrame  *frame;
 };
 
-static CoglPipeline *texture_template_pipeline = NULL;
-
 enum {
   PROP_0,
 
@@ -265,12 +263,11 @@ clutter_gst_actor_get_player (ClutterGstActor *self)
 }
 
 /**
- * clutter_gst_actor_get_player:
+ * clutter_gst_actor_set_player:
  * @self: a #ClutterGstActor
+ * @player: a #ClutterGstPlayer
  *
- * Retrieves the #ClutterGstPlayer used by the @self.
- *
- * Return value: (transfer none): the #ClutterGstPlayer element used by the actor
+ * Set the #ClutterGstPlayer used by the @self.
  *
  * Since: 3.0
  */
