@@ -40,5 +40,6 @@ EXTRA_DIST = \
 	vid-panel.png          	\
 	video-wall.js		\
 	video-flip.js		\
+	pieces.js		\
 	README			\
 	$(NULL)
