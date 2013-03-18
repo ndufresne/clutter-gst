@@ -164,9 +164,6 @@ input_cb (ClutterStage *stage,
     {
     case CLUTTER_KEY_PRESS:
       {
-        ClutterVertex center = { 0, };
-        ClutterAnimation *animation = NULL;
-
         switch (clutter_event_get_key_symbol (event))
           {
           case CLUTTER_minus:
@@ -317,9 +314,9 @@ video_saved (ClutterGstCamera *camera_player)
 }
 
 static void
-size_change (ClutterGstActor *texture,
-             gint             base_width,
-             gint             base_height,
+size_change (ClutterGstPlayer *player,
+             gint              base_width,
+             gint              base_height,
              CameraApp        *app)
 {
   ClutterActor *stage = app->stage;
@@ -332,7 +329,9 @@ size_change (ClutterGstActor *texture,
   /* base_width and base_height are the actual dimensions of the buffers before
    * taking the pixel aspect ratio into account. We need to get the actual
    * size of the texture to display */
-  clutter_actor_get_size (CLUTTER_ACTOR (texture), &frame_width, &frame_height);
+  clutter_actor_get_preferred_size (app->camera_actor,
+                                    NULL, NULL,
+                                    &frame_width, &frame_height);
 
   new_height = (frame_height * stage_width) / frame_width;
   if (new_height <= stage_height)
@@ -351,8 +350,8 @@ size_change (ClutterGstActor *texture,
       new_y = 0;
     }
 
-  clutter_actor_set_position (CLUTTER_ACTOR (texture), new_x, new_y);
-  clutter_actor_set_size (CLUTTER_ACTOR (texture), new_width, new_height);
+  clutter_actor_set_position (app->camera_actor, new_x, new_y);
+  clutter_actor_set_size (app->camera_actor, new_width, new_height);
 }
 
 int
@@ -387,7 +386,7 @@ main (int argc, char *argv[])
 
   app = g_new0(CameraApp, 1);
   app->stage = stage;
-  app->camera_actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
+  app->camera_actor = clutter_gst_aspectratio_new ();
 
   app->camera_player = clutter_gst_camera_new ();
   if (app->camera_player == NULL)
@@ -426,9 +425,13 @@ main (int argc, char *argv[])
                     G_CALLBACK (video_saved),
                     app);
   /* Handle it ourselves so can scale up for fullscreen better */
-  g_signal_connect_after (app->camera_actor,
+  g_signal_connect_after (app->camera_player,
                           "size-change",
                           G_CALLBACK (size_change), app);
+
+
+  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (app->camera_actor),
+                                CLUTTER_GST_PLAYER (app->camera_player));
 
   /* Add control UI to stage */
   clutter_actor_add_child (stage, app->camera_actor);
