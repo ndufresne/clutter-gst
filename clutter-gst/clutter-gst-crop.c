@@ -40,6 +40,7 @@ struct _ClutterGstCropPrivate
   ClutterActorBox output_region;
 
   gboolean paint_borders;
+  gboolean cull_backface;
 };
 
 enum
@@ -47,6 +48,7 @@ enum
   PROP_0,
 
   PROP_PAINT_BORDERS,
+  PROP_CULL_BACKFACE,
   PROP_INPUT_REGION,
   PROP_OUTPUT_REGION
 };
@@ -72,6 +74,9 @@ clutter_gst_crop_paint_frame (ClutterGstActor *self,
                               paint_opacity,
                               paint_opacity,
                               paint_opacity);
+  if (priv->cull_backface)
+    cogl_pipeline_set_cull_face_mode (frame->pipeline,
+                                      COGL_PIPELINE_CULL_FACE_MODE_BACK);
   cogl_set_source (frame->pipeline);
 
   cogl_rectangle_with_texture_coords (priv->output_region.x1 * box_width,
@@ -145,6 +150,9 @@ clutter_gst_crop_get_property (GObject    *object,
     case PROP_PAINT_BORDERS:
       g_value_set_boolean (value, priv->paint_borders);
       break;
+    case PROP_CULL_BACKFACE:
+      g_value_set_boolean (value, priv->cull_backface);
+      break;
     case PROP_INPUT_REGION:
       box = (ClutterActorBox *) g_value_get_boxed (value);
       *box = priv->input_region;
@@ -171,6 +179,9 @@ clutter_gst_crop_set_property (GObject      *object,
     {
     case PROP_PAINT_BORDERS:
       priv->paint_borders = g_value_get_boolean (value);
+      break;
+    case PROP_CULL_BACKFACE:
+      priv->cull_backface = g_value_get_boolean (value);
       break;
     case PROP_INPUT_REGION:
       box = (ClutterActorBox *) g_value_get_boxed (value);
@@ -232,6 +243,20 @@ clutter_gst_crop_class_init (ClutterGstCropClass *klass)
                                 FALSE,
                                 CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_PAINT_BORDERS, pspec);
+
+  /**
+   * ClutterGstCrop:cull-backface:
+   *
+   * Whether to cull the backface of the actor
+   *
+   * Since: 3.0
+   */
+  pspec = g_param_spec_boolean ("cull-backface",
+                                "Cull Backface",
+                                "Cull the backface of the actor",
+                                FALSE,
+                                CLUTTER_GST_PARAM_READWRITE);
+  g_object_class_install_property (object_class, PROP_CULL_BACKFACE, pspec);
 
   /**
    * ClutterGstCrop:input-region:
