@@ -163,7 +163,7 @@ for (let i = 0; i < ROWS; i++) {
         actors.push(actor);
 
         let animEnterParams = {
-            duration: 250,
+            duration: 350,
             mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             properties: {
                 'rotation-angle-y': 180,
@@ -179,7 +179,7 @@ for (let i = 0; i < ROWS; i++) {
             },
         };
         let animLeaveParams = {
-            duration: 250,
+            duration: 350,
             mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             properties: {
                 'rotation-angle-y': 0,
