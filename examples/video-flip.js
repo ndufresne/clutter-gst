@@ -17,18 +17,6 @@
  * Boston, MA 02111-1307, USA.
  */
 
-(function() {
-    if ( typeof Object.prototype.uniqueId == "undefined" ) {
-        var id = 0;
-        Object.prototype.uniqueId = function() {
-            if ( typeof this.__uniqueid == "undefined" ) {
-                this.__uniqueid = ++id;
-            }
-            return this.__uniqueid;
-        };
-    }
-})();
-
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const Gettext = imports.gettext;
