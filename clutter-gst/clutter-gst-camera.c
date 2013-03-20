@@ -771,7 +771,6 @@ setup_camera_source (ClutterGstCamera *self)
 {
   ClutterGstCameraPrivate *priv = self->priv;
   GstElement *camera_source;
-  GstElement *old_camera_source = NULL;
 
   if (priv->camera_source)
     return TRUE;
