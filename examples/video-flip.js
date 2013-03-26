@@ -34,7 +34,7 @@ const COLUMNS = 3;
 const ROWS = 3;
 
 if (ARGV.length < 2)
-    throw "Need 2 argument : video-wall.js videofile1 videofile2";
+    throw "Need 2 arguments : video-wall.js videofile1 videofile2";
 
 Clutter.init(null, null);
 ClutterGst.init(null, null);
