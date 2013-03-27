@@ -22,14 +22,11 @@ const Mainloop = imports.mainloop;
 
 const Gettext = imports.gettext;
 const _ = imports.gettext.gettext;
-const Tweener = imports.tweener.tweener;
 
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Clutter = imports.gi.Clutter;
 const ClutterGst = imports.gi.ClutterGst;
-const Cairo = imports.cairo;
-const Mx = imports.gi.Mx;
 
 const COLUMNS = 5;
 const ROWS = 4;
