@@ -134,11 +134,11 @@ let pushActorsToFront = function(duration) {
 
 for (let i = 0; i < ROWS; i++) {
     for (let j = 0; j < COLUMNS; j++) {
-        let input = new Clutter.ActorBox({ x1: j / COLUMNS,
-                                           x2: (j + 1) / COLUMNS,
-                                           y1: i / ROWS,
-                                           y2: (i + 1) / ROWS,
-                                         })
+        let input = new ClutterGst.Box({ x1: j / COLUMNS,
+                                         x2: (j + 1) / COLUMNS,
+                                         y1: i / ROWS,
+                                         y2: (i + 1) / ROWS,
+                                       })
         let subActor = new ClutterGst.Crop({ width: 200,
                                              height: 200,
                                              player: player,

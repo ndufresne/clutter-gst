@@ -77,3 +77,24 @@ G_DEFINE_BOXED_TYPE (ClutterGstFrame,
                      clutter_gst_frame,
                      clutter_gst_frame_copy,
                      clutter_gst_frame_free);
+
+static ClutterGstBox *
+clutter_gst_box_copy (const ClutterGstBox *box)
+{
+  if (G_LIKELY (box != NULL))
+    return g_slice_dup (ClutterGstBox, box);
+
+  return NULL;
+}
+
+static void
+clutter_gst_box_free (ClutterGstBox *box)
+{
+  if (G_LIKELY (box != NULL))
+    g_slice_free (ClutterGstBox, box);
+}
+
+G_DEFINE_BOXED_TYPE (ClutterGstBox,
+                     clutter_gst_box,
+                     clutter_gst_box_copy,
+                     clutter_gst_box_free);

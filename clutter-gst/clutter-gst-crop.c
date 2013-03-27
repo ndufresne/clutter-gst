@@ -36,8 +36,8 @@ G_DEFINE_TYPE (ClutterGstCrop, clutter_gst_crop, CLUTTER_GST_TYPE_ACTOR)
 
 struct _ClutterGstCropPrivate
 {
-  ClutterActorBox input_region;
-  ClutterActorBox output_region;
+  ClutterGstBox input_region;
+  ClutterGstBox output_region;
 
   gboolean paint_borders;
   gboolean cull_backface;
@@ -121,7 +121,7 @@ clutter_gst_crop_paint_frame (ClutterGstActor *self,
 }
 
 static gboolean
-_validate_box (ClutterActorBox *box)
+_validate_box (ClutterGstBox *box)
 {
   if (box->x1 >= 0 &&
       box->x1 <= 1 &&
@@ -143,7 +143,7 @@ clutter_gst_crop_get_property (GObject    *object,
                                GParamSpec *pspec)
 {
   ClutterGstCropPrivate *priv = CLUTTER_GST_CROP (object)->priv;
-  ClutterActorBox *box;
+  ClutterGstBox *box;
 
   switch (property_id)
     {
@@ -154,11 +154,11 @@ clutter_gst_crop_get_property (GObject    *object,
       g_value_set_boolean (value, priv->cull_backface);
       break;
     case PROP_INPUT_REGION:
-      box = (ClutterActorBox *) g_value_get_boxed (value);
+      box = (ClutterGstBox *) g_value_get_boxed (value);
       *box = priv->input_region;
       break;
     case PROP_OUTPUT_REGION:
-      box = (ClutterActorBox *) g_value_get_boxed (value);
+      box = (ClutterGstBox *) g_value_get_boxed (value);
       *box = priv->output_region;
       break;
     default:
@@ -173,7 +173,7 @@ clutter_gst_crop_set_property (GObject      *object,
                                GParamSpec   *pspec)
 {
   ClutterGstCropPrivate *priv = CLUTTER_GST_CROP (object)->priv;
-  ClutterActorBox *box;
+  ClutterGstBox *box;
 
   switch (property_id)
     {
@@ -184,17 +184,19 @@ clutter_gst_crop_set_property (GObject      *object,
       priv->cull_backface = g_value_get_boolean (value);
       break;
     case PROP_INPUT_REGION:
-      box = (ClutterActorBox *) g_value_get_boxed (value);
-      if (_validate_box (box))
+      box = (ClutterGstBox *) g_value_get_boxed (value);
+      if (_validate_box (box)) {
         priv->input_region = *box;
-      else
+        clutter_actor_queue_redraw (CLUTTER_ACTOR (object));
+      } else
         g_warning ("Input region must be given in [0, 1] values.");
       break;
     case PROP_OUTPUT_REGION:
-      box = (ClutterActorBox *) g_value_get_boxed (value);
-      if (_validate_box (box))
+      box = (ClutterGstBox *) g_value_get_boxed (value);
+      if (_validate_box (box)) {
         priv->output_region = *box;
-      else
+        clutter_actor_queue_redraw (CLUTTER_ACTOR (object));
+      } else
         g_warning ("Output region must be given in [0, 1] values.");
       break;
     default:
@@ -268,7 +270,7 @@ clutter_gst_crop_class_init (ClutterGstCropClass *klass)
   pspec = g_param_spec_boxed ("input-region",
                               "Input Region",
                               "Input Region",
-                              CLUTTER_TYPE_ACTOR_BOX,
+                              CLUTTER_GST_TYPE_BOX,
                               CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_INPUT_REGION, pspec);
 
@@ -282,7 +284,7 @@ clutter_gst_crop_class_init (ClutterGstCropClass *klass)
   pspec = g_param_spec_boxed ("output-region",
                               "Output Region",
                               "Output Region",
-                              CLUTTER_TYPE_ACTOR_BOX,
+                              CLUTTER_GST_TYPE_BOX,
                               CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_OUTPUT_REGION, pspec);
 }

@@ -129,11 +129,11 @@ for (let i = 0; i < ROWS; i++) {
         if ((i * ROWS + j) >= (ROWS * COLUMNS - 1))
             break;
 
-        let input = new Clutter.ActorBox({ x1: j / COLUMNS,
-                                           x2: (j + 1) / COLUMNS,
-                                           y1: i / ROWS,
-                                           y2: (i + 1) / ROWS,
-                                         })
+        let input = new ClutterGst.Box({ x1: j / COLUMNS,
+                                         x2: (j + 1) / COLUMNS,
+                                         y1: i / ROWS,
+                                         y2: (i + 1) / ROWS,
+                                       })
         let actor = new ClutterGst.Crop({ width: BIT_WIDTH,
                                           height: BIT_HEIGHT,
                                           player: player,

@@ -35,7 +35,9 @@
 #define __CLUTTER_GST_TYPES_H__
 
 #define CLUTTER_GST_TYPE_FRAME            (clutter_gst_frame_get_type ())
+#define CLUTTER_GST_TYPE_BOX              (clutter_gst_box_get_type ())
 
+typedef struct _ClutterGstBox             ClutterGstBox;
 typedef struct _ClutterGstFrame           ClutterGstFrame;
 typedef struct _ClutterGstVideoResolution ClutterGstVideoResolution;
 
@@ -99,6 +101,27 @@ struct _ClutterGstFrame
 };
 
 
+/**
+ * ClutterGstBox:
+ * @x1: X coordinate of the top left corner
+ * @y1: Y coordinate of the top left corner
+ * @x2: X coordinate of the bottom right corner
+ * @y2: Y coordinate of the bottom right corner
+ *
+ * Bounding box of an area in a video texture or actor's allocation.
+ * Coordinates are usually expressed in the [0, 1] interval.
+ */
+struct _ClutterGstBox
+{
+  gfloat x1;
+  gfloat y1;
+
+  gfloat x2;
+  gfloat y2;
+};
+
+
 GType clutter_gst_frame_get_type (void) G_GNUC_CONST;
+GType clutter_gst_box_get_type   (void) G_GNUC_CONST;
 
 #endif /* __CLUTTER_GST_TYPES_H__ */
