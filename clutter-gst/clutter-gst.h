@@ -37,9 +37,10 @@
 #include "clutter-gst-camera-device.h"
 #include "clutter-gst-camera.h"
 #include "clutter-gst-crop.h"
+#include "clutter-gst-pipeline.h"
+#include "clutter-gst-playback.h"
+#include "clutter-gst-player.h"
 #include "clutter-gst-util.h"
 #include "clutter-gst-version.h"
-#include "clutter-gst-player.h"
-#include "clutter-gst-playback.h"
 
 #endif /* __CLUTTER_GST_H__ */

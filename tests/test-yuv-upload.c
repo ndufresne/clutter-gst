@@ -53,10 +53,10 @@ static GOptionEntry options[] =
 };
 
 void
-size_change (ClutterActor   *actor,
-             gint            width,
-             gint            height,
-             gpointer        user_data)
+size_change (ClutterGstPlayer *player,
+             gint              width,
+             gint              height,
+             ClutterActor     *actor)
 {
   ClutterActor *stage;
   gfloat new_x, new_y, new_width, new_height;
@@ -101,9 +101,7 @@ main (int argc, char *argv[])
   GstElement       *capsfilter;
   GstElement       *sink;
   GstCaps          *caps;
-
-  if (!g_thread_supported ())
-    g_thread_init (NULL);
+  ClutterGstPlayer *player;
 
   result = clutter_gst_init_with_args (&argc,
                                        &argv,
@@ -124,17 +122,12 @@ main (int argc, char *argv[])
 
   actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
 
-  g_signal_connect (actor,
-                    "size-change",
-                    G_CALLBACK (size_change), NULL);
-
   /* Set up pipeline */
   pipeline = GST_PIPELINE(gst_pipeline_new (NULL));
 
   src = gst_element_factory_make ("videotestsrc", NULL);
   capsfilter = gst_element_factory_make ("capsfilter", NULL);
-  sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (sink, "actor", actor, NULL);
+  sink = clutter_gst_create_video_sink ();
 
   /* make videotestsrc spit the format we want */
   caps = gst_caps_new_simple ("video/x-raw",
@@ -149,6 +142,13 @@ main (int argc, char *argv[])
   if (result == FALSE)
     g_critical("Could not link elements");
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
+
+  player = CLUTTER_GST_PLAYER (g_object_new (CLUTTER_GST_TYPE_PIPELINE,
+                                             "video-sink", sink, NULL));
+  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (actor), player);
+  g_signal_connect (player,
+                    "size-change",
+                    G_CALLBACK (size_change), actor);
 
   clutter_actor_add_child (stage, actor);
   /* clutter_actor_set_opacity (texture, 0x11); */

@@ -64,10 +64,10 @@ static GOptionEntry options[] =
 };
 
 void
-size_change (ClutterActor   *actor,
-             gint            width,
-             gint            height,
-             gpointer        user_data)
+size_change (ClutterGstPlayer *player,
+             gint              width,
+             gint              height,
+             ClutterActor     *actor)
 {
   ClutterActor *stage;
   gfloat new_x, new_y, new_width, new_height;
@@ -113,10 +113,7 @@ main (int argc, char *argv[])
   GstElement       *sink;
   GstCaps          *caps;
   GstVideoFormat    format;
-
-  if (!g_thread_supported ())
-    g_thread_init (NULL);
-
+  ClutterGstPlayer *player;
 
   result = clutter_gst_init_with_args (&argc,
                                        &argv,
@@ -135,19 +132,14 @@ main (int argc, char *argv[])
   stage = clutter_stage_new ();
   clutter_actor_set_size (CLUTTER_ACTOR (stage), 320.0f, 240.0f);
 
-  actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
-
-  g_signal_connect (actor,
-                    "size-change",
-                    G_CALLBACK (size_change), NULL);
+  actor = clutter_gst_actor_new ();
 
   /* Set up pipeline */
   pipeline = GST_PIPELINE(gst_pipeline_new (NULL));
 
   src = gst_element_factory_make ("videotestsrc", NULL);
   capsfilter = gst_element_factory_make ("capsfilter", NULL);
-  sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (sink, "actor", actor, NULL);
+  sink = clutter_gst_create_video_sink ();
 
   format = gst_video_format_from_masks(opt_depth, opt_bpp, G_BIG_ENDIAN,
 				       0xff0000,
@@ -167,6 +159,14 @@ main (int argc, char *argv[])
   if (result == FALSE)
     g_critical("Could not link elements");
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
+
+
+  player = CLUTTER_GST_PLAYER (g_object_new (CLUTTER_GST_TYPE_PIPELINE,
+                                             "video-sink", sink, NULL));
+  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (actor), player);
+  g_signal_connect (player,
+                    "size-change",
+                    G_CALLBACK (size_change), actor);
 
   clutter_actor_add_child (stage, actor);
   clutter_actor_show (stage);
