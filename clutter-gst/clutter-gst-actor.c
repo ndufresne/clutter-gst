@@ -69,6 +69,34 @@ enum {
 G_DEFINE_TYPE (ClutterGstActor, clutter_gst_actor, CLUTTER_TYPE_ACTOR)
 
 static void
+clutter_gst_actor_get_preferred_width (ClutterActor *actor,
+                                       gfloat        for_height,
+                                       gfloat       *min_width,
+                                       gfloat       *nat_width)
+{
+  ClutterGstActorPrivate *priv = CLUTTER_GST_ACTOR (actor)->priv;
+
+  if (min_width)
+    *min_width = 0;
+  if (nat_width)
+    *nat_width = priv->frame->resolution.width;
+}
+
+static void
+clutter_gst_actor_get_preferred_height (ClutterActor *actor,
+                                        gfloat        for_width,
+                                        gfloat       *min_height,
+                                        gfloat       *nat_height)
+{
+  ClutterGstActorPrivate *priv = CLUTTER_GST_ACTOR (actor)->priv;
+
+  if (min_height)
+    *min_height = 0;
+  if (nat_height)
+    *nat_height = priv->frame->resolution.height;
+}
+
+static void
 clutter_gst_actor_paint_frame (ClutterGstActor *self,
                                ClutterGstFrame *frame)
 {
@@ -216,6 +244,8 @@ clutter_gst_actor_class_init (ClutterGstActorClass *klass)
   object_class->set_property = clutter_gst_actor_set_property;
   object_class->get_property = clutter_gst_actor_get_property;
 
+  actor_class->get_preferred_width = clutter_gst_actor_get_preferred_width;
+  actor_class->get_preferred_height = clutter_gst_actor_get_preferred_height;
   actor_class->paint = clutter_gst_actor_paint;
 
   klass->paint_frame = clutter_gst_actor_paint_frame;
