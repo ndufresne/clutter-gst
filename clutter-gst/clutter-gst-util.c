@@ -239,6 +239,21 @@ clutter_gst_init_with_args (int            *argc,
   return CLUTTER_INIT_SUCCESS;
 }
 
+/**
+ * clutter_gst_create_video_sink:
+ *
+ * Creates a new #CoglGstVideoSink initialized with Clutter's Cogl context.
+ *
+ * Return value: (transfer full): the newly created #CoglGstVideoSink.
+ *
+ * Since: 3.0
+ */
+GstElement *
+clutter_gst_create_video_sink (void)
+{
+  return GST_ELEMENT (cogl_gst_video_sink_new (clutter_gst_get_cogl_context ()));
+}
+
 /**/
 
 CoglContext *

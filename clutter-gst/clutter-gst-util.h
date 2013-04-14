@@ -46,6 +46,8 @@ ClutterInitError clutter_gst_init_with_args (int            *argc,
                                              const char     *translation_domain,
                                              GError        **error);
 
+GstElement *clutter_gst_create_video_sink (void);
+
 G_END_DECLS
 
 #endif /* __CLUTTER_GST_UTIL_H__ */
