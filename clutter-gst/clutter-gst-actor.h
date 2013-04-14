@@ -109,6 +109,8 @@ struct _ClutterGstActorClass
 
 GType clutter_gst_actor_get_type (void) G_GNUC_CONST;
 
+ClutterActor     *clutter_gst_actor_new               (void);
+
 ClutterGstPlayer *clutter_gst_actor_get_player        (ClutterGstActor  *self);
 void              clutter_gst_actor_set_player        (ClutterGstActor  *self,
                                                        ClutterGstPlayer *player);

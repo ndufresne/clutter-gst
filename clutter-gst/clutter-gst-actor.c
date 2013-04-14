@@ -271,6 +271,25 @@ clutter_gst_actor_init (ClutterGstActor *actor)
  */
 
 /**
+ * clutter_gst_actor_new:
+ *
+ * Creates a new #ClutterGstActor.
+ *
+ * A newly created actor has a floating reference, which will be sunk
+ * when it is added to another actor.
+ *
+ * Return value: the newly created #ClutterGstActor
+ *
+ * Since: 3.0
+ */
+ClutterActor *
+clutter_gst_actor_new (void)
+{
+  return g_object_new (CLUTTER_GST_TYPE_ACTOR,
+                       NULL);
+}
+
+/**
  * clutter_gst_actor_get_player:
  * @self: a #ClutterGstActor
  *
