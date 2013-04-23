@@ -79,7 +79,8 @@ clutter_gst_actor_get_preferred_width (ClutterActor *actor,
   if (min_width)
     *min_width = 0;
   if (nat_width)
-    *nat_width = priv->frame->resolution.width;
+    if (priv->frame)
+      *nat_width = priv->frame->resolution.width;
 }
 
 static void
@@ -93,7 +94,8 @@ clutter_gst_actor_get_preferred_height (ClutterActor *actor,
   if (min_height)
     *min_height = 0;
   if (nat_height)
-    *nat_height = priv->frame->resolution.height;
+    if (priv->frame)
+      *nat_height = priv->frame->resolution.height;
 }
 
 static void
