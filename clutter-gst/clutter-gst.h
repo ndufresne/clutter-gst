@@ -36,6 +36,7 @@
 #include "clutter-gst-aspectratio.h"
 #include "clutter-gst-camera-device.h"
 #include "clutter-gst-camera.h"
+#include "clutter-gst-content.h"
 #include "clutter-gst-crop.h"
 #include "clutter-gst-pipeline.h"
 #include "clutter-gst-playback.h"

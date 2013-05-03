@@ -1,6 +1,6 @@
 NULL = #
 
-noinst_PROGRAMS = camera-player video-player video-sink video-sink-navigation
+noinst_PROGRAMS = camera-player video-player video-sink video-sink-navigation video-content
 
 INCLUDES = -I$(top_srcdir) \
 	   $(MAINTAINER_CFLAGS) \
@@ -30,6 +30,13 @@ video_sink_LDFLAGS = \
 video_sink_navigation_SOURCES = video-sink-navigation.c
 video_sink_navigation_CFLAGS = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
 video_sink_navigation_LDFLAGS = \
+    $(CLUTTER_GST_LIBS) \
+    $(GST_LIBS)   \
+    $(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
+
+video_content_SOURCES = video-content.c
+video_content_CFLAGS = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
+video_content_LDFLAGS = \
     $(CLUTTER_GST_LIBS) \
     $(GST_LIBS)   \
     $(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
