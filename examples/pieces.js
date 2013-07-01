@@ -131,13 +131,16 @@ for (let i = 0; i < ROWS; i++) {
                                          y1: i / ROWS,
                                          y2: (i + 1) / ROWS,
                                        })
-        let actor = new ClutterGst.Crop({ width: BIT_WIDTH,
-                                          height: BIT_HEIGHT,
-                                          player: player,
-                                          x: BIT_WIDTH * j,
-                                          y: BIT_HEIGHT * i,
-                                          input_region: input,
-                                        });
+        let actor = new Clutter.Actor({
+            width: BIT_WIDTH,
+            height: BIT_HEIGHT,
+            x: BIT_WIDTH * j,
+            y: BIT_HEIGHT * i,
+            content: new ClutterGst.Crop({
+                player: player,
+                input_region: input,
+            }),
+        });
         stage.add_actor(actor);
 
         pieces.array[i][j] = actor;

@@ -28,6 +28,7 @@
 
 #include <cogl-gst/cogl-gst.h>
 #include <clutter/clutter.h>
+#include <clutter-gst/clutter-gst-player.h>
 
 G_BEGIN_DECLS
 
@@ -56,7 +57,7 @@ typedef struct _ClutterGstContentClass       ClutterGstContentClass;
 struct _ClutterGstContent
 {
   /*< private >*/
-  GObject parent_instance;
+  GObject parent;
 
   ClutterGstContentPrivate *priv;
 };
@@ -77,14 +78,17 @@ struct _ClutterGstContentClass
 
 GType                     clutter_gst_content_get_type      (void) G_GNUC_CONST;
 
-ClutterContent *          clutter_gst_content_new           (void);
-
-ClutterContent *          clutter_gst_content_new_with_sink (CoglGstVideoSink *sink);
+ClutterGstFrame *         clutter_gst_content_get_frame     (ClutterGstContent *self);
 
 void                      clutter_gst_content_set_sink      (ClutterGstContent *self,
                                                              CoglGstVideoSink  *sink);
 
 CoglGstVideoSink *        clutter_gst_content_get_sink      (ClutterGstContent *self);
+
+ClutterGstPlayer *        clutter_gst_content_get_player    (ClutterGstContent *self);
+
+void                      clutter_gst_content_set_player    (ClutterGstContent *self,
+                                                             ClutterGstPlayer  *player);
 
 G_END_DECLS
 

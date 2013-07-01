@@ -124,4 +124,7 @@ struct _ClutterGstBox
 GType clutter_gst_frame_get_type (void) G_GNUC_CONST;
 GType clutter_gst_box_get_type   (void) G_GNUC_CONST;
 
+gfloat clutter_gst_box_get_width     (const ClutterGstBox *box);
+gfloat clutter_gst_box_get_height    (const ClutterGstBox *box);
+
 #endif /* __CLUTTER_GST_TYPES_H__ */

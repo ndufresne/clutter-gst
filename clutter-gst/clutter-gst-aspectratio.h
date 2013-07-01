@@ -3,8 +3,9 @@
  *
  * GStreamer integration library for Clutter.
  *
- * clutter-gst-aspectratio.c - An actor rendering a video with respect
- * to its aspect ratio.
+ * clutter-gst-aspectratio.c - An object implementing the
+ * ClutterContent interface to render a video with respect to its
+ * aspect ratio.
  *
  * Authored by Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>
  *
@@ -35,7 +36,7 @@
 
 #include <glib-object.h>
 
-#include <clutter-gst/clutter-gst-actor.h>
+#include <clutter-gst/clutter-gst-content.h>
 
 G_BEGIN_DECLS
 
@@ -67,19 +68,20 @@ typedef struct _ClutterGstAspectratioPrivate ClutterGstAspectratioPrivate;
 
 struct _ClutterGstAspectratio
 {
-  ClutterGstActor parent;
+  /*< private >*/
+  ClutterGstContent parent;
 
   ClutterGstAspectratioPrivate *priv;
 };
 
 struct _ClutterGstAspectratioClass
 {
-  ClutterGstActorClass parent_class;
+  ClutterGstContentClass parent_class;
 };
 
 GType clutter_gst_aspectratio_get_type (void) G_GNUC_CONST;
 
-ClutterActor *clutter_gst_aspectratio_new (void);
+ClutterContent *clutter_gst_aspectratio_new (void);
 
 G_END_DECLS
 

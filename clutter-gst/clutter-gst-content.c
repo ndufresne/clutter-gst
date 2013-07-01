@@ -33,11 +33,12 @@
 #include "clutter-gst-private.h"
 #include "clutter-gst-marshal.h"
 
-static void clutter_content_iface_init (ClutterContentIface *iface);
+static void content_iface_init (ClutterContentIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (ClutterGstContent, clutter_gst_content, G_TYPE_OBJECT,
-                         G_IMPLEMENT_INTERFACE (CLUTTER_TYPE_CONTENT,
-                                                clutter_content_iface_init));
+G_DEFINE_TYPE_WITH_CODE (ClutterGstContent,
+                         clutter_gst_content,
+                         G_TYPE_OBJECT,
+                         G_IMPLEMENT_INTERFACE (CLUTTER_TYPE_CONTENT, content_iface_init))
 
 #define CLUTTER_GST_CONTENT_GET_PRIVATE(obj)\
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -48,6 +49,7 @@ G_DEFINE_TYPE_WITH_CODE (ClutterGstContent, clutter_gst_content, G_TYPE_OBJECT,
 struct _ClutterGstContentPrivate
 {
   CoglGstVideoSink *sink;
+  ClutterGstPlayer *player;
   ClutterGstFrame *current_frame;
 };
 
@@ -56,6 +58,7 @@ enum
   PROP_0,
 
   PROP_VIDEO_SINK,
+  PROP_PLAYER,
 
   PROP_LAST
 };
@@ -115,14 +118,49 @@ _pixel_aspect_ratio_changed (CoglGstVideoSink  *sink,
                                                sink);
 }
 
+static void content_set_sink (ClutterGstContent *self,
+                              CoglGstVideoSink  *sink,
+                              gboolean           set_from_player);
+
+static void
+content_set_player (ClutterGstContent *self,
+                    ClutterGstPlayer  *player)
+{
+  ClutterGstContentPrivate *priv = self->priv;
+
+  if (priv->player == player)
+    return;
+
+  if (priv->player)
+    g_clear_object (&priv->sink);
+
+  if (player)
+    {
+      priv->player = g_object_ref_sink (player);
+      content_set_sink (self, clutter_gst_player_get_video_sink (player), TRUE);
+      /* g_signal_connect (priv->player, "new-frame", */
+      /*                   G_CALLBACK (_new_frame_from_pipeline), self); */
+      /* g_signal_connect (priv->player, "notify::pixel-aspect-ratio", */
+      /*                   G_CALLBACK (_pixel_aspect_ratio_changed), self); */
+    }
+  else
+    content_set_sink (self, NULL, TRUE);
+
+  g_object_notify (G_OBJECT (self), "player");
+}
+
 static void
 content_set_sink (ClutterGstContent *self,
-                  CoglGstVideoSink  *sink)
+                  CoglGstVideoSink  *sink,
+                  gboolean           set_from_player)
 {
   ClutterGstContentPrivate *priv = self->priv;
 
   if (priv->sink == sink)
     return;
+
+  if (!set_from_player)
+    content_set_player (self, NULL);
 
   if (priv->sink)
     {
@@ -217,7 +255,7 @@ clutter_gst_content_paint_content (ClutterContent   *content,
 }
 
 static void
-clutter_content_iface_init (ClutterContentIface *iface)
+content_iface_init (ClutterContentIface *iface)
 {
   iface->get_preferred_size = clutter_gst_content_get_preferred_size;
   iface->paint_content = clutter_gst_content_paint_content;
@@ -234,7 +272,12 @@ clutter_gst_content_set_property (GObject      *object,
   switch (prop_id)
     {
     case PROP_VIDEO_SINK:
-      content_set_sink (self, g_value_get_object (value));
+      content_set_sink (self, g_value_get_object (value), FALSE);
+      break;
+
+    case PROP_PLAYER:
+      content_set_player (self,
+                          CLUTTER_GST_PLAYER (g_value_get_object (value)));
       break;
 
     default:
@@ -255,6 +298,10 @@ clutter_gst_content_get_property (GObject    *object,
     {
     case PROP_VIDEO_SINK:
       g_value_set_object (value, priv->sink);
+      break;
+
+    case PROP_PLAYER:
+      g_value_set_object (value, priv->player);
       break;
 
     default:
@@ -297,10 +344,17 @@ clutter_gst_content_class_init (ClutterGstContentClass *klass)
 
   g_type_class_add_private (klass, sizeof (ClutterGstContentPrivate));
 
+  props[PROP_PLAYER] =
+    g_param_spec_object ("player",
+                         "ClutterGst Player",
+                         "ClutterGst Player",
+                         G_TYPE_OBJECT,
+                         G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
+
   props[PROP_VIDEO_SINK] =
     g_param_spec_object ("video-sink",
-                         "video-sink",
-                         "video-sink",
+                         "Cogl Video Sink",
+                         "Cogl Video Sink",
                          COGL_GST_TYPE_VIDEO_SINK,
                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
   g_object_class_install_properties (gobject_class, PROP_LAST, props);
@@ -357,6 +411,8 @@ clutter_gst_content_new (void)
  * clutter_gst_content_new_with_sink:
  *
  * Returns: (transfer full): a new #ClutterGstContent instance
+ *
+ * Since: 3.0
  */
 ClutterContent *
 clutter_gst_content_new_with_sink (CoglGstVideoSink *sink)
@@ -366,11 +422,44 @@ clutter_gst_content_new_with_sink (CoglGstVideoSink *sink)
                        NULL);
 }
 
+/**
+ * clutter_gst_content_get_frame:
+ * @self: A #ClutterGstContent
+ *
+ * Returns: (transfer none): The #ClutterGstFrame currently attached to @self.
+ *
+ * Since: 3.0
+ */
+ClutterGstFrame *
+clutter_gst_content_get_frame (ClutterGstContent *self)
+{
+  g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
+
+  return self->priv->current_frame;
+}
+
+/**
+ * clutter_gst_content_get_sink:
+ * @self: A #ClutterGstContent
+ *
+ * Returns: (transfer none): The #CoglGstVideoSink currently attached to @self.
+ *
+ * Since: 3.0
+ */
+CoglGstVideoSink *
+clutter_gst_content_get_sink (ClutterGstContent *self)
+{
+  g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
+
+  return self->priv->sink;
+}
 
 /**
  * clutter_gst_content_set_sink:
  * @self: A #ClutterGstContent
  * @sink: A #CoglGstVideoSink or %NULL
+ *
+ * Since: 3.0
  */
 void
 clutter_gst_content_set_sink (ClutterGstContent *self,
@@ -379,19 +468,38 @@ clutter_gst_content_set_sink (ClutterGstContent *self,
   g_return_if_fail (CLUTTER_GST_IS_CONTENT (self));
   g_return_if_fail (sink == NULL || COGL_GST_IS_VIDEO_SINK (sink));
 
-  content_set_sink (self, sink);
+  content_set_sink (self, sink, FALSE);
 }
 
 /**
- * clutter_gst_content_get_sink:
+ * clutter_gst_content_get_player:
  * @self: A #ClutterGstContent
  *
- * Returns: (transfer none):
+ * Returns: (transfer none): The #ClutterGstPlayer currently attached to @self.
+ *
+ * Since: 3.0
  */
-CoglGstVideoSink *
-clutter_gst_content_get_sink (ClutterGstContent *self)
+ClutterGstPlayer *
+clutter_gst_content_get_player (ClutterGstContent *self)
 {
   g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
 
-  return self->priv->sink;
+  return self->priv->player;
+}
+
+/**
+ * clutter_gst_content_set_player:
+ * @self: A #ClutterGstContent
+ * @player: A #ClutterGstPlayer or %NULL
+ *
+ * Since: 3.0
+ */
+void
+clutter_gst_content_set_player (ClutterGstContent *self,
+                                ClutterGstPlayer  *player)
+{
+  g_return_if_fail (CLUTTER_GST_IS_CONTENT (self));
+  g_return_if_fail (player == NULL || CLUTTER_GST_IS_PLAYER (player));
+
+  content_set_player (self, player);
 }

@@ -63,43 +63,6 @@ static GOptionEntry options[] =
   { NULL }
 };
 
-void
-size_change (ClutterGstPlayer *player,
-             gint              width,
-             gint              height,
-             ClutterActor     *actor)
-{
-  ClutterActor *stage;
-  gfloat new_x, new_y, new_width, new_height;
-  gfloat stage_width, stage_height;
-
-  stage = clutter_actor_get_stage (actor);
-  if (stage == NULL)
-    return;
-
-  clutter_actor_get_size (stage, &stage_width, &stage_height);
-
-  new_height = (height * stage_width) / width;
-  if (new_height <= stage_height)
-    {
-      new_width = stage_width;
-
-      new_x = 0;
-      new_y = (stage_height - new_height) / 2;
-    }
-  else
-    {
-      new_width  = (width * stage_height) / height;
-      new_height = stage_height;
-
-      new_x = (stage_height - new_width) / 2;
-      new_y = 0;
-    }
-
-  clutter_actor_set_position (actor, new_x, new_y);
-  clutter_actor_set_size (actor, new_width, new_height);
-}
-
 int
 main (int argc, char *argv[])
 {
@@ -132,7 +95,6 @@ main (int argc, char *argv[])
   stage = clutter_stage_new ();
   clutter_actor_set_size (CLUTTER_ACTOR (stage), 320.0f, 240.0f);
 
-  actor = clutter_gst_actor_new ();
 
   /* Set up pipeline */
   pipeline = GST_PIPELINE(gst_pipeline_new (NULL));
@@ -140,6 +102,16 @@ main (int argc, char *argv[])
   src = gst_element_factory_make ("videotestsrc", NULL);
   capsfilter = gst_element_factory_make ("capsfilter", NULL);
   sink = clutter_gst_create_video_sink ();
+
+  /* Video actor */
+  actor = g_object_new (CLUTTER_TYPE_ACTOR,
+                        "content", g_object_new (CLUTTER_GST_TYPE_CONTENT,
+                                                 "video-sink", sink,
+                                                 NULL),
+                        "width", clutter_actor_get_width (stage),
+                        "height", clutter_actor_get_height (stage),
+                        NULL);
+
 
   format = gst_video_format_from_masks(opt_depth, opt_bpp, G_BIG_ENDIAN,
 				       0xff0000,
@@ -159,14 +131,6 @@ main (int argc, char *argv[])
   if (result == FALSE)
     g_critical("Could not link elements");
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
-
-
-  player = CLUTTER_GST_PLAYER (g_object_new (CLUTTER_GST_TYPE_PIPELINE,
-                                             "video-sink", sink, NULL));
-  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (actor), player);
-  g_signal_connect (player,
-                    "size-change",
-                    G_CALLBACK (size_change), actor);
 
   clutter_actor_add_child (stage, actor);
   clutter_actor_show (stage);

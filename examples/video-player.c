@@ -469,11 +469,15 @@ main (int argc, char *argv[])
 
   app = g_new0(VideoApp, 1);
   app->stage = stage;
-  app->vactor = g_object_new (CLUTTER_GST_TYPE_ASPECTRATIO, NULL);
-  clutter_actor_set_size (app->vactor, clutter_actor_get_width (stage), clutter_actor_get_height (stage));
   app->player = clutter_gst_playback_new ();
 
-  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (app->vactor), CLUTTER_GST_PLAYER (app->player));
+  app->vactor = g_object_new (CLUTTER_TYPE_ACTOR,
+                              "width", clutter_actor_get_width (stage),
+                              "height", clutter_actor_get_height (stage),
+                              "content", g_object_new (CLUTTER_GST_TYPE_ASPECTRATIO,
+                                                       "player", app->player,
+                                                       NULL),
+                              NULL);
 
   if (app->vactor == NULL)
     g_error("failed to create vactor");

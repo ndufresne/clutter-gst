@@ -35,7 +35,7 @@
 
 #include <glib-object.h>
 
-#include <clutter-gst/clutter-gst-actor.h>
+#include <clutter-gst/clutter-gst-content.h>
 
 G_BEGIN_DECLS
 
@@ -67,14 +67,14 @@ typedef struct _ClutterGstCropPrivate ClutterGstCropPrivate;
 
 struct _ClutterGstCrop
 {
-  ClutterGstActor parent;
+  ClutterGstContent parent;
 
   ClutterGstCropPrivate *priv;
 };
 
 struct _ClutterGstCropClass
 {
-  ClutterGstActorClass parent_class;
+  ClutterGstContentClass parent_class;
 };
 
 GType clutter_gst_crop_get_type (void) G_GNUC_CONST;

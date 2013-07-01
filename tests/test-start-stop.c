@@ -33,45 +33,6 @@
 char *video_files[] = {NULL, NULL};
 
 void
-size_change (ClutterGstPlayer *player,
-             gint              width,
-             gint              height,
-             ClutterActor     *actor)
-{
-  ClutterActor *stage = clutter_actor_get_stage (actor);
-  gfloat new_x, new_y, new_width, new_height;
-  gfloat stage_width, stage_height;
-
-  g_message ("size change %ix%i", width, height);
-
-  clutter_actor_get_size (stage, &stage_width, &stage_height);
-
-  /* new_height = (height * stage_width) / width; */
-  /* if (new_height <= stage_height) */
-  /*   { */
-  /*     new_width = stage_width; */
-
-  /*     new_x = 0; */
-  /*     new_y = (stage_height - new_height) / 2; */
-  /*   } */
-  /* else */
-  /*   { */
-  /*     new_width  = (width * stage_height) / height; */
-  /*     new_height = stage_height; */
-
-  /*     new_x = (stage_width - new_width) / 2; */
-  /*     new_y = 0; */
-  /*   } */
-
-  /* clutter_actor_set_position (actor, new_x, new_y); */
-  clutter_actor_set_size (actor, stage_width, stage_height);
-
-  g_message (" new pos/size -> x,y=%.2fx%.2f w,h=%.2fx%.2f",
-             new_x, new_y, stage_width, stage_height);
-
-}
-
-void
 on_error (ClutterGstPlayer *player)
 {
   g_print ("error\n");
@@ -151,16 +112,17 @@ main (int argc, char *argv[])
   stage = clutter_stage_new ();
   clutter_actor_set_background_color (stage, &stage_color);
 
-  video = clutter_gst_aspectratio_new ();
-
   player = clutter_gst_playback_new ();
-  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (video), CLUTTER_GST_PLAYER (player));
+
+  video = g_object_new (CLUTTER_TYPE_ACTOR,
+                        "content", g_object_new (CLUTTER_GST_TYPE_ASPECTRATIO,
+                                                 "player", player,
+                                                 NULL),
+                        "width", clutter_actor_get_width (stage),
+                        "height", clutter_actor_get_height (stage),
+                        NULL);
   clutter_actor_add_child (stage, video);
 
-  g_signal_connect (player,
-                    "size-change",
-                    G_CALLBACK(size_change),
-                    video);
   g_signal_connect (player,
                     "error",
                     G_CALLBACK(on_error),

@@ -35,7 +35,7 @@
 int
 main (int argc, char *argv[])
 {
-  ClutterActor *vactor;
+  ClutterGstPlayer *player;
   int i;
 
   clutter_gst_init (&argc, &argv);
@@ -43,9 +43,9 @@ main (int argc, char *argv[])
   for (i = 0; ; i++)
   {
     g_debug("VideoActor #%d", i);
-    vactor = clutter_gst_actor_new ();
-    g_object_ref_sink (vactor);
-    g_object_unref (vactor);
+    player = CLUTTER_GST_PLAYER (clutter_gst_playback_new ());
+    g_object_ref_sink (player);
+    g_object_unref (player);
   }
 
   return EXIT_SUCCESS;

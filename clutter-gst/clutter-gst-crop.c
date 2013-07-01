@@ -29,7 +29,13 @@
 #include "clutter-gst-crop.h"
 #include "clutter-gst-private.h"
 
-G_DEFINE_TYPE (ClutterGstCrop, clutter_gst_crop, CLUTTER_GST_TYPE_ACTOR)
+static void content_iface_init (ClutterContentIface *iface);
+
+G_DEFINE_TYPE_WITH_CODE (ClutterGstCrop,
+                         clutter_gst_crop,
+                         CLUTTER_GST_TYPE_CONTENT,
+                         G_IMPLEMENT_INTERFACE (CLUTTER_TYPE_CONTENT,
+                                                content_iface_init))
 
 #define CROP_PRIVATE(o) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((o), CLUTTER_GST_TYPE_CROP, ClutterGstCropPrivate))
@@ -55,20 +61,106 @@ enum
 
 /**/
 
-static void
-clutter_gst_crop_paint_frame (ClutterGstActor *self,
-                              ClutterGstFrame *frame)
+static gboolean
+clutter_gst_crop_get_preferred_size (ClutterContent *content,
+                                     gfloat         *width,
+                                     gfloat         *height)
 {
-  ClutterGstCropPrivate *priv = CLUTTER_GST_CROP (self)->priv;
-  guint8 paint_opacity;
-  ClutterActorBox box;
+  ClutterGstFrame *frame =
+    clutter_gst_content_get_frame (CLUTTER_GST_CONTENT (content));
+
+  if (!frame)
+    return FALSE;
+
+  if (width)
+    *width = frame->resolution.width;
+  if (height)
+    *height = frame->resolution.height;
+
+  return TRUE;
+}
+
+static void
+clutter_gst_crop_paint_content (ClutterContent   *content,
+                                ClutterActor     *actor,
+                                ClutterPaintNode *root)
+{
+  ClutterGstCrop *self = CLUTTER_GST_CROP (content);
+  ClutterGstCropPrivate *priv = self->priv;
+  ClutterGstFrame *frame =
+    clutter_gst_content_get_frame (CLUTTER_GST_CONTENT (content));
+  guint8 paint_opacity = clutter_actor_get_paint_opacity (actor);
+  ClutterActorBox content_box;
   gfloat box_width, box_height;
+  ClutterColor color;
+  ClutterPaintNode *node;
 
-  clutter_actor_get_allocation_box (CLUTTER_ACTOR (self), &box);
-  box_width = clutter_actor_box_get_width (&box);
-  box_height = clutter_actor_box_get_height (&box);
+  clutter_actor_get_content_box (actor, &content_box);
 
-  paint_opacity = clutter_actor_get_paint_opacity (CLUTTER_ACTOR (self));
+  if (!frame)
+    {
+      /* No frame to paint, just paint the background color of the
+         actor. */
+      if (priv->paint_borders)
+        {
+          clutter_actor_get_background_color (actor, &color);
+          color.alpha = paint_opacity;
+
+          clutter_paint_node_add_rectangle_custom (node,
+                                                   content_box.x1, content_box.y1,
+                                                   content_box.x2, content_box.y2);
+          clutter_paint_node_add_child (root, node);
+          clutter_paint_node_unref (node);
+        }
+
+      return;
+    }
+
+  box_width = clutter_actor_box_get_width (&content_box);
+  box_height = clutter_actor_box_get_height (&content_box);
+
+  if (priv->paint_borders &&
+      (priv->output_region.x1 > 0 ||
+       priv->output_region.x2 < 1 ||
+       priv->output_region.y1 > 0 ||
+       priv->output_region.y2 < 1))
+    {
+      clutter_actor_get_background_color (actor, &color);
+      color.alpha = paint_opacity;
+
+      node = clutter_color_node_new (&color);
+      clutter_paint_node_set_name (node, "CropVideoBorders");
+
+      if (priv->output_region.x1 > 0)
+        clutter_paint_node_add_rectangle_custom (node,
+                                                 content_box.x1,
+                                                 content_box.y1,
+                                                 content_box.x1 + box_width * priv->output_region.x1,
+                                                 content_box.y2);
+      if (priv->output_region.x2 < 1)
+        clutter_paint_node_add_rectangle_custom (node,
+                                                 content_box.x1 + box_width * priv->output_region.x2,
+                                                 content_box.y1,
+                                                 content_box.x2,
+                                                 content_box.y2);
+      if (priv->output_region.y1 > 0)
+        clutter_paint_node_add_rectangle_custom (node,
+                                                 content_box.x1 + box_width * priv->output_region.x1,
+                                                 content_box.y1,
+                                                 content_box.x1 + box_width * priv->output_region.x2,
+                                                 content_box.y1 + box_height * priv->output_region.y1);
+      if (priv->output_region.y2 < 1)
+        clutter_paint_node_add_rectangle_custom (node,
+                                                 content_box.x1 + box_width * priv->output_region.x1,
+                                                 content_box.y1 + box_height * priv->output_region.y2,
+                                                 content_box.x1 + box_width * priv->output_region.x2,
+                                                 content_box.y2);
+
+      clutter_paint_node_add_child (root, node);
+      clutter_paint_node_unref (node);
+    }
+
+
   cogl_pipeline_set_color4ub (frame->pipeline,
                               paint_opacity,
                               paint_opacity,
@@ -77,48 +169,32 @@ clutter_gst_crop_paint_frame (ClutterGstActor *self,
   if (priv->cull_backface)
     cogl_pipeline_set_cull_face_mode (frame->pipeline,
                                       COGL_PIPELINE_CULL_FACE_MODE_BACK);
-  cogl_set_source (frame->pipeline);
 
-  cogl_rectangle_with_texture_coords (priv->output_region.x1 * box_width,
-                                      priv->output_region.y1 * box_height,
-                                      priv->output_region.x2 * box_width,
-                                      priv->output_region.y2 * box_height,
-                                      priv->input_region.x1,
-                                      priv->input_region.y1,
-                                      priv->input_region.x2,
-                                      priv->input_region.y2);
+  node = clutter_pipeline_node_new (frame->pipeline);
+  clutter_paint_node_set_name (node, "CropVideoFrame");
 
-  if (priv->paint_borders &&
-      (priv->output_region.x1 > 0 ||
-       priv->output_region.x2 < 1 ||
-       priv->output_region.y1 > 0 ||
-       priv->output_region.y2 < 1))
-    {
-      ClutterColor bg_color;
+  clutter_paint_node_add_texture_rectangle_custom (node,
+                                                   content_box.x1 + box_width * priv->output_region.x1,
+                                                   content_box.y1 + box_height * priv->output_region.y1,
+                                                   content_box.x1 + box_width * priv->output_region.x2,
+                                                   content_box.y1 + box_height * priv->output_region.y2,
+                                                   priv->input_region.x1,
+                                                   priv->input_region.y1,
+                                                   priv->input_region.x2,
+                                                   priv->input_region.y2);
 
-      clutter_actor_get_background_color (CLUTTER_ACTOR (self), &bg_color);
-
-      cogl_set_source_color4ub (bg_color.red,
-                                bg_color.green,
-                                bg_color.blue,
-                                paint_opacity);
-
-      if (priv->output_region.x1 > 0)
-        cogl_rectangle (0, 0, priv->output_region.x1 * box_width, 1);
-      if (priv->output_region.x2 < 1)
-        cogl_rectangle (priv->output_region.x2 * box_width, 0, 1, 1);
-      if (priv->output_region.y1 > 0)
-        cogl_rectangle (priv->output_region.x1 * box_width,
-                        0,
-                        priv->output_region.x2 * box_width,
-                        priv->output_region.y1 * box_height);
-      if (priv->output_region.y2 < 1)
-        cogl_rectangle (priv->output_region.x1 * box_width,
-                        priv->output_region.y2 * box_height,
-                        priv->output_region.x2 * box_width,
-                        0);
-    }
+  clutter_paint_node_add_child (root, node);
+  clutter_paint_node_unref (node);
 }
+
+static void
+content_iface_init (ClutterContentIface *iface)
+{
+  iface->get_preferred_size = clutter_gst_crop_get_preferred_size;
+  iface->paint_content = clutter_gst_crop_paint_content;
+}
+
+/**/
 
 static gboolean
 _validate_box (ClutterGstBox *box)
@@ -178,7 +254,11 @@ clutter_gst_crop_set_property (GObject      *object,
   switch (property_id)
     {
     case PROP_PAINT_BORDERS:
-      priv->paint_borders = g_value_get_boolean (value);
+      if (priv->paint_borders != g_value_get_boolean (value))
+        {
+          priv->paint_borders = g_value_get_boolean (value);
+          clutter_content_invalidate (CLUTTER_CONTENT (object));
+        }
       break;
     case PROP_CULL_BACKFACE:
       priv->cull_backface = g_value_get_boolean (value);
@@ -187,7 +267,7 @@ clutter_gst_crop_set_property (GObject      *object,
       box = (ClutterGstBox *) g_value_get_boxed (value);
       if (_validate_box (box)) {
         priv->input_region = *box;
-        clutter_actor_queue_redraw (CLUTTER_ACTOR (object));
+        clutter_content_invalidate (CLUTTER_CONTENT (object));
       } else
         g_warning ("Input region must be given in [0, 1] values.");
       break;
@@ -195,7 +275,7 @@ clutter_gst_crop_set_property (GObject      *object,
       box = (ClutterGstBox *) g_value_get_boxed (value);
       if (_validate_box (box)) {
         priv->output_region = *box;
-        clutter_actor_queue_redraw (CLUTTER_ACTOR (object));
+        clutter_content_invalidate (CLUTTER_CONTENT (object));
       } else
         g_warning ("Output region must be given in [0, 1] values.");
       break;
@@ -229,8 +309,6 @@ clutter_gst_crop_class_init (ClutterGstCropClass *klass)
   object_class->set_property = clutter_gst_crop_set_property;
   object_class->dispose = clutter_gst_crop_dispose;
   object_class->finalize = clutter_gst_crop_finalize;
-
-  gst_actor_class->paint_frame = clutter_gst_crop_paint_frame;
 
   /**
    * ClutterGstCrop:paint-borders:
@@ -304,6 +382,11 @@ clutter_gst_crop_init (ClutterGstCrop *self)
   priv->output_region = priv->input_region;
 }
 
+/**
+ * clutter_gst_crop_new:
+ *
+ * Returns: (transfer full): a new #ClutterGstCrop instance
+ */
 ClutterActor *
 clutter_gst_crop_new (void)
 {

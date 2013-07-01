@@ -70,6 +70,7 @@ struct _ClutterGstCameraPrivate
   GstBus *bus;
   GstElement *camerabin;
   GstElement *camera_source;
+  CoglGstVideoSink *video_sink;
 
   /* video filter */
   GstElement *video_filter_bin;
@@ -137,6 +138,14 @@ clutter_gst_camera_get_pipeline (ClutterGstPlayer *player)
   return priv->camerabin;
 }
 
+static CoglGstVideoSink *
+clutter_gst_camera_get_video_sink (ClutterGstPlayer *player)
+{
+  ClutterGstCameraPrivate *priv = CLUTTER_GST_CAMERA (player)->priv;
+
+  return priv->video_sink;
+}
+
 static gboolean
 clutter_gst_camera_get_idle (ClutterGstPlayer *player)
 {
@@ -198,6 +207,8 @@ player_iface_init (ClutterGstPlayerIface *iface)
 {
   iface->get_frame = clutter_gst_camera_get_frame;
   iface->get_pipeline = clutter_gst_camera_get_pipeline;
+  iface->get_video_sink = clutter_gst_camera_get_video_sink;
+
   iface->get_idle = clutter_gst_camera_get_idle;
 
   iface->get_audio_volume = clutter_gst_camera_get_audio_volume;
@@ -863,18 +874,18 @@ setup_pipeline (ClutterGstCamera *self)
       return FALSE;
     }
 
-  video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
+  priv->video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
 
-  g_signal_connect (video_sink, "new-frame",
+  g_signal_connect (priv->video_sink, "new-frame",
                     G_CALLBACK (_new_frame_from_pipeline), self);
-  g_signal_connect (video_sink, "pipeline-ready",
+  g_signal_connect (priv->video_sink, "pipeline-ready",
                     G_CALLBACK (_ready_from_pipeline), self);
-  g_signal_connect (video_sink, "notify::pixel-aspect-ratio",
+  g_signal_connect (priv->video_sink, "notify::pixel-aspect-ratio",
                     G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
 
   g_object_set (priv->camerabin,
-                "viewfinder-sink", video_sink,
+                "viewfinder-sink", priv->video_sink,
                 NULL);
 
   set_video_profile (self);

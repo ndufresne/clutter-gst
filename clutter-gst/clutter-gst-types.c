@@ -98,3 +98,39 @@ G_DEFINE_BOXED_TYPE (ClutterGstBox,
                      clutter_gst_box,
                      clutter_gst_box_copy,
                      clutter_gst_box_free);
+
+/**
+ * clutter_gst_box_get_width:
+ * @box: a #ClutterGstBox
+ *
+ * Retrieves the width of the @box
+ *
+ * Return value: the width of the box
+ *
+ * Since: 3.0
+ */
+gfloat
+clutter_gst_box_get_width (const ClutterGstBox *box)
+{
+  g_return_val_if_fail (box != NULL, 0.);
+
+  return box->x2 - box->x1;
+}
+
+/**
+ * clutter_gst_box_get_height:
+ * @box: a #ClutterGstBox
+ *
+ * Retrieves the height of the @box
+ *
+ * Return value: the height of the box
+ *
+ * Since: 3.0
+ */
+gfloat
+clutter_gst_box_get_height (const ClutterGstBox *box)
+{
+  g_return_val_if_fail (box != NULL, 0.);
+
+  return box->y2 - box->y1;
+}

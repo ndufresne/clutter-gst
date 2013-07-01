@@ -39,8 +39,8 @@
 #define __CLUTTER_GST_PLAYER_H__
 
 #include <glib-object.h>
-#include <cogl/cogl.h>
 #include <gst/gst.h>
+#include <cogl-gst/cogl-gst.h>
 
 #include <clutter-gst/clutter-gst-types.h>
 
@@ -93,6 +93,7 @@ struct _ClutterGstPlayerIface
   /*< public >*/
   ClutterGstFrame * (* get_frame)        (ClutterGstPlayer *self);
   GstElement *      (* get_pipeline)     (ClutterGstPlayer *self);
+  CoglGstVideoSink *(* get_video_sink)   (ClutterGstPlayer *self);
 
   gboolean          (* get_idle)         (ClutterGstPlayer *self);
 
@@ -135,6 +136,8 @@ GType clutter_gst_player_get_type (void) G_GNUC_CONST;
 ClutterGstFrame *         clutter_gst_player_get_frame        (ClutterGstPlayer        *self);
 
 GstElement *              clutter_gst_player_get_pipeline     (ClutterGstPlayer        *self);
+
+CoglGstVideoSink *        clutter_gst_player_get_video_sink   (ClutterGstPlayer        *self);
 
 gboolean                  clutter_gst_player_get_idle         (ClutterGstPlayer        *self);
 

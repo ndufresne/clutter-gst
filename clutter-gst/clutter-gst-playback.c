@@ -116,6 +116,7 @@ struct _ClutterGstPlaybackPrivate
 {
   GstElement *pipeline;
   GstBus *bus;
+  CoglGstVideoSink *video_sink;
 
   ClutterGstFrame *current_frame;
 
@@ -1378,6 +1379,14 @@ clutter_gst_playback_get_pipeline (ClutterGstPlayer *self)
   return priv->pipeline;
 }
 
+static CoglGstVideoSink *
+clutter_gst_playback_get_video_sink (ClutterGstPlayer *self)
+{
+  ClutterGstPlaybackPrivate *priv = CLUTTER_GST_PLAYBACK (self)->priv;
+
+  return priv->video_sink;
+}
+
 static gboolean
 clutter_gst_playback_get_idle (ClutterGstPlayer *self)
 {
@@ -1417,6 +1426,8 @@ player_iface_init (ClutterGstPlayerIface *iface)
 {
   iface->get_frame = clutter_gst_playback_get_frame;
   iface->get_pipeline = clutter_gst_playback_get_pipeline;
+  iface->get_video_sink = clutter_gst_playback_get_video_sink;
+
   iface->get_idle = clutter_gst_playback_get_idle;
 
   iface->get_audio_volume = clutter_gst_playback_get_audio_volume;
@@ -1911,8 +1922,8 @@ _pixel_aspect_ratio_changed (CoglGstVideoSink   *sink,
 static GstElement *
 get_pipeline (ClutterGstPlayback *self)
 {
+  ClutterGstPlaybackPrivate *priv = self->priv;
   GstElement *pipeline, *audio_sink;
-  CoglGstVideoSink *video_sink;
 
   pipeline = gst_element_factory_make ("playbin", "pipeline");
   if (!pipeline)
@@ -1937,18 +1948,18 @@ get_pipeline (ClutterGstPlayback *self)
 	}
     }
 
-  video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
+  priv->video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
 
-  g_signal_connect (video_sink, "new-frame",
+  g_signal_connect (priv->video_sink, "new-frame",
                     G_CALLBACK (_new_frame_from_pipeline), self);
-  g_signal_connect (video_sink, "pipeline-ready",
+  g_signal_connect (priv->video_sink, "pipeline-ready",
                     G_CALLBACK (_ready_from_pipeline), self);
-  g_signal_connect (video_sink, "notify::pixel-aspect-ratio",
+  g_signal_connect (priv->video_sink, "notify::pixel-aspect-ratio",
                     G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
   g_object_set (G_OBJECT (pipeline),
                 "audio-sink", audio_sink,
-                "video-sink", video_sink,
+                "video-sink", priv->video_sink,
                 "subtitle-font-desc", "Sans 16",
                 NULL);
 

@@ -119,27 +119,27 @@ Players.prototype = {
     updateActorsCurrent: function(actors, back) {
         for (let i in actors) {
             if (back)
-                actors[i]._backActor.player = this.getCurrentPlayer();
+                actors[i]._backActor.content.player = this.getCurrentPlayer();
             else
-                actors[i].player = this.getCurrentPlayer();
+                actors[i].content.player = this.getCurrentPlayer();
         }
     },
 
     updateActorsNext: function(actors, back) {
         for (let i in actors) {
             if (back)
-                actors[i]._backActor.player = this.getNextPlayer();
+                actors[i]._backActor.content.player = this.getNextPlayer();
             else
-                actors[i].player = this.getNextPlayer();
+                actors[i].content.player = this.getNextPlayer();
         }
     },
 
     updateActorsPrevious: function(actors, back) {
         for (let i in actors) {
             if (back)
-                actors[i]._backActor.player = this.getPreviousPlayer();
+                actors[i]._backActor.content.player = this.getPreviousPlayer();
             else
-                actors[i].player = this.getPreviousPlayer();
+                actors[i].content.player = this.getPreviousPlayer();
         }
     },
 
@@ -241,22 +241,26 @@ for (let i = 0; i < ROWS; i++) {
                                          y2: (i + 1) / ROWS,
                                        })
         let actor =
-            new ClutterGst.Crop({ cull_backface: true,
-                                  pivot_point: new Clutter.Point({ x: 0.5,
-                                                                   y: 0.5 }),
-                                  width: TILE_WIDTH,
-                                  height: TILE_HEIGHT,
-                                  input_region: input,
-                                });
+            new Clutter.Actor({
+                pivot_point: new Clutter.Point({ x: 0.5,
+                                                 y: 0.5 }),
+                width: TILE_WIDTH,
+                height: TILE_HEIGHT,
+                content: new ClutterGst.Crop({ cull_backface: true,
+                                               input_region: input,
+                                             }),
+            });
         actor._backActor =
-            new ClutterGst.Crop({ cull_backface: true,
-                                  pivot_point: new Clutter.Point({ x: 0.5,
-                                                                   y: 0.5 }),
-                                  rotation_angle_y: 180,
-                                  width: TILE_WIDTH,
-                                  height: TILE_HEIGHT,
-                                  input_region: input,
-                                });
+            new Clutter.Actor({
+                pivot_point: new Clutter.Point({ x: 0.5,
+                                                 y: 0.5 }),
+                rotation_angle_y: 180,
+                width: TILE_WIDTH,
+                height: TILE_HEIGHT,
+                content: new ClutterGst.Crop({ cull_backface: true,
+                                               input_region: input,
+                                             }),
+            });
         stage.add_child(actor);
         stage.add_child(actor._backActor);
 

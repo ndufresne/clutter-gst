@@ -118,6 +118,7 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
   /**
    * ClutterGstPlayer::new-frame:
    * @player: the #ClutterGstPlayer instance that received the signal
+   * @frame: the #ClutterGstFrame newly receive from the video sink
    *
    * The ::ready signal is emitted each time the gstreamer pipeline
    * becomes ready.
@@ -242,6 +243,29 @@ clutter_gst_player_get_pipeline (ClutterGstPlayer *self)
   iface = CLUTTER_GST_PLAYER_GET_INTERFACE (self);
 
   return iface->get_pipeline (self);
+}
+
+/**
+ * clutter_gst_player_get_video_sink:
+ * @self: a #ClutterGstPlayer
+ *
+ * Retrieves the #CoglGstVideoSink used by the @self.
+ *
+ * Return value: (transfer none): the #CoglGstVideoSink element used by the player
+ *
+ * Since: 3.0
+ */
+CoglGstVideoSink *
+clutter_gst_player_get_video_sink (ClutterGstPlayer *self)
+{
+  ClutterGstPlayerIface *iface;
+
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (self), NULL);
+
+  iface = CLUTTER_GST_PLAYER_GET_INTERFACE (self);
+
+  return iface->get_video_sink (self);
+
 }
 
 /**

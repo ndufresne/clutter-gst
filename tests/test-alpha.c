@@ -32,6 +32,7 @@
 
 #include <glib/gprintf.h>
 #include <clutter-gst/clutter-gst.h>
+#include <cogl-gst/cogl-gst.h>
 
 static gint   opt_framerate = 30;
 static gchar *opt_fourcc    = "I420";
@@ -65,44 +66,6 @@ parse_fourcc (const gchar *fourcc)
   return GST_STR_FOURCC (fourcc);
 }
 
-static void
-size_change (ClutterGstPlayer *player,
-             gint              width,
-             gint              height,
-             ClutterActor     *actor)
-{
-  ClutterActor *stage;
-  gfloat new_x, new_y, new_width, new_height;
-  gfloat stage_width, stage_height;
-
-  stage = clutter_actor_get_stage (actor);
-  if (stage == NULL)
-    return;
-
-  clutter_actor_get_size (stage, &stage_width, &stage_height);
-
-  new_height = (height * stage_width) / width;
-  if (new_height <= stage_height)
-    {
-      new_width = stage_width;
-
-      new_x = 0;
-      new_y = (stage_height - new_height) / 2;
-    }
-  else
-    {
-      new_width  = (width * stage_height) / height;
-      new_height = stage_height;
-
-      new_x = (stage_width - new_width) / 2;
-      new_y = 0;
-    }
-
-  g_message ("resize %fx%f @ %fx%f", new_width, new_height, new_x, new_y);
-  clutter_actor_set_position (actor, new_x, new_y);
-  clutter_actor_set_size (actor, new_width, new_height);
-}
-
 int
 main (int argc, char *argv[])
 {
@@ -116,7 +79,6 @@ main (int argc, char *argv[])
   ClutterActor          *actor;
   ClutterActor          *rectangle;
   ClutterTransition     *animation;
-  ClutterGstPlayer      *player;
 
   GstPipeline           *pipeline;
   GstElement            *src;
@@ -152,9 +114,6 @@ main (int argc, char *argv[])
                           rectangle_geom.size.width,
                           rectangle_geom.size.height);
 
-  actor = clutter_gst_actor_new ();
-  clutter_actor_set_opacity (actor, 0);
-
   /* Set up pipeline */
   pipeline = GST_PIPELINE(gst_pipeline_new (NULL));
 
@@ -162,6 +121,16 @@ main (int argc, char *argv[])
   g_object_set (G_OBJECT (src), "pattern", 1, NULL);
   capsfilter = gst_element_factory_make ("capsfilter", NULL);
   sink = clutter_gst_create_video_sink ();
+
+  /* Video actor */
+  actor = g_object_new (CLUTTER_TYPE_ACTOR,
+                        "content", g_object_new (CLUTTER_GST_TYPE_CONTENT,
+                                                 "video-sink", sink,
+                                                 NULL),
+                        "width", clutter_actor_get_width (stage),
+                        "height", clutter_actor_get_height (stage),
+                        NULL);
+  clutter_actor_set_opacity (actor, 0);
 
   /* make videotestsrc spit the format we want */
   if (g_strcmp0 (opt_fourcc, "RGB ") == 0)
@@ -192,19 +161,9 @@ main (int argc, char *argv[])
     g_critical("Could not link elements");
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
 
-  player = CLUTTER_GST_PLAYER (g_object_new (CLUTTER_GST_TYPE_PIPELINE,
-                                             "video-sink", sink, NULL));
-
-  g_signal_connect (player,
-                    "size-change",
-                    G_CALLBACK (size_change), actor);
-
   clutter_actor_add_child (stage, rectangle);
   clutter_actor_add_child (stage, actor);
   clutter_actor_show (stage);
-
-  clutter_gst_actor_set_player (CLUTTER_GST_ACTOR (actor), player);
-
 
   clutter_actor_save_easing_state (actor);
   clutter_actor_set_easing_mode (actor, CLUTTER_LINEAR);

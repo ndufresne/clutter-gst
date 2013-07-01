@@ -45,7 +45,7 @@ stage.set_background_color(new Clutter.Color({ red: 0,
 stage.connect('destroy',
               Lang.bind(this, function() { Clutter.main_quit(); }));
 
-player = new ClutterGst.Playback();
+let player = new ClutterGst.Playback();
 player.set_filename(ARGV[0]);
 player.set_audio_volume(0);
 player.set_progress(0.20);
@@ -136,11 +136,13 @@ for (let i = 0; i < ROWS; i++) {
                                          y1: i / ROWS,
                                          y2: (i + 1) / ROWS,
                                        })
-        let subActor = new ClutterGst.Crop({ width: 200,
-                                             height: 200,
-                                             player: player,
-                                             input_region: input,
-                                           });
+        let subActor = new Clutter.Actor({
+            width: 200,
+            height: 200,
+            content: new ClutterGst.Crop({ player: player,
+                                           input_region: input,
+                                         }),
+        });
         let actor = new Clutter.Actor();
         actor.add_child(subActor);
 

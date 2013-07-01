@@ -45,12 +45,12 @@ stage.set_background_color(new Clutter.Color({ red: 0,
 stage.connect('destroy',
               Lang.bind(this, function() { Clutter.main_quit(); }));
 
-player1 = new ClutterGst.Playback();
+let player1 = new ClutterGst.Playback();
 player1.set_filename(ARGV[0]);
 player1.set_audio_volume(0);
 player1.set_progress(0.20);
 
-player2 = new ClutterGst.Playback();
+let player2 = new ClutterGst.Playback();
 player2.set_filename(ARGV[1]);
 player2.set_audio_volume(0);
 player2.set_progress(0.20);
@@ -125,30 +125,36 @@ for (let i = 0; i < ROWS; i++) {
                                          y2: (i + 1) / ROWS,
                                        })
         let actor =
-            new ClutterGst.Crop({ reactive: true,
-                                  cull_backface: true,
-                                  pivot_point: new Clutter.Point({ x: 0.5,
-                                                                   y: 0.5 }),
-                                  width: 200,
-                                  height: 200,
-                                  x: -200,
-                                  y: -200,
-                                  input_region: input,
-                                  player: player1,
-                                });
+            new Clutter.Actor({
+                reactive: true,
+                pivot_point: new Clutter.Point({ x: 0.5,
+                                                 y: 0.5 }),
+                width: 200,
+                height: 200,
+                x: -200,
+                y: -200,
+                content: new ClutterGst.Crop({
+                    cull_backface: true,
+                    input_region: input,
+                    player: player1,
+                }),
+            });
         actor._backActor =
-            new ClutterGst.Crop({ reactive: false,
-                                  cull_backface: true,
-                                  pivot_point: new Clutter.Point({ x: 0.5,
-                                                                   y: 0.5 }),
-                                  rotation_angle_y: 180,
-                                  width: 200,
-                                  height: 200,
-                                  x: -200,
-                                  y: -200,
-                                  input_region: input,
-                                  player: player2,
-                                });
+            new Clutter.Actor({
+                reactive: false,
+                pivot_point: new Clutter.Point({ x: 0.5,
+                                                 y: 0.5 }),
+                rotation_angle_y: 180,
+                width: 200,
+                height: 200,
+                x: -200,
+                y: -200,
+                content: new ClutterGst.Crop({
+                    cull_backface: true,
+                    input_region: input,
+                    player: player2,
+                }),
+            });
         stage.add_child(actor);
         stage.add_child(actor._backActor);
 

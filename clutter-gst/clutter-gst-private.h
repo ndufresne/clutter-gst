@@ -47,6 +47,19 @@ G_BEGIN_DECLS
 #define CLUTTER_GST_PARAM_READWRITE     \
   (G_PARAM_READABLE | G_PARAM_WRITABLE | CLUTTER_GST_PARAM_STATIC)
 
+#define clutter_paint_node_add_rectangle_custom(node,x1,y1,x2,y2) \
+  do {                                                            \
+    ClutterActorBox _box = { x1, y1, x2, y2 };                    \
+    clutter_paint_node_add_rectangle (node, &_box);               \
+  } while (0)
+
+#define clutter_paint_node_add_texture_rectangle_custom(node,x1,y1,x2,y2,tx1,ty1,tx2,ty2) \
+  do {                                                                  \
+    ClutterActorBox _box = { x1, y1, x2, y2 };                          \
+    clutter_paint_node_add_texture_rectangle (node, &_box,              \
+                                              tx1, ty1, tx2, ty2);      \
+  } while (0)
+
 gboolean
 _internal_plugin_init (GstPlugin *plugin);
 
@@ -63,7 +76,6 @@ void clutter_gst_player_update_frame (ClutterGstPlayer *player,
 
 void clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame  *frame,
                                                   CoglGstVideoSink *sink);
-
 
 G_END_DECLS
 
