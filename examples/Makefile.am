@@ -49,5 +49,6 @@ EXTRA_DIST = \
 	video-flip.js		\
 	video-flip2.js		\
 	pieces.js		\
+	simple-player.js	\
 	README			\
 	$(NULL)
