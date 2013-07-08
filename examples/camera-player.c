@@ -322,17 +322,10 @@ size_change (ClutterGstPlayer *player,
   ClutterActor *stage = app->stage;
   gfloat new_x, new_y, new_width, new_height;
   gfloat stage_width, stage_height;
-  gfloat frame_width, frame_height;
 
   clutter_actor_get_size (stage, &stage_width, &stage_height);
 
-  /* base_width and base_height are the actual dimensions of the buffers before
-   * taking the pixel aspect ratio into account. We need to get the actual
-   * size of the texture to display */
-  clutter_content_get_preferred_size (clutter_actor_get_content (app->camera_actor),
-                                      &frame_width, &frame_height);
-
-  new_height = (frame_height * stage_width) / frame_width;
+  new_height = (base_height * stage_width) / base_width;
   if (new_height <= stage_height)
     {
       new_width = stage_width;
@@ -342,7 +335,7 @@ size_change (ClutterGstPlayer *player,
     }
   else
     {
-      new_width  = (frame_width * stage_height) / frame_height;
+      new_width  = (base_width * stage_height) / base_height;
       new_height = stage_height;
 
       new_x = (stage_width - new_width) / 2;
