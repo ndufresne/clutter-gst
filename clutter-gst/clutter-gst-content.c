@@ -86,16 +86,21 @@ update_frame (ClutterGstContent *self,
   new_frame = clutter_gst_frame_new (pipeline);
   priv->current_frame = new_frame;
 
-  new_frame->resolution.par_n = old_frame->resolution.par_n;
-  new_frame->resolution.par_d = old_frame->resolution.par_d;
+  if (old_frame)
+    {
+      new_frame->resolution.par_n = old_frame->resolution.par_n;
+      new_frame->resolution.par_d = old_frame->resolution.par_d;
+    }
 
-  if (new_frame->resolution.width != old_frame->resolution.width ||
-      new_frame->resolution.height != old_frame->resolution.height)
+  if (!old_frame ||
+      (new_frame->resolution.width != old_frame->resolution.width ||
+       new_frame->resolution.height != old_frame->resolution.height))
     {
       g_signal_emit (self, signals[SIZE_CHANGE], 0,
                      new_frame->resolution.width,
                      new_frame->resolution.height);
     }
+
   if (old_frame)
     g_boxed_free (CLUTTER_GST_TYPE_FRAME, old_frame);
 }
@@ -138,10 +143,6 @@ content_set_player (ClutterGstContent *self,
     {
       priv->player = g_object_ref_sink (player);
       content_set_sink (self, clutter_gst_player_get_video_sink (player), TRUE);
-      /* g_signal_connect (priv->player, "new-frame", */
-      /*                   G_CALLBACK (_new_frame_from_pipeline), self); */
-      /* g_signal_connect (priv->player, "notify::pixel-aspect-ratio", */
-      /*                   G_CALLBACK (_pixel_aspect_ratio_changed), self); */
     }
   else
     content_set_sink (self, NULL, TRUE);
@@ -386,8 +387,10 @@ clutter_gst_content_init (ClutterGstContent *self)
   ClutterGstContentPrivate *priv;
 
   self->priv = priv = CLUTTER_GST_CONTENT_GET_PRIVATE (self);
-  priv->sink = NULL;
-  priv->current_frame = clutter_gst_create_blank_frame (NULL);
+
+  content_set_sink (self,
+                    COGL_GST_VIDEO_SINK (clutter_gst_create_video_sink ()),
+                    FALSE);
 }
 
 
@@ -401,9 +404,7 @@ clutter_gst_content_new (void)
 {
   CoglGstVideoSink *sink;
 
-  sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
   return g_object_new (CLUTTER_GST_TYPE_CONTENT,
-                       "video-sink", sink,
                        NULL);
 }
 
