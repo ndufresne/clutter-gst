@@ -2,7 +2,7 @@ include $(top_srcdir)/build/autotools/Makefile.am.silent
 
 NULL = #
 
-SUBDIRS = shaders
+SUBDIRS =
 
 CLEANFILES = #
 DISTCLEANFILES = #
@@ -65,8 +65,6 @@ libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_SOURCES =	\
 
 INCLUDES =					\
 	-I$(top_srcdir)				\
-	-I$(top_builddir)/clutter-gst/shaders	\
-	-I$(top_srcdir)/clutter-gst/shaders	\
 	$(NULL)
 
 AM_CPPFLAGS =					\

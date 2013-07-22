@@ -31,6 +31,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * SECTION:clutter-gst-playback
+ * @short_description: A #ClutterGstPlayback to play media streams
+ *
+ * #ClutterGstPlayback implements #ClutterGstPlayer.
+ */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif

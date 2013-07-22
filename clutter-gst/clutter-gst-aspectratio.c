@@ -27,6 +27,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * SECTION:clutter-gst-aspectratio
+ * @short_description: A #ClutterContent for displaying video frames with respect to their aspect ratio.
+ *
+ * #ClutterGstContent implements the #ClutterContent interface.
+ */
+
 #include "clutter-gst-aspectratio.h"
 #include "clutter-gst-private.h"
 

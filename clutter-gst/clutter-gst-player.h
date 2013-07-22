@@ -76,8 +76,19 @@ typedef struct _ClutterGstPlayerIfacePrivate ClutterGstPlayerIfacePrivate;
 
 /**
  * ClutterGstPlayerIface:
- * @download_buffering: handler for the #ClutterGstPlayer::download-buffering
- * signal
+ * @get_frame: virtual function; returns the current visible frame
+ * @get_pipeline: virtual function; returns the current GStreamer pipeline
+ * @get_video_sink: virtual function; returns the current Cogl video sink
+ * @get_idle: virtual function; returns whether the player is currently in idle state
+ * @get_audio_volume: virtual function; returns the current audio volume
+ * @set_audio_volume: virtual function; sets the audio volume
+ * @get_playing: virtual function; returns whether the player is currently playing
+ * @set_playing: virtual function; starts or stops the player from playing
+ * @new_frame: signal class closure for #ClutterGstPlayer::new-frame
+ * @ready: signal class closure for #ClutterGstPlayer::ready
+ * @eos: signal class closure for #ClutterGstPlayer::eos
+ * @error: signal class closure for #ClutterGstPlayer::error
+ * @size_change: signal class closure for #ClutterGstPlayer::size-change
  *
  * Interface vtable for #ClutterGstPlayer implementations
  *
@@ -105,13 +116,10 @@ struct _ClutterGstPlayerIface
   void              (* set_playing)      (ClutterGstPlayer *self,
                                           gboolean          playing);
 
-  void (* _iface_reserved7)  (void);
-  void (* _iface_reserved8)  (void);
-  void (* _iface_reserved9)  (void);
-  void (* _iface_reserved10) (void);
-  void (* _iface_reserved11) (void);
-  void (* _iface_reserved12) (void);
+  /*< private >*/
+  gpointer _padding_vfuncs[16];
 
+  /*< public >*/
   /* signals */
   void (* new_frame)           (ClutterGstPlayer *self, ClutterGstFrame *frame);
   void (* ready)               (ClutterGstPlayer *self);
@@ -122,13 +130,8 @@ struct _ClutterGstPlayerIface
                                 gint              width,
                                 gint              height);
 
-  void (* _clutter_reserved6)  (void);
-  void (* _clutter_reserved7)  (void);
-  void (* _clutter_reserved8)  (void);
-  void (* _clutter_reserved9)  (void);
-  void (* _clutter_reserved10) (void);
-  void (* _clutter_reserved11) (void);
-  void (* _clutter_reserved12) (void);
+  /*< private >*/
+  gpointer _padding_signals[8];
 };
 
 GType clutter_gst_player_get_type (void) G_GNUC_CONST;

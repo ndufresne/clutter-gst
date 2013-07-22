@@ -26,6 +26,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * SECTION:clutter-gst-crop
+ * @short_description: A #ClutterContent for displaying part of video frames
+ *
+ * #ClutterGstCrop sub-classes #ClutterGstContent.
+ */
+
 #include "clutter-gst-crop.h"
 #include "clutter-gst-private.h"
 

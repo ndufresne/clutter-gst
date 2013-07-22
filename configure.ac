@@ -309,7 +309,6 @@ AC_OUTPUT([
         scripts/Makefile
         clutter-gst/Makefile
         clutter-gst/clutter-gst-version.h
-        clutter-gst/shaders/Makefile
         tests/Makefile
         examples/Makefile
         doc/Makefile

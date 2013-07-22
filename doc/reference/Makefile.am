@@ -25,7 +25,7 @@ DOC_SOURCE_DIR=../../clutter-gst
 SCANGOBJ_OPTIONS=--type-init-func="clutter_gst_init(0,0)"
 
 # Extra options to supply to gtkdoc-scan.
-# e.g. SCAN_OPTIONS=--deprecated-guards="GTK_DISABLE_DEPRECATED" 
+# e.g. SCAN_OPTIONS=--deprecated-guards="GTK_DISABLE_DEPRECATED"
 SCAN_OPTIONS=--rebuild-types
 
 # Extra options to supply to gtkdoc-mkdb.
@@ -38,7 +38,14 @@ MKTMPL_OPTIONS=
 
 # Extra options to supply to gtkdoc-fixref. Not normally needed.
 # e.g. FIXXREF_OPTIONS=--extra-dir=../gdk-pixbuf/html --extra-dir=../gdk/html
-FIXXREF_OPTIONS=
+FIXXREF_OPTIONS= \
+	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/glib \
+	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/gobject \
+	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/cogl \
+	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/cogl-gst \
+	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/gdk-pixbuf \
+	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/gstreamer-1.0 \
+	$(NULL)
 
 # Used for dependencies. The docs will be rebuilt if any of these change.
 # e.g. HFILE_GLOB=$(top_srcdir)/gtk/*.h
@@ -49,12 +56,9 @@ CFILE_GLOB=$(top_srcdir)/clutter-gst/*.c
 # Header files to ignore when scanning.
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h
 IGNORE_HFILES=				\
-	I420.h				\
-	YV12.h				\
 	clutter-gst.h			\
 	clutter-gst-debug.h		\
 	clutter-gst-private.h		\
-	clutter-gst-shaders.h		\
 	clutter-gst-auto-video-sink.h	\
 	$(NULL)
 

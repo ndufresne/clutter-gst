@@ -65,15 +65,31 @@ typedef struct _ClutterGstCrop ClutterGstCrop;
 typedef struct _ClutterGstCropClass ClutterGstCropClass;
 typedef struct _ClutterGstCropPrivate ClutterGstCropPrivate;
 
+/**
+ * ClutterGstCrop:
+ *
+ * Implementation of #ClutterGstContent that displays a sub region of
+ * video streams.
+ *
+ * The #ClutterGstCrop structure contains only private data and
+ * should not be accessed directly.
+ */
 struct _ClutterGstCrop
 {
+  /*< private >*/
   ClutterGstContent parent;
 
   ClutterGstCropPrivate *priv;
 };
 
+/**
+ * ClutterGstCropClass:
+ *
+ * Base class for #ClutterGstCrop.
+ */
 struct _ClutterGstCropClass
 {
+  /*< private >*/
   ClutterGstContentClass parent_class;
 };
 

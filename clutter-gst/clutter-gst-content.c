@@ -25,6 +25,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * SECTION:clutter-gst-content
+ * @short_description: A #ClutterContent for displaying video frames.
+ *
+ * #ClutterGstContent implements the #ClutterContent interface.
+ */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif

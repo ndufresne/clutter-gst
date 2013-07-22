@@ -73,6 +73,15 @@ typedef struct _ClutterGstPlayback ClutterGstPlayback;
 typedef struct _ClutterGstPlaybackClass ClutterGstPlaybackClass;
 typedef struct _ClutterGstPlaybackPrivate ClutterGstPlaybackPrivate;
 
+/**
+ * ClutterGstPlayback:
+ *
+ * Implementation of #ClutterGstPlayback that displays media streams
+ * using GStreamer.
+ *
+ * The #ClutterGstPlayback structure contains only private data and
+ * should not be accessed directly.
+ */
 struct _ClutterGstPlayback
 {
   GObject parent;
@@ -80,10 +89,18 @@ struct _ClutterGstPlayback
   ClutterGstPlaybackPrivate *priv;
 };
 
+/**
+ * ClutterGstPlaybackClass:
+ * @download_buffering: signal class closure for #ClutterGstPlayback::download-buffering
+ *
+ * Base class for #ClutterGstPlayback.
+ */
 struct _ClutterGstPlaybackClass
 {
+  /*< private >*/
   GObjectClass parent_class;
 
+  /*< public >*/
   /* signals */
   void (* download_buffering)  (ClutterGstPlayback *self,
                                 gdouble             start,

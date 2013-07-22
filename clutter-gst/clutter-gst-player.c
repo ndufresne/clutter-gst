@@ -36,9 +36,7 @@
  * @short_description: An interface for controlling playback of media data
  *
  * #ClutterGstPlayer is an interface for controlling playback of media
- *  sources. Contrary to most interfaces, you don't need to implement
- *  #ClutterGstPlayer. It already provides an implementation/logic
- *  leaving you only tweak a few properties to get the desired behavior.
+ *  sources.
  */
 
 #ifdef HAVE_CONFIG_H

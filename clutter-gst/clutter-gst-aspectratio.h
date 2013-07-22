@@ -66,6 +66,15 @@ typedef struct _ClutterGstAspectratio ClutterGstAspectratio;
 typedef struct _ClutterGstAspectratioClass ClutterGstAspectratioClass;
 typedef struct _ClutterGstAspectratioPrivate ClutterGstAspectratioPrivate;
 
+/**
+ * ClutterGstAspectratio:
+ *
+ * Implementation of #ClutterGstContent that displays video streams
+ * with respects to their aspect ratio.
+ *
+ * The #ClutterGstAspectratio structure contains only private data and
+ * should not be accessed directly.
+ */
 struct _ClutterGstAspectratio
 {
   /*< private >*/
@@ -74,8 +83,14 @@ struct _ClutterGstAspectratio
   ClutterGstAspectratioPrivate *priv;
 };
 
+/**
+ * ClutterGstAspectratioClass:
+ *
+ * Base class for #ClutterGstAspectratio.
+ */
 struct _ClutterGstAspectratioClass
 {
+  /*< private >*/
   ClutterGstContentClass parent_class;
 };
 

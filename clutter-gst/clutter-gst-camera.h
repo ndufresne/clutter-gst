@@ -73,7 +73,8 @@ typedef struct _ClutterGstCameraPrivate ClutterGstCameraPrivate;
 /**
  * ClutterGstCamera:
  *
- * Subclass of #ClutterGstActor that displays camera streams using GStreamer.
+ * Implementation of #ClutterGstPlayer that displays camera streams
+ * using GStreamer.
  *
  * The #ClutterGstCamera structure contains only private data and
  * should not be accessed directly.
