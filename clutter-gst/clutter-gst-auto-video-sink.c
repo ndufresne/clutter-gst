@@ -147,8 +147,6 @@ clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink *sink)
   gst_object_unref (targetpad);
 }
 
-static GstStaticCaps raw_caps = GST_STATIC_CAPS ("video/x-raw");
-
 static void
 clutter_gst_auto_video_sink_init (ClutterGstAutoVideoSink *sink)
 {

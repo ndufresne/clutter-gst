@@ -75,6 +75,9 @@ main (int argc, char *argv[])
   test = gst_element_factory_make ("navigationtest", NULL);
   colorspace = gst_element_factory_make ("videoconvert", NULL);
 
+  sink = gst_element_factory_make ("clutterautovideosink", NULL);
+  g_object_set (sink, "content", clutter_actor_get_content (actor), NULL);
+
   // g_object_set (src , "pattern", 10, NULL);
 
   gst_bin_add_many (GST_BIN (pipeline), src, filter, test, colorspace, sink, NULL);

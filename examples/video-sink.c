@@ -114,7 +114,7 @@ main (int argc, char *argv[])
   gst_bin_add_many (GST_BIN (bin), src, warp, NULL);
   gst_element_link_many (src, warp, NULL);
 
-  g_object_set (pipeline, "source", bin);
+  g_object_set (pipeline, "source", bin, NULL);
 
   clutter_gst_player_set_playing (CLUTTER_GST_PLAYER (player), TRUE);
 

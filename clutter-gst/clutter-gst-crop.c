@@ -113,6 +113,9 @@ clutter_gst_crop_paint_content (ClutterContent   *content,
           clutter_actor_get_background_color (actor, &color);
           color.alpha = paint_opacity;
 
+          node = clutter_color_node_new (&color);
+          clutter_paint_node_set_name (node, "BlankVideoFrame");
+
           clutter_paint_node_add_rectangle_custom (node,
                                                    content_box.x1, content_box.y1,
                                                    content_box.x2, content_box.y2);

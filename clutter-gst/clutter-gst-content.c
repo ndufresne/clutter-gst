@@ -409,8 +409,6 @@ clutter_gst_content_init (ClutterGstContent *self)
 ClutterContent *
 clutter_gst_content_new (void)
 {
-  CoglGstVideoSink *sink;
-
   return g_object_new (CLUTTER_GST_TYPE_CONTENT,
                        NULL);
 }

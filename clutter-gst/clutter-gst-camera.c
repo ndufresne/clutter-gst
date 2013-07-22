@@ -838,7 +838,6 @@ static gboolean
 setup_pipeline (ClutterGstCamera *self)
 {
   ClutterGstCameraPrivate *priv = self->priv;
-  CoglGstVideoSink *video_sink;
 
   if (!probe_camera_devices (self))
     {
