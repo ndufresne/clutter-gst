@@ -31,7 +31,6 @@ source_h = 					\
 	$(srcdir)/clutter-gst-player.h		\
 	$(srcdir)/clutter-gst-aspectratio.h	\
 	$(srcdir)/clutter-gst-crop.h		\
-	$(srcdir)/clutter-gst-pipeline.h	\
 	$(srcdir)/clutter-gst-content.h		\
 	$(NULL)
 
@@ -52,7 +51,6 @@ source_c = 					\
 	$(srcdir)/clutter-gst-util.c		\
 	$(srcdir)/clutter-gst-aspectratio.c	\
 	$(srcdir)/clutter-gst-crop.c		\
-	$(srcdir)/clutter-gst-pipeline.c	\
 	$(srcdir)/clutter-gst-content.c		\
 	$(glib_enum_c)				\
 	$(NULL)
