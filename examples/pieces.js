@@ -33,8 +33,8 @@ const ROWS = 3;
 const BIT_WIDTH = 200;
 const BIT_HEIGHT = 200;
 
-if (ARGV.length < 1)
-    throw "Needs 1 arguments : piece.js videofile";
+//if (ARGV.length < 1)
+//    throw "Needs 1 arguments : piece.js videofile";
 
 //
 
@@ -115,10 +115,10 @@ let stage = new Clutter.Stage();
 stage.set_size(BIT_WIDTH * 3, BIT_HEIGHT * 3);
 stage.set_user_resizable(true);
 
-let player = new ClutterGst.Playback();
-player.set_filename(ARGV[0]);
-player.set_audio_volume(0.25);
-//let player = new ClutterGst.Camera();
+//let player = new ClutterGst.Playback();
+//player.set_filename(ARGV[0]);
+//player.set_audio_volume(0.25);
+let player = new ClutterGst.Camera();
 
 let pieces = new Pieces(ROWS, COLUMNS);
 for (let i = 0; i < ROWS; i++) {

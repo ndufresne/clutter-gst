@@ -28,43 +28,6 @@
 
 #include <clutter-gst/clutter-gst.h>
 
-void
-size_change (ClutterActor   *actor,
-             gint            width,
-             gint            height,
-             gpointer        user_data)
-{
-  ClutterActor *stage;
-  gfloat new_x, new_y, new_width, new_height;
-  gfloat stage_width, stage_height;
-
-  stage = clutter_actor_get_stage (actor);
-  if (stage == NULL)
-    return;
-
-  clutter_actor_get_size (stage, &stage_width, &stage_height);
-
-  new_height = (height * stage_width) / width;
-  if (new_height <= stage_height)
-    {
-      new_width = stage_width;
-
-      new_x = 0;
-      new_y = (stage_height - new_height) / 2;
-    }
-  else
-    {
-      new_width  = (width * stage_height) / height;
-      new_height = stage_height;
-
-      new_x = (stage_width - new_width) / 2;
-      new_y = 0;
-    }
-
-  clutter_actor_set_position (actor, new_x, new_y);
-  clutter_actor_set_size (actor, new_width, new_height);
-}
-
 int
 main (int argc, char *argv[])
 {
@@ -99,11 +62,9 @@ main (int argc, char *argv[])
   timeline = clutter_timeline_new (1000);
   g_object_set(timeline, "loop", TRUE, NULL);
 
-  actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
-
-  g_signal_connect (actor,
-                    "size-change",
-                    G_CALLBACK (size_change), NULL);
+  actor = g_object_new (CLUTTER_TYPE_ACTOR,
+                        "content", clutter_gst_content_new (),
+                        NULL);
 
   /* Set up pipeline */
   pipeline = GST_PIPELINE(gst_pipeline_new (NULL));
@@ -113,13 +74,13 @@ main (int argc, char *argv[])
 
   test = gst_element_factory_make ("navigationtest", NULL);
   colorspace = gst_element_factory_make ("videoconvert", NULL);
-  sink = gst_element_factory_make ("cluttersink", NULL);
-  g_object_set (sink, "actor", actor, NULL);
 
   // g_object_set (src , "pattern", 10, NULL);
 
   gst_bin_add_many (GST_BIN (pipeline), src, filter, test, colorspace, sink, NULL);
-  gst_element_link_many (src, filter, test, colorspace, sink, NULL);
+  gst_element_link_many (src, filter, test, colorspace,
+                         GST_ELEMENT (clutter_gst_content_get_sink (CLUTTER_GST_CONTENT (clutter_actor_get_content (actor)))),
+                         NULL);
   gst_element_set_state (GST_ELEMENT(pipeline), GST_STATE_PLAYING);
 
   /* Resize with the window */

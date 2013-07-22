@@ -30,7 +30,6 @@
 
 #include <gst/gst.h>
 #include <clutter/clutter.h>
-#include <clutter-gst/clutter-gst-actor.h>
 
 G_BEGIN_DECLS
 
@@ -86,23 +85,11 @@ struct _ClutterGstAutoVideoSink
 {
   GstBin parent;
 
-  GstPad *sink_pad;
-  GstPad *sink_block_pad;
-  guint sink_block_id;
-
-  GstElement *child;
-
-  GstCaps *video_caps;
-  GSList *sinks;
-
-  gboolean need_async_start;
-  gboolean async_pending;
-  gboolean setup;
-
-  ClutterGstActor *actor;
+  GstElement *kid;
+  GstPad *pad;
   GstClockTimeDiff ts_offset;
 
-  GMutex lock;
+  ClutterContent *content;
 };
 
 struct _ClutterGstAutoVideoSinkClass

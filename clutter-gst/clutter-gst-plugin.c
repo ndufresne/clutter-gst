@@ -37,7 +37,6 @@
 
 #include "clutter-gst-auto-video-sink.h"
 
-GST_DEBUG_CATEGORY (clutter_gst_video_sink_debug);
 GST_DEBUG_CATEGORY (clutter_gst_auto_video_sink_debug);
 
 /* entry point to initialize the plug-in
@@ -51,7 +50,7 @@ plugin_init (GstPlugin *plugin)
   gboolean ret;
 
   GST_DEBUG_CATEGORY_INIT (clutter_gst_auto_video_sink_debug,
-                           "autocluttersink",
+                           "clutterautovideosink",
                            0,
                            "clutter auto video sink");
 
@@ -64,15 +63,8 @@ plugin_init (GstPlugin *plugin)
   if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
     return FALSE;
 
-  /* ret = gst_element_register (plugin, */
-  /*                             "cluttersink", */
-  /*                             GST_RANK_MARGINAL, */
-  /*                             CLUTTER_GST_TYPE_VIDEO_SINK); */
-  /* if (!ret) */
-  /*   return FALSE; */
-
   ret = gst_element_register (plugin,
-                              "autocluttersink",
+                              "clutterautovideosink",
                               GST_RANK_NONE,
                               CLUTTER_GST_TYPE_AUTO_VIDEO_SINK);
   if (!ret)

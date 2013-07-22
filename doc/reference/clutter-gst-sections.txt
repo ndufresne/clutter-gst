@@ -65,66 +65,6 @@ ClutterGstPlayerIfacePrivate
 </SECTION>
 
 <SECTION>
-<FILE>clutter-gst-actor</FILE>
-<TITLE>ClutterGstActor</TITLE>
-ClutterGstActor
-ClutterGstActorClass
-clutter_gst_actor_get_cogl_texture
-clutter_gst_actor_set_cogl_texture
-clutter_gst_actor_get_cogl_material
-clutter_gst_actor_set_cogl_material
-clutter_gst_actor_is_idle
-clutter_gst_actor_get_idle_material
-clutter_gst_actor_set_idle_material
-<SUBSECTION Standard>
-CLUTTER_GST_ACTOR
-CLUTTER_GST_IS_ACTOR
-CLUTTER_GST_TYPE_ACTOR
-clutter_gst_actor_get_type
-CLUTTER_GST_ACTOR_CLASS
-CLUTTER_GST_IS_ACTOR_CLASS
-CLUTTER_GST_ACTOR_GET_CLASS
-<SUBSECTION Private>
-ClutterGstActorPrivate
-</SECTION>
-
-<SECTION>
-<FILE>clutter-gst-video-actor</FILE>
-<TITLE>ClutterGstVideoActor</TITLE>
-ClutterGstVideoActor
-ClutterGstVideoActorClass
-clutter_gst_video_actor_new
-<SUBSECTION Standard>
-CLUTTER_GST_VIDEO_ACTOR
-CLUTTER_GST_IS_VIDEO_ACTOR
-CLUTTER_GST_TYPE_VIDEO_ACTOR
-clutter_gst_video_actor_get_type
-CLUTTER_GST_VIDEO_ACTOR_CLASS
-CLUTTER_GST_IS_VIDEO_ACTOR_CLASS
-CLUTTER_GST_VIDEO_ACTOR_GET_CLASS
-<SUBSECTION Private>
-ClutterGstVideoActorPrivate
-</SECTION>
-
-<SECTION>
-<FILE>clutter-gst-video-sink</FILE>
-<TITLE>ClutterGstVideoSink</TITLE>
-ClutterGstVideoSink
-ClutterGstVideoSinkClass
-clutter_gst_video_sink_new
-<SUBSECTION Standard>
-CLUTTER_GST_VIDEO_SINK
-CLUTTER_GST_IS_VIDEO_SINK
-CLUTTER_GST_TYPE_VIDEO_SINK
-clutter_gst_video_sink_get_type
-CLUTTER_GST_VIDEO_SINK_CLASS
-CLUTTER_GST_IS_VIDEO_SINK_CLASS
-CLUTTER_GST_VIDEO_SINK_GET_CLASS
-<SUBSECTION Private>
-ClutterGstVideoSinkPrivate
-</SECTION>
-
-<SECTION>
 <FILE>clutter-gst-camera-actor</FILE>
 <TITLE>ClutterGstCameraActor</TITLE>
 ClutterGstCameraActor

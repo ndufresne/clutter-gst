@@ -300,7 +300,6 @@ static void
 clutter_gst_crop_class_init (ClutterGstCropClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  ClutterGstActorClass *gst_actor_class = CLUTTER_GST_ACTOR_CLASS (klass);
   GParamSpec *pspec;
 
   g_type_class_add_private (klass, sizeof (ClutterGstCropPrivate));

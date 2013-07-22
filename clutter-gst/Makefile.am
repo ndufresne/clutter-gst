@@ -25,7 +25,6 @@ source_h = 					\
 	$(srcdir)/clutter-gst-types.h		\
 	$(srcdir)/clutter-gst-util.h		\
 	$(srcdir)/clutter-gst-version.h		\
-	$(srcdir)/clutter-gst-actor.h		\
 	$(srcdir)/clutter-gst-camera.h		\
 	$(srcdir)/clutter-gst-camera-device.h	\
 	$(srcdir)/clutter-gst-playback.h	\
@@ -47,7 +46,6 @@ source_c = 					\
 	$(srcdir)/clutter-gst-types.c		\
 	$(srcdir)/clutter-gst-marshal.c		\
 	$(srcdir)/clutter-gst-player.c		\
-	$(srcdir)/clutter-gst-actor.c		\
 	$(srcdir)/clutter-gst-camera.c		\
 	$(srcdir)/clutter-gst-camera-device.c	\
 	$(srcdir)/clutter-gst-playback.c	\

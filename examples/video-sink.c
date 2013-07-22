@@ -96,14 +96,16 @@ main (int argc, char *argv[])
   timeline = clutter_timeline_new (1000);
   g_object_set(timeline, "loop", TRUE, NULL);
 
-  actor = g_object_new (CLUTTER_GST_TYPE_ACTOR, NULL);
-
-  /* Set up pipeline */
   player = clutter_gst_playback_new ();
-  pipeline = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (player));
-
+  actor = g_object_new (CLUTTER_TYPE_ACTOR,
+                        "content", g_object_new (CLUTTER_GST_TYPE_CONTENT,
+                                                 "player", player, NULL),
+                        NULL);
   g_signal_connect (player, "size-change",
                     G_CALLBACK (size_change), actor);
+
+  /* Set up pipeline */
+  pipeline = clutter_gst_player_get_pipeline (CLUTTER_GST_PLAYER (player));
 
   src = gst_element_factory_make ("videotestsrc", NULL);
   warp = gst_element_factory_make ("warptv", NULL);

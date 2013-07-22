@@ -39,7 +39,6 @@
 #include <gst/gstelement.h>
 #include <gst/pbutils/encoding-profile.h>
 
-#include <clutter-gst/clutter-gst-actor.h>
 #include <clutter-gst/clutter-gst-camera-device.h>
 #include <clutter-gst/clutter-gst-types.h>
 
@@ -82,7 +81,7 @@ typedef struct _ClutterGstCameraPrivate ClutterGstCameraPrivate;
 struct _ClutterGstCamera
 {
   /*< private >*/
-  ClutterGstActor parent;
+  GObject parent;
   ClutterGstCameraPrivate *priv;
 };
 
@@ -94,7 +93,7 @@ struct _ClutterGstCamera
 struct _ClutterGstCameraClass
 {
   /*< private >*/
-  ClutterGstActorClass parent_class;
+  GObjectClass parent_class;
 
   void (* ready_for_capture) (ClutterGstCamera *self,
                               gboolean               ready);
