@@ -424,6 +424,7 @@ int
 main (int argc, char *argv[])
 {
   const gchar         *uri;
+  gchar               *scheme;
   VideoApp            *app = NULL;
   GstElement          *pipe;
   GstElement          *playsink;
@@ -521,7 +522,13 @@ main (int argc, char *argv[])
                     NULL);
 
   /* Load up out video actor */
-  clutter_gst_playback_set_filename (app->player, uri);
+  scheme = g_uri_parse_scheme (uri);
+  if (scheme != NULL)
+    clutter_gst_playback_set_uri (app->player, uri);
+  else
+    clutter_gst_playback_set_filename (app->player, uri);
+
+  g_free (scheme);
 
   if (clutter_gst_playback_is_live_media (app->player))
     g_print ("Playing live media\n");
