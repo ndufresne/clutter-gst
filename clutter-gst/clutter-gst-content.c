@@ -181,17 +181,18 @@ content_set_sink (ClutterGstContent *self,
 
   if (sink)
     {
-      CoglPipeline *pipeline;
-
       priv->sink = g_object_ref_sink (sink);
       g_signal_connect (priv->sink, "new-frame",
                         G_CALLBACK (_new_frame_from_pipeline), self);
       g_signal_connect (priv->sink, "notify::pixel-aspect-ratio",
                         G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
-      pipeline = cogl_gst_video_sink_get_pipeline (priv->sink);
-      if (pipeline)
-        update_frame (self, pipeline);
+      if (cogl_gst_video_sink_is_ready (priv->sink))
+        {
+          CoglPipeline *pipeline = cogl_gst_video_sink_get_pipeline (priv->sink);
+          if (pipeline)
+            update_frame (self, pipeline);
+        }
     }
 
   g_object_notify (G_OBJECT (self), "video-sink");
