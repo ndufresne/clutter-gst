@@ -500,9 +500,8 @@ main (int argc, char *argv[])
     {
       g_print ("Remote media detected, setting up buffering\n");
 
-      /* configure to 10 seconds of buffer duration */
-      clutter_gst_playback_set_buffer_duration (app->player, 10 * GST_SECOND);
-      clutter_gst_playback_set_buffering_mode (app->player, CLUTTER_GST_BUFFERING_MODE_STREAM);
+      clutter_gst_playback_set_buffering_mode (app->player,
+        CLUTTER_GST_BUFFERING_MODE_DOWNLOAD);
       g_signal_connect (app->player,
                         "notify::buffer-fill",
                         G_CALLBACK (on_video_actor_notify_buffer_fill),
