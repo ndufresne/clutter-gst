@@ -396,7 +396,7 @@ on_video_actor_notify_buffer_fill (GObject    *selector,
 {
   gdouble buffer_fill;
 
-  g_object_get (app->vactor, "buffer-fill", &buffer_fill, NULL);
+  g_object_get (app->player, "buffer-fill", &buffer_fill, NULL);
   g_print ("Buffering - percentage=%d%%\n", (int) (buffer_fill * 100));
 }
 
