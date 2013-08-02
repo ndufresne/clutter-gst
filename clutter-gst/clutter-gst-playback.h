@@ -159,6 +159,7 @@ gboolean                  clutter_gst_playback_get_in_seek         (ClutterGstPl
 void                      clutter_gst_playback_set_progress        (ClutterGstPlayback        *self,
                                                                     gdouble                    progress);
 gdouble                   clutter_gst_playback_get_progress        (ClutterGstPlayback        *self);
+gdouble                   clutter_gst_playback_get_position        (ClutterGstPlayback        *self);
 gdouble                   clutter_gst_playback_get_duration        (ClutterGstPlayback        *self);
 
 gboolean                  clutter_gst_playback_is_live_media       (ClutterGstPlayback        *self);

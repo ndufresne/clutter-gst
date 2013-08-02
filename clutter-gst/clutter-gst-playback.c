@@ -812,6 +812,21 @@ set_subtitle_font_name (ClutterGstPlayback *self,
   g_object_set (priv->pipeline, "subtitle-font-desc", font_name, NULL);
 }
 
+static gdouble
+get_position (ClutterGstPlayback *self)
+{
+  ClutterGstPlaybackPrivate *priv = self->priv;
+  gboolean success;
+  GstFormat format = GST_FORMAT_TIME;
+  gint64 position;
+
+  success = gst_element_query_position (priv->pipeline, format, &position);
+  if (G_UNLIKELY (success != TRUE))
+    return 0.0;
+
+  return (gdouble) position / GST_SECOND;
+}
+
 static gboolean
 player_buffering_timeout (gpointer data)
 {
@@ -2763,6 +2778,21 @@ clutter_gst_playback_get_progress (ClutterGstPlayback *self)
   g_return_val_if_fail (CLUTTER_GST_IS_PLAYBACK (self), 0);
 
   return get_progress (self);
+}
+/**
+ * clutter_gst_playback_get_position:
+ * @self: a #ClutterGstPlayback
+ *
+ * Retrieves the position in the media stream that @self represents.
+ *
+ * Return value: the position in the media stream, in seconds
+ */
+gdouble
+clutter_gst_playback_get_position (ClutterGstPlayback *self)
+{
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYBACK (self), 0);
+
+  return get_position (self);
 }
 
 /**
