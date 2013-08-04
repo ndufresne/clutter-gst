@@ -144,7 +144,7 @@ content_set_player (ClutterGstContent *self,
     return;
 
   if (priv->player)
-    g_clear_object (&priv->sink);
+    g_clear_object (&priv->player);
 
   if (player)
     {
