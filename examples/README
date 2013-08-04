@@ -6,16 +6,39 @@ examples come clutter demos.
 
 There are:
 
- o video-player.
- 
-   Simple fullscreen video player. 
+ o camera-player :
+
+   Simple application showing the different capabilities of the
+   ClutterGstCamera player.
+
+ o pieces.js :
+
+   Quick little demo moving around pieces of a video stream (use
+   keyboard arrows).
+
+ o simpler-player.js :
+
+   Almost the simplest video player you can write in javascript using
+   ClutterGst.
+
+ o video-flip.js :
+
+   A small example switching between 2 video streams on move events
+
+ o video-flip2.js :
+
+   An example switching between n video streams (use up/down keyboard
+   arrows).
+
+ o video-player :
+
+   Simple fullscreen video player.
 
    - Move mouse to see controls.
    - Hit q or Esc to exit, p to toggle pause state.
    - Has some useless cheesy effects built in.
-      - Hit e to flip the video. 
+      - Hit e to flip the video.
 
- o video-sink.
+ o video-sink :
 
-   Demonstrates use of ClutterGstVideoSink with a custom
-   pipeline.
+   Demonstrates use of ClutterGstVideoSink with a custom pipeline.
