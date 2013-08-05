@@ -1939,22 +1939,6 @@ get_pipeline (ClutterGstPlayback *self)
       return NULL;
     }
 
-  audio_sink = gst_element_factory_make ("gconfaudiosink", "audio-sink");
-  if (!audio_sink)
-    {
-      audio_sink = gst_element_factory_make ("autoaudiosink", "audio-sink");
-      if (!audio_sink)
-	{
-	  audio_sink = gst_element_factory_make ("alsasink", "audio-sink");
-	  g_warning ("Could not create a GST audio_sink. "
-		     "Audio unavailable.");
-
-          /* do we even need to bother? */
-	  if (!audio_sink)
-	    audio_sink = gst_element_factory_make ("fakesink", "audio-sink");
-	}
-    }
-
   priv->video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
 
   g_signal_connect (priv->video_sink, "new-frame",
@@ -1965,7 +1949,6 @@ get_pipeline (ClutterGstPlayback *self)
                     G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
   g_object_set (G_OBJECT (pipeline),
-                "audio-sink", audio_sink,
                 "video-sink", priv->video_sink,
                 "subtitle-font-desc", "Sans 16",
                 NULL);
