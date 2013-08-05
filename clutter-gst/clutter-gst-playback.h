@@ -41,6 +41,7 @@
 #include <glib-object.h>
 
 #include <clutter-gst/clutter-gst-types.h>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
@@ -102,9 +103,8 @@ struct _ClutterGstPlaybackClass
 
   /*< public >*/
   /* signals */
-  void (* download_buffering)  (ClutterGstPlayback *self,
-                                gdouble             start,
-                                gdouble             stop);
+  gboolean (* should_buffer)  (ClutterGstPlayback *self,
+                                GstQuery *query);
 };
 
 GType clutter_gst_playback_get_type (void) G_GNUC_CONST;

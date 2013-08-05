@@ -100,7 +100,7 @@ enum
 
 enum
 {
-  DOWNLOAD_BUFFERING_SIGNAL,
+  SHOULD_BUFFER = 1,
 
   LAST_SIGNAL
 };
@@ -137,15 +137,12 @@ struct _ClutterGstPlaybackPrivate
   guint in_error : 1;
   guint in_eos : 1;
   guint in_download_buffering : 1;
-  /* when in progressive download, we use the buffer-fill property to signal
-   * that we have enough data to play the stream. This flag allows to send
-   * the notify that buffer-fill is 1.0 only once */
-  guint virtual_stream_buffer_signalled : 1;
 
   gdouble stacked_progress;
 
   gdouble target_progress;
   GstState target_state;
+  GstState force_state;
 
   guint tick_timeout_id;
   guint buffering_timeout_id;
@@ -159,8 +156,6 @@ struct _ClutterGstPlaybackPrivate
   gchar *user_agent;
 
   GstSeekFlags seek_flags;    /* flags for the seek in set_progress(); */
-
-  GstElement *download_buffering_element;
 
   GList *audio_streams;
   GList *subtitle_tracks;
@@ -272,6 +267,43 @@ free_tags_list (GList **listp)
 
   *listp = NULL;
 }
+
+static GstStateChangeReturn
+set_pipeline_target_state (ClutterGstPlayback *self, GstState state)
+{
+  ClutterGstPlaybackPrivate *priv = self->priv;
+  GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
+
+  priv->target_state = state;
+  if (!priv->pipeline || !priv->uri)
+    goto out;
+
+  if (priv->force_state == GST_STATE_VOID_PENDING)
+    ret = gst_element_set_state (priv->pipeline, state);
+
+out:
+  return ret;
+}
+
+static GstStateChangeReturn
+force_pipeline_state (ClutterGstPlayback *self, GstState state)
+{
+  ClutterGstPlaybackPrivate *priv = self->priv;
+  GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
+
+  priv->force_state = state;
+  if (!priv->pipeline)
+    goto out;
+
+  if (state == GST_STATE_VOID_PENDING)
+    state = priv->target_state;
+
+  ret = gst_element_set_state (priv->pipeline, state);
+
+out:
+  return ret;
+}
+
 
 static gboolean
 tick_timeout (gpointer data)
@@ -418,6 +450,8 @@ player_configure_buffering_timeout (ClutterGstPlayback *self,
     {
       priv->buffering_timeout_id =
         g_timeout_add (ms, player_buffering_timeout, self);
+      player_buffering_timeout (self);
+
     }
 }
 
@@ -426,14 +460,9 @@ player_clear_download_buffering (ClutterGstPlayback *self)
 {
   ClutterGstPlaybackPrivate *priv = self->priv;
 
-  if (priv->download_buffering_element)
-    {
-      g_object_unref (priv->download_buffering_element);
-      priv->download_buffering_element = NULL;
-    }
   player_configure_buffering_timeout (self, 0);
+
   priv->in_download_buffering = FALSE;
-  priv->virtual_stream_buffer_signalled = 0;
 }
 
 static gboolean
@@ -514,29 +543,21 @@ set_uri (ClutterGstPlayback *self,
           g_source_remove (priv->buffering_timeout_id);
           priv->buffering_timeout_id = 0;
         }
-
-      if (priv->download_buffering_element)
-        {
-          g_object_unref (priv->download_buffering_element);
-          priv->download_buffering_element = NULL;
-        }
-
     }
 
   priv->can_seek = FALSE;
   priv->duration = 0.0;
-  priv->stacked_progress = 0.0;
+  priv->stacked_progress = -1.0;
   priv->target_progress = 0.0;
 
   CLUTTER_GST_NOTE (MEDIA, "setting URI: %s", uri);
 
   if (uri)
     {
-      gst_element_get_state (priv->pipeline, &state, &pending, 0);
-      if (pending)
-        state = pending;
-
-      gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+      /* Change uri, force the pipeline to NULL so the uri can be changed, then
+       * set the pipeline to "unforced" mode so it will return to its current
+       * target mode */
+      force_pipeline_state (self, GST_STATE_NULL);
 
       g_object_set (priv->pipeline, "uri", uri, NULL);
 
@@ -545,7 +566,7 @@ set_uri (ClutterGstPlayback *self,
       set_subtitle_uri (self, NULL);
       autoload_subtitle (self, uri);
 
-      gst_element_set_state (priv->pipeline, state);
+      force_pipeline_state (self, GST_STATE_VOID_PENDING);
 
       priv->is_changing_uri = TRUE;
     }
@@ -632,19 +653,14 @@ set_playing (ClutterGstPlayback *self,
   priv->in_error = FALSE;
   priv->in_eos = FALSE;
 
-  priv->target_state = playing ? GST_STATE_PLAYING : GST_STATE_PAUSED;
-
-  if (priv->uri)
+  if (!priv->uri && playing)
     {
-      set_in_seek (self, FALSE);
+      g_warning ("Unable to start playing: no URI is set");
+      return;
+    }
 
-      gst_element_set_state (priv->pipeline, priv->target_state);
-    }
-  else
-    {
-      if (playing)
-       g_warning ("Unable to start playing: no URI is set");
-    }
+  set_pipeline_target_state (self,
+    playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
 
   g_object_notify (G_OBJECT (self), "playing");
   g_object_notify (G_OBJECT (self), "progress");
@@ -657,15 +673,10 @@ get_playing (ClutterGstPlayback *player)
   GstState state, pending;
   gboolean playing;
 
-  if (!priv->pipeline)
+  if (!priv->pipeline || !priv->uri)
     return FALSE;
 
-  gst_element_get_state (priv->pipeline, &state, &pending, 0);
-
-  if (pending)
-    playing = (pending == GST_STATE_PLAYING);
-  else
-    playing = (state == GST_STATE_PLAYING);
+  playing = priv->target_state == GST_STATE_PLAYING;
 
   CLUTTER_GST_NOTE (MEDIA, "get playing: %d", playing);
 
@@ -688,25 +699,19 @@ set_progress (ClutterGstPlayback *self,
   priv->in_eos = FALSE;
   priv->target_progress = progress;
 
-  if (priv->in_download_buffering)
-    {
-      /* we clear the virtual_stream_buffer_signalled flag as it's likely we
-       * need to buffer again */
-      priv->virtual_stream_buffer_signalled = 0;
-    }
-
-  if (priv->in_seek || priv->is_idle || priv->is_changing_uri)
+  if (priv->is_changing_uri || priv->in_seek)
     {
       /* We can't seek right now, let's save the position where we
          want to seek and do that later. */
       CLUTTER_GST_NOTE (MEDIA,
-                        "already seeking/idleing. stacking progress point.");
+                        "already seeking. stacking progress point.");
       priv->stacked_progress = progress;
       return;
     }
 
   duration_q = gst_query_new_duration (GST_FORMAT_TIME);
 
+  position = 0;
   if (gst_element_query (priv->pipeline, duration_q))
     {
       gint64 duration = 0;
@@ -715,10 +720,11 @@ set_progress (ClutterGstPlayback *self,
 
       position = progress * duration;
     }
-  else
-    position = 0;
-
-  gst_query_unref (duration_q);
+  else if (progress != 0.0)
+    {
+      /* Can't seek into the file if the duration is unknown */
+      goto out;
+    }
 
   gst_element_seek (priv->pipeline,
 		    1.0,
@@ -729,10 +735,18 @@ set_progress (ClutterGstPlayback *self,
 		    GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
 
   set_in_seek (self, TRUE);
-
-  priv->stacked_progress = 0.0;
-
   CLUTTER_GST_NOTE (MEDIA, "set progress (seeked): %.02f", progress);
+  /* If we seek we want to go and babysit the buffering again in case of
+   * download buffering */
+  if (!priv->is_live && clutter_gst_playback_get_buffering_mode (self) ==
+      CLUTTER_GST_BUFFERING_MODE_DOWNLOAD)
+    {
+      force_pipeline_state (self, GST_STATE_PAUSED);
+    }
+  priv->stacked_progress = -1.0;
+
+out:
+  gst_query_unref (duration_q);
 }
 
 static gdouble
@@ -828,6 +842,42 @@ get_position (ClutterGstPlayback *self)
 }
 
 static gboolean
+player_should_buffer (ClutterGstPlayback *self, GstQuery *query)
+{
+  ClutterGstPlaybackPrivate *priv = self->priv;
+  gdouble position;
+  gboolean ret = FALSE;
+  gint64 left;
+  gdouble time_left;
+  gboolean busy;
+
+  /* Use the estimated total duration left as estimated by queue2 based on the
+   * averge incoming bitrate, we can stop buffering once the remaining download
+   * takes less time then the remaining play time (with a 10% safety margin).
+   * However regardless of that keep buffering as long as queue2 indicates that
+   * buffering should happen (based on its high water marks */
+  gst_query_parse_buffering_range (query, NULL, NULL, NULL, &left);
+  gst_query_parse_buffering_percent (query, &busy, NULL);
+
+  position = get_position (self);
+  if (priv->duration)
+    time_left = priv->duration - position;
+  else
+    time_left = 0;
+
+  if (left == -1 || (!busy && (((gdouble)left * 1.1) / 1000) < time_left))
+    {
+      ret = FALSE;
+    }
+  else
+    {
+      ret = TRUE;
+    }
+
+  return ret;
+}
+
+static gboolean
 player_buffering_timeout (gpointer data)
 {
   ClutterGstPlayback *self = (ClutterGstPlayback *) data;
@@ -835,88 +885,76 @@ player_buffering_timeout (gpointer data)
   gdouble start_d, stop_d, seconds_buffered;
   gint64 start, stop, left;
   gint buffer_percent;
-  GstState current_state;
-  GstElement *element;
   GstQuery *query;
   gboolean res;
+  gboolean busy;
+  gint avg_in, avg_out;
+  gdouble time_left;
+  gboolean ret = TRUE;
+  GstBufferingMode mode;
+  gdouble fill;
+  gboolean should_buffer;
 
-  element = priv->download_buffering_element;
-  if (element == NULL)
-    element = priv->pipeline;
+
+  /* currently seeking, wait until it's done to get consistent results */
+  if (priv->in_seek)
+    return TRUE;
 
   /* queue2 only knows about _PERCENT and _BYTES */
-  query = gst_query_new_buffering (GST_FORMAT_PERCENT);
-  res = gst_element_query (element, query);
+  query = gst_query_new_buffering (GST_FORMAT_BYTES);
+  res = gst_element_query (priv->pipeline, query);
 
   if (res == FALSE)
     {
-      priv->buffering_timeout_id = 0;
+      CLUTTER_GST_NOTE (BUFFERING, "Buffer query failed");
+      goto out;
+    }
+
+  gst_query_parse_buffering_stats (query, &mode, NULL, NULL, NULL);
+
+  if (mode != GST_BUFFERING_DOWNLOAD)
+    {
+      CLUTTER_GST_NOTE (BUFFERING,
+        "restoring the pipeline as we're not download buffering");
+      if (!busy)
+        force_pipeline_state (self, GST_STATE_VOID_PENDING);
+      ret = FALSE;
       player_clear_download_buffering (self);
-      return FALSE;
+      goto out;
     }
 
-  /* signal the current range */
-
-  gst_query_parse_buffering_stats (query, NULL, NULL, NULL, &left);
-  gst_query_parse_buffering_range (query, NULL, &start, &stop, NULL);
-
-  CLUTTER_GST_NOTE (BUFFERING,
-                    "start %" G_GINT64_FORMAT ", stop %" G_GINT64_FORMAT
-                    ", buffering left %" G_GINT64_FORMAT, start, stop, left);
-
-  start_d = (gdouble) start / GST_FORMAT_PERCENT_MAX;
-  stop_d = (gdouble) stop / GST_FORMAT_PERCENT_MAX;
-
-  g_signal_emit (self, signals[DOWNLOAD_BUFFERING_SIGNAL], 0, start_d, stop_d);
-
-  /* handle the "virtual stream buffer" and the associated pipeline state.
-   * We pause the pipeline until the content is buffered.
-   */
-  seconds_buffered = priv->duration * (stop_d - start_d);
-  gst_query_parse_buffering_percent (query, NULL, &buffer_percent);
-  priv->buffer_fill = CLAMP ((gdouble) buffer_percent / 100.0, 0.0, 1.0);
-
-  if (priv->buffer_fill != 1.0 || !priv->virtual_stream_buffer_signalled)
+  g_signal_emit (self, signals[SHOULD_BUFFER], 0, query, &should_buffer);
+  if (should_buffer)
     {
-      CLUTTER_GST_NOTE (BUFFERING, "buffer holds %0.2fs of data, buffer-fill "
-                        "is %.02f", seconds_buffered, priv->buffer_fill);
-
-      g_object_notify (G_OBJECT (self), "buffer-fill");
-
-      if (priv->buffer_fill == 1.0)
-        priv->virtual_stream_buffer_signalled = 1;
-    }
-
-  gst_element_get_state (priv->pipeline, &current_state, NULL, 0);
-  if (priv->buffer_fill < 1.0)
-    {
-      if (current_state != GST_STATE_PAUSED)
+      if (priv->buffer_fill != 0.0)
         {
-          CLUTTER_GST_NOTE (BUFFERING, "pausing the pipeline");
-          gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+          priv->buffer_fill = 0.0;
+          g_object_notify (G_OBJECT (self), "buffer-fill");
+        }
+      /* Force to paused if we haven't yet */
+      if (priv->force_state == GST_STATE_VOID_PENDING)
+        {
+          /* Starting buffering again */
+          CLUTTER_GST_NOTE (BUFFERING,
+            "pausing the pipeline for buffering: %d", busy);
+          force_pipeline_state (self, GST_STATE_PAUSED);
         }
     }
   else
     {
-      if (current_state != priv->target_state)
-        {
-          CLUTTER_GST_NOTE (BUFFERING, "restoring the pipeline");
-          gst_element_set_state (priv->pipeline, priv->target_state);
-        }
-    }
-
-  /* the file has finished downloading */
-  if (left == G_GINT64_CONSTANT (0))
-    {
-      priv->buffering_timeout_id = 0;
-
+      /* Done buffering signal and stop the timeouts */
       player_clear_download_buffering (self);
-      gst_query_unref (query);
-      return FALSE;
+      force_pipeline_state (self, GST_STATE_VOID_PENDING);
+      if (priv->buffer_fill != 1.0)
+        {
+          priv->buffer_fill = 1.0;
+          g_object_notify (G_OBJECT (self), "buffer-fill");
+        }
+      ret = FALSE;
     }
-
+out:
   gst_query_unref (query);
-  return TRUE;
+  return ret;
 }
 
 static void
@@ -1007,18 +1045,18 @@ bus_message_buffering_cb (GstBus             *bus,
 
           if (priv->buffer_fill < 1.0)
             {
-              if (current_state != GST_STATE_PAUSED)
+              if (priv->force_state != GST_STATE_PAUSED)
                 {
                   CLUTTER_GST_NOTE (BUFFERING, "pausing the pipeline");
-                  gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+                  force_pipeline_state (self, GST_STATE_PAUSED);
                 }
             }
           else
             {
-              if (current_state != priv->target_state)
+              if (priv->force_state != GST_STATE_VOID_PENDING)
                 {
                   CLUTTER_GST_NOTE (BUFFERING, "restoring the pipeline");
-                  gst_element_set_state (priv->pipeline, priv->target_state);
+                  force_pipeline_state (self, GST_STATE_VOID_PENDING);
                 }
             }
         }
@@ -1027,28 +1065,16 @@ bus_message_buffering_cb (GstBus             *bus,
       break;
 
     case GST_BUFFERING_DOWNLOAD:
-      /* we rate limit the messages from GStreamer for a usage in a UI (we
-       * don't want *that* many updates). This is done by installing an idle
-       * handler querying the buffer range and sending a signal from there */
-
       if (priv->in_download_buffering)
         break;
 
+      priv->buffer_fill = 0.0;
+      g_object_notify (G_OBJECT (self), "buffer-fill");
       /* install the querying idle handler the first time we receive a download
        * buffering message */
       player_configure_buffering_timeout (self, BUFFERING_TIMEOUT);
 
-      /* pause the stream. the idle timeout will set the target state when
-       * having received enough data. We'll use buffer_fill as a "virtual
-       * stream buffer" to signal the application we're buffering until we
-       * can play back from the downloaded stream. */
-      gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
-      priv->buffer_fill = 0.0;
-      g_object_notify (G_OBJECT (self), "buffer-fill");
-
-      priv->download_buffering_element = g_object_ref (message->src);
       priv->in_download_buffering = TRUE;
-      priv->virtual_stream_buffer_signalled = 0;
       break;
 
     case GST_BUFFERING_TIMESHIFT:
@@ -1167,10 +1193,16 @@ bus_message_state_change_cb (GstBus             *bus,
       g_object_notify (G_OBJECT (self), "can-seek");
 
       query_duration (self);
+
+      priv->is_changing_uri = FALSE;
+      if (priv->stacked_progress != -1.0 && priv->can_seek)
+        {
+          set_progress (self, priv->stacked_progress);
+        }
     }
 
   /* is_idle controls the drawing with the idle material */
-  if (new_state == GST_STATE_NULL)
+  if (old_state > GST_STATE_READY && new_state == GST_STATE_READY)
     {
       priv->is_idle = TRUE;
       g_object_notify (G_OBJECT (self), "idle");
@@ -1178,16 +1210,7 @@ bus_message_state_change_cb (GstBus             *bus,
   else if (new_state == GST_STATE_PLAYING)
     {
       priv->is_idle = FALSE;
-      priv->is_changing_uri = FALSE;
       g_object_notify (G_OBJECT (self), "idle");
-    }
-
-  if (!priv->is_idle)
-    {
-      if (priv->stacked_progress)
-        {
-          set_progress (self, priv->stacked_progress);
-        }
     }
 }
 
@@ -1203,8 +1226,9 @@ bus_message_async_done_cb (GstBus             *bus,
       g_object_notify (G_OBJECT (self), "progress");
 
       set_in_seek (self, FALSE);
+      player_configure_buffering_timeout (self, BUFFERING_TIMEOUT);
 
-      if (priv->stacked_progress)
+      if (priv->stacked_progress != -1.0)
         {
           set_progress (self, priv->stacked_progress);
         }
@@ -1643,9 +1667,6 @@ clutter_gst_playback_dispose (GObject *object)
       priv->buffering_timeout_id = 0;
     }
 
-  if (priv->download_buffering_element)
-    g_clear_object (&priv->download_buffering_element);
-
   if (priv->bus)
     {
       gst_bus_remove_signal_watch (priv->bus);
@@ -1692,6 +1713,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
   object_class->set_property = clutter_gst_playback_set_property;
   object_class->dispose = clutter_gst_playback_dispose;
   object_class->finalize = clutter_gst_playback_finalize;
+  klass->should_buffer = player_should_buffer;
 
   /**
    * ClutterGstPlayback:uri:
@@ -1896,25 +1918,24 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
   /* Signals */
 
   /**
-   * ClutterGstPlayback::download-buffering:
+   * ClutterGstPlayback::should-buffer:
    * @player: the #ClutterGstPlayback instance that received the signal
-   * @start: start position of the buffering
-   * @stop: start position of the buffering
+   * @query: A gst buffering query of format bytes
    *
-   * The ::download-buffering signal is emitted each time their an
-   * update about the buffering of the current media.
+   * The ::should-buffer signal is emitted every time the base class needs to
+   * decide whether it should continue buffering in download-buffering mode.
    *
    * Since: 1.4
    */
-  signals[DOWNLOAD_BUFFERING_SIGNAL] =
-    g_signal_new ("download-buffering",
+  signals[SHOULD_BUFFER] =
+    g_signal_new ("should-buffer",
                   CLUTTER_GST_TYPE_PLAYBACK,
                   G_SIGNAL_RUN_LAST,
                   G_STRUCT_OFFSET (ClutterGstPlaybackClass,
-                                   download_buffering),
-                  NULL, NULL,
-                  _clutter_gst_marshal_VOID__DOUBLE_DOUBLE,
-                  G_TYPE_NONE, 2, G_TYPE_DOUBLE, G_TYPE_DOUBLE);
+                                   should_buffer),
+                  g_signal_accumulator_first_wins, NULL,
+                  _clutter_gst_marshal_BOOL__OBJECT,
+                  G_TYPE_BOOLEAN, 1, GST_TYPE_QUERY);
 }
 
 static void
