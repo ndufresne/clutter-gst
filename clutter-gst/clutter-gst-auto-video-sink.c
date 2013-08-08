@@ -176,6 +176,11 @@ clutter_gst_auto_video_sink_set_property (GObject      *object,
       if (sink->kid)
         g_object_set_property (G_OBJECT (sink->kid), pspec->name, value);
       break;
+    case PROP_CONTENT:
+      if (sink->content != NULL)
+        g_clear_object (&sink->content);
+      sink->content = g_value_get_object (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -194,6 +199,9 @@ clutter_gst_auto_video_sink_get_property (GObject    *object,
     {
     case PROP_TS_OFFSET:
       g_value_set_int64 (value, sink->ts_offset);
+      break;
+    case PROP_CONTENT:
+      g_value_set_object (value, sink->content);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
