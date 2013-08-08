@@ -393,7 +393,7 @@ main (int argc, char *argv[])
                                     NULL);
 
 
-  app->camera_devices = clutter_gst_camera_get_camera_devices (app->camera_player);
+  app->camera_devices = clutter_gst_camera_manager_get_camera_devices (clutter_gst_camera_manager_get_default ());
   if (!app->camera_devices)
     {
       g_error ("no suitable camera device available");

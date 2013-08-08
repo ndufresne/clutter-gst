@@ -116,8 +116,6 @@ GType clutter_gst_camera_get_type (void) G_GNUC_CONST;
 
 ClutterGstCamera * clutter_gst_camera_new                   (void);
 
-const GPtrArray *
-               clutter_gst_camera_get_camera_devices    (ClutterGstCamera   *self);
 ClutterGstCameraDevice *
                clutter_gst_camera_get_camera_device     (ClutterGstCamera   *self);
 gboolean       clutter_gst_camera_set_camera_device     (ClutterGstCamera       *self,

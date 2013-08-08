@@ -34,6 +34,7 @@
 #include "clutter-gst-enum-types.h"
 #include "clutter-gst-aspectratio.h"
 #include "clutter-gst-camera-device.h"
+#include "clutter-gst-camera-manager.h"
 #include "clutter-gst-camera.h"
 #include "clutter-gst-content.h"
 #include "clutter-gst-crop.h"

@@ -113,7 +113,6 @@ clutter_gst_camera_new
 clutter_gst_camera_get_brightness
 clutter_gst_camera_get_brightness_range
 clutter_gst_camera_get_camera_device
-clutter_gst_camera_get_camera_devices
 clutter_gst_camera_get_color_balance_property
 clutter_gst_camera_get_color_balance_property_range
 clutter_gst_camera_get_contrast
@@ -154,6 +153,25 @@ CLUTTER_GST_TYPE_CAMERA
 clutter_gst_camera_get_type
 <SUBSECTION Private>
 ClutterGstCameraPrivate
+</SECTION>
+
+<SECTION>
+<FILE>clutter-gst-camera-manager</FILE>
+<TITLE>ClutterGstCameraManager</TITLE>
+ClutterGstCameraManager
+ClutterGstCameraManagerClass
+clutter_gst_camera_manager_get_camera_devices
+clutter_gst_camera_manager_get_default
+<SUBSECTION Standard>
+CLUTTER_GST_CAMERA_MANAGER
+CLUTTER_GST_CAMERA_MANAGER_CLASS
+CLUTTER_GST_CAMERA_MANAGER_GET_CLASS
+CLUTTER_GST_IS_CAMERA_MANAGER
+CLUTTER_GST_IS_CAMERA_MANAGER_CLASS
+CLUTTER_GST_TYPE_CAMERA_MANAGER
+clutter_gst_camera_manager_get_type
+<SUBSECTION Private>
+ClutterGstCameraManagerPrivate
 </SECTION>
 
 <SECTION>

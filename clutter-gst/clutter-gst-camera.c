@@ -44,11 +44,9 @@
 #include <gio/gio.h>
 #include <gst/base/gstbasesink.h>
 #include <gst/video/video.h>
-#ifdef HAVE_GUDEV
-#include <gudev/gudev.h>
-#endif
 
 #include "clutter-gst-camera.h"
+#include "clutter-gst-camera-manager.h"
 #include "clutter-gst-debug.h"
 #include "clutter-gst-enum-types.h"
 #include "clutter-gst-marshal.h"
@@ -62,7 +60,6 @@ static const gchar *supported_media_types[] = {
 
 struct _ClutterGstCameraPrivate
 {
-  GPtrArray *camera_devices;
   ClutterGstCameraDevice *camera_device;
 
   ClutterGstFrame *current_frame;
@@ -282,11 +279,7 @@ clutter_gst_camera_dispose (GObject *object)
   g_free (priv->photo_filename);
   priv->photo_filename = NULL;
 
-  if (priv->camera_devices)
-    {
-      g_ptr_array_unref (priv->camera_devices);
-      priv->camera_devices = NULL;
-    }
+  g_clear_object (&priv->camera_device);
 
   if (priv->bus)
     {
@@ -676,107 +669,6 @@ set_device_resolutions (ClutterGstCamera       *self,
   device_capture_resolution_changed (device, width, height, self);
 }
 
-static void
-add_device (ClutterGstCamera  *self,
-            GstElementFactory *element_factory,
-            const gchar       *device_node,
-            const gchar       *device_name)
-{
-  ClutterGstCameraPrivate *priv = self->priv;
-  ClutterGstCameraDevice *device;
-
-  if (!priv->camera_devices)
-    priv->camera_devices =
-      g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
-
-  device = g_object_new (CLUTTER_GST_TYPE_CAMERA_DEVICE,
-                         "element-factory", element_factory,
-                         "node", device_node,
-                         "name", device_name,
-                         NULL);
-  g_signal_connect (device, "capture-resolution-changed",
-                    G_CALLBACK (device_capture_resolution_changed),
-                    self);
-  g_ptr_array_add (priv->camera_devices, device);
-}
-
-static gboolean
-probe_camera_devices (ClutterGstCamera *self)
-{
-  ClutterGstCameraPrivate *priv = self->priv;
-  GstElement *videosrc;
-  GstElementFactory *element_factory;
-  GParamSpec *pspec;
-  gchar *device_node;
-  gchar *device_name;
-#ifdef HAVE_GUDEV
-  GUdevClient *udev_client;
-  GList *udevices, *l;
-  GUdevDevice *udevice;
-#endif
-
-  videosrc = gst_element_factory_make ("v4l2src", "v4l2src");
-  if (!videosrc)
-    {
-      g_warning ("Unable to get available camera devices, "
-                 "v4l2src element missing");
-      return FALSE;
-    }
-
-  pspec = g_object_class_find_property (
-                                        G_OBJECT_GET_CLASS (G_OBJECT (videosrc)), "device");
-  if (!G_IS_PARAM_SPEC_STRING (pspec))
-    {
-      g_warning ("Unable to get available camera devices, "
-                 "v4l2src has no 'device' property");
-      goto out;
-    }
-
-  element_factory = gst_element_get_factory (videosrc);
-
-#ifdef HAVE_GUDEV
-  udev_client = g_udev_client_new (NULL);
-  udevices = g_udev_client_query_by_subsystem (udev_client, "video4linux");
-  for (l = udevices; l != NULL; l = l->next)
-    {
-      gint v4l_version;
-
-      udevice = (GUdevDevice *) l->data;
-      v4l_version = g_udev_device_get_property_as_int (udevice, "ID_V4L_VERSION");
-      if (v4l_version == 2)
-        {
-          const char *caps;
-
-          caps = g_udev_device_get_property (udevice, "ID_V4L_CAPABILITIES");
-          if (caps == NULL || strstr (caps, ":capture:") == NULL)
-            continue;
-
-          device_node = (gchar *) g_udev_device_get_device_file (udevice);
-          device_name = (gchar *) g_udev_device_get_property (udevice, "ID_V4L_PRODUCT");
-
-          add_device (self, element_factory, device_node, device_name);
-        }
-
-      g_object_unref (udevice);
-    }
-  g_list_free (udevices);
-  g_object_unref (udev_client);
-#else
-  /* GStreamer 1.0 does not support property probe, adding default detected
-   * device as only known device */
-  g_object_get (videosrc, "device", &device_node, NULL);
-  g_object_get (videosrc, "device-name", &device_name, NULL);
-  add_device (self, element_factory, device_node, device_name);
-
-  g_free (device_node);
-  g_free (device_name);
-#endif
-
- out:
-  gst_object_unref (videosrc);
-  return (priv->camera_devices != NULL);
-}
-
 static gboolean
 setup_camera_source (ClutterGstCamera *self)
 {
@@ -838,12 +730,8 @@ static gboolean
 setup_pipeline (ClutterGstCamera *self)
 {
   ClutterGstCameraPrivate *priv = self->priv;
-
-  if (!probe_camera_devices (self))
-    {
-      g_critical ("Unable to find any suitable capture device");
-      return FALSE;
-    }
+  const GPtrArray *camera_devices =
+    clutter_gst_camera_manager_get_camera_devices (clutter_gst_camera_manager_get_default ());
 
   priv->camerabin = gst_element_factory_make ("camerabin", "camerabin");
   if (G_UNLIKELY (!priv->camerabin))
@@ -865,7 +753,7 @@ setup_pipeline (ClutterGstCamera *self)
     }
 
   if (!clutter_gst_camera_set_camera_device (self,
-                                             g_ptr_array_index (priv->camera_devices, 0)))
+                                             g_ptr_array_index (camera_devices, 0)))
     {
       g_critical ("Unable to select capture device");
       gst_object_unref (priv->camerabin);
@@ -977,23 +865,6 @@ clutter_gst_camera_new (void)
 /* } */
 
 /**
- * clutter_gst_camera_get_camera_devices:
- * @self: a #ClutterGstCamera
- *
- * Retrieve an array of supported camera devices.
- *
- * Return value: (transfer none) (element-type ClutterGst.CameraDevice): An array of #ClutterGstCameraDevice representing
- *                                the supported camera devices
- */
-const GPtrArray *
-clutter_gst_camera_get_camera_devices (ClutterGstCamera *self)
-{
-  g_return_val_if_fail (CLUTTER_GST_IS_CAMERA (self), NULL);
-
-  return self->priv->camera_devices;
-}
-
-/**
  * clutter_gst_camera_get_camera_device:
  * @self: a #ClutterGstCamera
  *
@@ -1067,11 +938,23 @@ clutter_gst_camera_set_camera_device (ClutterGstCamera       *self,
 
   gst_object_unref (element_factory);
 
-  priv->camera_device = device;
+  if (priv->camera_device)
+    {
+      g_signal_handlers_disconnect_by_func (priv->camera_device,
+                                            device_capture_resolution_changed,
+                                            self);
+      g_clear_object (&priv->camera_device);
+    }
+
+  priv->camera_device = g_object_ref (device);
 
   g_object_set (G_OBJECT (src), "device", node, NULL);
   g_free (node);
   g_object_set (G_OBJECT (priv->camera_source), "video-source", src, NULL);
+
+  g_signal_connect (device, "capture-resolution-changed",
+                    G_CALLBACK (device_capture_resolution_changed),
+                    self);
 
   set_device_resolutions (self, device);
 
