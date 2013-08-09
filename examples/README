@@ -6,6 +6,11 @@ examples come clutter demos.
 
 There are:
 
+ o camera-list.js :
+
+   Simple application showing webcams dynamically connected to your
+   computer.
+
  o camera-player :
 
    Simple application showing the different capabilities of the
