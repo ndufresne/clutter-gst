@@ -96,7 +96,8 @@ enum
 
   PROP_IDLE,
   PROP_PLAYING,
-  PROP_AUDIO_VOLUME
+  PROP_AUDIO_VOLUME,
+  PROP_DEVICE,
 };
 
 enum
@@ -242,6 +243,11 @@ clutter_gst_camera_get_property (GObject    *object,
                           clutter_gst_camera_get_audio_volume (CLUTTER_GST_PLAYER (object)));
       break;
 
+    case PROP_DEVICE:
+      g_value_set_object (value,
+                          clutter_gst_camera_get_camera_device (CLUTTER_GST_CAMERA (object)));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -263,6 +269,11 @@ clutter_gst_camera_set_property (GObject      *object,
     case PROP_AUDIO_VOLUME:
       clutter_gst_camera_set_audio_volume (CLUTTER_GST_PLAYER (object),
                                            g_value_get_double (value));
+      break;
+
+    case PROP_DEVICE:
+      clutter_gst_camera_set_camera_device (CLUTTER_GST_CAMERA (object),
+                                            CLUTTER_GST_CAMERA_DEVICE (g_value_get_object (value)));
       break;
 
     default:
@@ -301,6 +312,7 @@ static void
 clutter_gst_camera_class_init (ClutterGstCameraClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GParamSpec *pspec;
 
   g_type_class_add_private (klass, sizeof (ClutterGstCameraPrivate));
 
@@ -314,6 +326,20 @@ clutter_gst_camera_class_init (ClutterGstCameraClass *klass)
                                     PROP_PLAYING, "playing");
   g_object_class_override_property (object_class,
                                     PROP_AUDIO_VOLUME, "audio-volume");
+
+
+  /**
+   * ClutterGstCamera:camera-device:
+   *
+   * The camera device associated with the camera player.
+   */
+  pspec = g_param_spec_object ("device",
+                               "Device",
+                               "Camera Device",
+                               CLUTTER_GST_TYPE_CAMERA_DEVICE,
+                               CLUTTER_GST_PARAM_READWRITE);
+  g_object_class_install_property (object_class, PROP_DEVICE, pspec);
+
 
   /* Signals */
 
