@@ -39,7 +39,7 @@
 
 #include <gst/gst.h>
 #ifdef HAVE_GUDEV
-#include <gudev/gudev.h>
+# include <gudev/gudev.h>
 #endif
 
 #include "clutter-gst-camera-manager.h"
@@ -53,8 +53,19 @@ G_DEFINE_TYPE (ClutterGstCameraManager, clutter_gst_camera_manager, G_TYPE_OBJEC
 struct _ClutterGstCameraManagerPrivate
 {
   GPtrArray *camera_devices;
+#ifdef HAVE_GUDEV
+    GUdevClient *udev_client;
+#endif
 };
 
+enum
+{
+  CAMERA_ADDED,
+  CAMERA_REMOVED,
+  LAST_SIGNAL
+};
+
+static int signals[LAST_SIGNAL] = { 0 };
 
 static void
 clutter_gst_camera_manager_get_property (GObject    *object,
@@ -93,6 +104,8 @@ clutter_gst_camera_manager_dispose (GObject *object)
       priv->camera_devices = NULL;
     }
 
+  g_clear_object (&priv->udev_client);
+
 
   G_OBJECT_CLASS (clutter_gst_camera_manager_parent_class)->dispose (object);
 }
@@ -114,50 +127,62 @@ clutter_gst_camera_manager_class_init (ClutterGstCameraManagerClass *klass)
   object_class->set_property = clutter_gst_camera_manager_set_property;
   object_class->dispose = clutter_gst_camera_manager_dispose;
   object_class->finalize = clutter_gst_camera_manager_finalize;
+
+  /**
+   * ClutterGstCameraManager::camera-added:
+   * @self: the actor camera manager
+   * @camera_device: a camera device added
+   *
+   * The ::camera-added signal is emitted whenever a new camera device
+   * is available.
+   */
+  signals[CAMERA_ADDED] =
+    g_signal_new ("camera-added",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__OBJECT,
+                  G_TYPE_NONE, 1,
+                  CLUTTER_GST_TYPE_CAMERA_DEVICE);
+
+  /**
+   * ClutterGstCameraManager::camera-removed:
+   * @self: the actor camera manager
+   * @camera_device: a camera device
+   *
+   * The ::camera-removed signal is emitted whenever a camera device
+   * is unplugged/removed from the system.
+   */
+  signals[CAMERA_REMOVED] =
+    g_signal_new ("camera-removed",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__OBJECT,
+                  G_TYPE_NONE, 1,
+                  CLUTTER_GST_TYPE_CAMERA_DEVICE);
+
 }
 
 static void
 add_device (ClutterGstCameraManager *self,
-            GstElementFactory       *element_factory,
             const gchar             *device_node,
             const gchar             *device_name)
 {
   ClutterGstCameraManagerPrivate *priv = self->priv;
   ClutterGstCameraDevice *device;
-
-  if (!priv->camera_devices)
-    priv->camera_devices =
-      g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
-
-  device = g_object_new (CLUTTER_GST_TYPE_CAMERA_DEVICE,
-                         "element-factory", element_factory,
-                         "node", device_node,
-                         "name", device_name,
-                         NULL);
-  g_ptr_array_add (priv->camera_devices, device);
-}
-
-static gboolean
-probe_camera_devices (ClutterGstCameraManager *self)
-{
-  ClutterGstCameraManagerPrivate *priv = self->priv;
   GstElement *videosrc;
-  GstElementFactory *element_factory;
+  GstElementFactory *factory;
   GParamSpec *pspec;
-  gchar *device_node;
-  gchar *device_name;
-#ifdef HAVE_GUDEV
-  GUdevClient *udev_client;
-  GList *udevices, *l;
-  GUdevDevice *udevice;
-#endif
 
   videosrc = gst_element_factory_make ("v4l2src", "v4l2src");
   if (!videosrc)
     {
       g_warning ("Unable to get available camera devices, "
                  "v4l2src element missing");
-      return FALSE;
+      return;
     }
 
   pspec = g_object_class_find_property (
@@ -169,48 +194,137 @@ probe_camera_devices (ClutterGstCameraManager *self)
       goto out;
     }
 
-  element_factory = gst_element_get_factory (videosrc);
+  factory = gst_element_get_factory (videosrc);
+
+  if (!priv->camera_devices)
+    priv->camera_devices =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
+
+  device = g_object_new (CLUTTER_GST_TYPE_CAMERA_DEVICE,
+                         "element-factory", factory,
+                         "node", device_node,
+                         "name", device_name,
+                         NULL);
+  g_ptr_array_add (priv->camera_devices, device);
+
+  g_signal_emit (self, signals[CAMERA_ADDED], 0, device);
+
+ out:
+  gst_object_unref (videosrc);
+}
 
 #ifdef HAVE_GUDEV
-  udev_client = g_udev_client_new (NULL);
-  udevices = g_udev_client_query_by_subsystem (udev_client, "video4linux");
+static void
+remove_device (ClutterGstCameraManager *self,
+               const gchar             *device_node,
+               const gchar             *device_name)
+{
+  ClutterGstCameraManagerPrivate *priv = self->priv;
+  gint i;
+
+  for (i = 0; i < priv->camera_devices->len; i++)
+    {
+      ClutterGstCameraDevice *device =
+        g_ptr_array_index (priv->camera_devices, i);
+
+      if (!g_strcmp0 (clutter_gst_camera_device_get_node (device), device_node) &&
+          !g_strcmp0 (clutter_gst_camera_device_get_name (device), device_name))
+        {
+          g_signal_emit (self, signals[CAMERA_REMOVED], 0, device);
+          g_ptr_array_remove_index (priv->camera_devices, i);
+          break;
+        }
+    }
+}
+
+static gboolean
+is_supported_device (GUdevDevice *udevice)
+{
+  const char *caps;
+
+  if (g_strcmp0 (g_udev_device_get_subsystem (udevice), "video4linux") != 0)
+    return FALSE;
+
+  if (g_udev_device_get_property_as_int (udevice, "ID_V4L_VERSION") != 2)
+    return FALSE;
+
+  caps = g_udev_device_get_property (udevice, "ID_V4L_CAPABILITIES");
+  if (caps == NULL || strstr (caps, ":capture:") == NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
+static void
+udev_event (GUdevClient             *client,
+            gchar                   *action,
+            GUdevDevice             *udevice,
+            ClutterGstCameraManager *self)
+{
+  if (!is_supported_device (udevice))
+    return;
+
+  if (!g_strcmp0 (action, "add"))
+    add_device (self,
+                g_udev_device_get_device_file (udevice),
+                g_udev_device_get_property (udevice, "ID_V4L_PRODUCT"));
+  else if (!g_strcmp0 (action, "remove"))
+    remove_device (self,
+                   g_udev_device_get_device_file (udevice),
+                   g_udev_device_get_property (udevice, "ID_V4L_PRODUCT"));
+}
+#endif
+
+static gboolean
+probe_camera_devices (ClutterGstCameraManager *self)
+{
+  static const gchar *subsystems[] = { "video4linux", NULL };
+  ClutterGstCameraManagerPrivate *priv = self->priv;
+#ifdef HAVE_GUDEV
+  GList *udevices, *l;
+#else
+  gchar *device_node;
+  gchar *device_name;
+  GstElement *videosrc;
+#endif
+
+#ifdef HAVE_GUDEV
+  priv->udev_client = g_udev_client_new (subsystems);
+  g_signal_connect (priv->udev_client, "uevent",
+                    G_CALLBACK (udev_event), self);
+
+  udevices = g_udev_client_query_by_subsystem (priv->udev_client, "video4linux");
   for (l = udevices; l != NULL; l = l->next)
     {
-      gint v4l_version;
+      GUdevDevice *udevice = (GUdevDevice *) l->data;
 
-      udevice = (GUdevDevice *) l->data;
-      v4l_version = g_udev_device_get_property_as_int (udevice, "ID_V4L_VERSION");
-      if (v4l_version == 2)
-        {
-          const char *caps;
-
-          caps = g_udev_device_get_property (udevice, "ID_V4L_CAPABILITIES");
-          if (caps == NULL || strstr (caps, ":capture:") == NULL)
-            continue;
-
-          device_node = (gchar *) g_udev_device_get_device_file (udevice);
-          device_name = (gchar *) g_udev_device_get_property (udevice, "ID_V4L_PRODUCT");
-
-          add_device (self, element_factory, device_node, device_name);
-        }
+      udev_event (priv->udev_client, (gchar *) "add", udevice, self);
 
       g_object_unref (udevice);
     }
   g_list_free (udevices);
-  g_object_unref (udev_client);
 #else
+  videosrc = gst_element_factory_make ("v4l2src", "v4l2src");
+  if (!videosrc)
+    {
+      g_warning ("Unable to get available camera devices, "
+                 "v4l2src element missing");
+      return FALSE;
+    }
+
   /* GStreamer 1.0 does not support property probe, adding default detected
    * device as only known device */
   g_object_get (videosrc, "device", &device_node, NULL);
   g_object_get (videosrc, "device-name", &device_name, NULL);
-  add_device (self, element_factory, device_node, device_name);
+  add_device (self, device_node, device_name);
 
   g_free (device_node);
   g_free (device_name);
-#endif
 
  out:
   gst_object_unref (videosrc);
+#endif
+
   return (priv->camera_devices != NULL);
 }
 
@@ -218,6 +332,8 @@ static void
 clutter_gst_camera_manager_init (ClutterGstCameraManager *self)
 {
   self->priv = GST_CAMERA_MANAGER_PRIVATE (self);
+
+  probe_camera_devices (self);
 }
 
 /**
