@@ -83,6 +83,7 @@ let addCamera = function(device) {
 };
 
 let removeCamera = function(device) {
+    log('removing camera : ' + device.get_name());
     let children = stage.get_children();
     for (let i in children) {
         let actor = children[i];
@@ -95,7 +96,6 @@ let removeCamera = function(device) {
 
             let timeline = actor.get_transition('scale-x');
             timeline.connect('completed', Lang.bind(this, function() {
-                log('actor removed');
                 stage.remove_child(actor);
             }));
             break;
