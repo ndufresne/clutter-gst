@@ -283,7 +283,7 @@ AC_SUBST(CLUTTER_GST_DEBUG_CFLAGS)
 
 dnl ========================================================================
 
-GTK_DOC_CHECK([1.8])
+GTK_DOC_CHECK([1.11])
 
 AM_CONDITIONAL([BUILD_GTK_DOC],
                [test "x$enable_gtk_doc" = "xyes" || test ! -f "autogen.sh"])

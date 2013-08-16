@@ -11,6 +11,7 @@ AUTOMAKE_OPTIONS = 1.6
 
 # The name of the module, e.g. 'glib'.
 DOC_MODULE=clutter-gst
+DOC_MODULE_VERSION=@CLUTTER_GST_API_VERSION@
 
 # The top-level SGML file. You can change this if you want to.
 DOC_MAIN_SGML_FILE=clutter-gst-docs.sgml
