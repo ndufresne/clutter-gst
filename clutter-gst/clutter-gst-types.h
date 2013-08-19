@@ -90,7 +90,7 @@ struct _ClutterGstVideoResolution
 /**
  * ClutterGstFrame:
  * @resolution: a #ClutterGstVideoResolution
- * @frame: a #CoglHandle to the pipeline to paint a frame
+ * @pipeline: a #CoglHandle to the pipeline to paint a frame
  *
  * Represents a frame outputted by the #ClutterGstVideoSink.
  */
