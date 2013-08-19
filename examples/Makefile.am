@@ -1,6 +1,6 @@
 NULL = #
 
-noinst_PROGRAMS = camera-player video-player video-sink video-sink-navigation video-content
+noinst_PROGRAMS = camera-player camera-mosaic video-player video-sink video-sink-navigation video-content
 
 INCLUDES = -I$(top_srcdir) \
 	   $(MAINTAINER_CFLAGS) \
@@ -9,6 +9,13 @@ INCLUDES = -I$(top_srcdir) \
 camera_player_SOURCES = camera-player.c
 camera_player_CFLAGS = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
 camera_player_LDFLAGS = \
+    $(CLUTTER_GST_LIBS) \
+    $(GST_LIBS)   \
+    $(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
+
+camera_mosaic_SOURCES = camera-mosaic.c
+camera_mosaic_CFLAGS = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
+camera_mosaic_LDFLAGS = \
     $(CLUTTER_GST_LIBS) \
     $(GST_LIBS)   \
     $(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
