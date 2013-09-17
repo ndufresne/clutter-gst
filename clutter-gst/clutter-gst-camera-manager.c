@@ -104,8 +104,9 @@ clutter_gst_camera_manager_dispose (GObject *object)
       priv->camera_devices = NULL;
     }
 
+#if HAVE_GUDEV
   g_clear_object (&priv->udev_client);
-
+#endif
 
   G_OBJECT_CLASS (clutter_gst_camera_manager_parent_class)->dispose (object);
 }
