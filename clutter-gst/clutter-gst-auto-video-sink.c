@@ -720,12 +720,22 @@ clutter_gst_auto_video_sink_get_property (GObject * object,
 }
 
 static void
+_clutter_init (void)
+{
+  /* We must ensure that clutter is initialized */
+  if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
+    g_critical ("Unable to initialize Clutter");
+}
+
+static void
 clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass * klass)
 {
   GObjectClass *oclass = G_OBJECT_CLASS (klass);
   GstElementClass *gstelement_class = GST_ELEMENT_CLASS (klass);
   GstBinClass *gstbin_class = GST_BIN_CLASS (klass);
   GParamSpec *pspec;
+
+  _clutter_init ();
 
   oclass->dispose = clutter_gst_auto_video_sink_dispose;
   oclass->finalize = clutter_gst_auto_video_sink_finalize;
