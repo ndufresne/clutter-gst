@@ -66,10 +66,20 @@ static GstStaticPadTemplate sink_template =
                            GST_STATIC_CAPS_ANY);
 
 static void
+_clutter_init (void)
+{
+  /* We must ensure that clutter is initialized */
+  if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
+    g_critical ("Unable to initialize Clutter");
+}
+
+static void
 clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   GstElementClass *eklass = GST_ELEMENT_CLASS (klass);
+
+  _clutter_init ();
 
   gobject_class->dispose = (GObjectFinalizeFunc) clutter_gst_auto_video_sink_dispose;
   gobject_class->set_property = clutter_gst_auto_video_sink_set_property;

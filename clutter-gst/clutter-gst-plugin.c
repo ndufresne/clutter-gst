@@ -59,10 +59,6 @@ plugin_init (GstPlugin *plugin)
   XInitThreads ();
 #endif
 
-  /* We must enshure that clutter is initialized */
-  if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
-    return FALSE;
-
   ret = gst_element_register (plugin,
                               "clutterautovideosink",
                               GST_RANK_NONE,
