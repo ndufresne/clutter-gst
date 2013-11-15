@@ -53,23 +53,27 @@ G_DEFINE_TYPE_WITH_CODE (ClutterGstAspectratio,
 struct _ClutterGstAspectratioPrivate
 {
   gboolean paint_borders;
+  gboolean fill_allocation;
 };
 
 enum
 {
   PROP_0,
 
-  PROP_PAINT_BORDERS
+  PROP_PAINT_BORDERS,
+  PROP_FILL_ALLOCATION,
 };
 
 /**/
 
 static void
 clutter_gst_aspectratio_get_frame_box (ClutterGstAspectratio *self,
+                                       ClutterGstBox         *input_box,
                                        ClutterGstBox         *paint_box,
-                                       ClutterActorBox       *content_box,
+                                       const ClutterActorBox *content_box,
                                        ClutterGstFrame       *frame)
 {
+  ClutterGstAspectratioPrivate *priv = self->priv;
   gfloat actor_width, actor_height;
   gdouble new_width, new_height;
   gdouble frame_aspect, actor_aspect;
@@ -83,21 +87,50 @@ clutter_gst_aspectratio_get_frame_box (ClutterGstAspectratio *self,
   frame_aspect = (gdouble) frame->resolution.width / (gdouble) frame->resolution.height;
   actor_aspect = actor_width / actor_height;
 
-  if (actor_aspect < frame_aspect)
+  if (priv->fill_allocation)
     {
-      new_width = actor_width;
-      new_height = actor_width / frame_aspect;
+      if (actor_aspect > frame_aspect)
+        {
+          new_width = actor_width;
+          new_height = actor_width / frame_aspect;
+        }
+      else
+        {
+          new_height = actor_height;
+          new_width = actor_height * frame_aspect;
+        }
     }
   else
     {
-      new_height = actor_height;
-      new_width = actor_height * frame_aspect;
+      if (actor_aspect < frame_aspect)
+        {
+          new_width = actor_width;
+          new_height = actor_width / frame_aspect;
+        }
+      else
+        {
+          new_height = actor_height;
+          new_width = actor_height * frame_aspect;
+        }
     }
 
   paint_box->x1 = (actor_width - new_width) / 2;
   paint_box->y1 = (actor_height - new_height) / 2;
   paint_box->x2 = paint_box->x1 + new_width;
   paint_box->y2 = paint_box->y1 + new_height;
+
+  if (priv->fill_allocation)
+    {
+      input_box->x1 = (new_width / 2 - actor_width / 2) / new_width;
+      input_box->x2 = 1 - input_box->x1;
+      input_box->y1 = (new_height / 2 - actor_height / 2) / new_height;
+      input_box->y2 = 1 - input_box->y1;
+    }
+  else
+    {
+      input_box->x1 = input_box->y1 = 0;
+      input_box->x2 = input_box->y2 = 1;
+    }
 }
 
 /**/
@@ -130,7 +163,7 @@ clutter_gst_aspectratio_paint_content (ClutterContent   *content,
   ClutterGstAspectratioPrivate *priv = self->priv;
   ClutterGstFrame *frame =
     clutter_gst_content_get_frame (CLUTTER_GST_CONTENT (content));
-  ClutterGstBox paint_box;
+  ClutterGstBox input_box, paint_box;
   ClutterActorBox content_box;
   ClutterPaintNode *node;
   guint8 paint_opacity = clutter_actor_get_paint_opacity (actor);
@@ -160,9 +193,9 @@ clutter_gst_aspectratio_paint_content (ClutterContent   *content,
       return;
     }
 
-  clutter_gst_aspectratio_get_frame_box (self, &paint_box, &content_box, frame);
+  clutter_gst_aspectratio_get_frame_box (self, &input_box, &paint_box, &content_box, frame);
 
-  if (priv->paint_borders)
+  if (!priv->fill_allocation && priv->paint_borders)
     {
       clutter_actor_get_background_color (actor, &color);
       color.alpha = paint_opacity;
@@ -202,9 +235,11 @@ clutter_gst_aspectratio_paint_content (ClutterContent   *content,
   node = clutter_pipeline_node_new (frame->pipeline);
   clutter_paint_node_set_name (node, "AspectRatioVideoFrame");
 
-  clutter_paint_node_add_rectangle_custom (node,
-                                           paint_box.x1, paint_box.y1,
-                                           paint_box.x2, paint_box.y2);
+  clutter_paint_node_add_texture_rectangle_custom (node,
+                                                   paint_box.x1, paint_box.y1,
+                                                   paint_box.x2, paint_box.y2,
+                                                   input_box.x1, input_box.y1,
+                                                   input_box.x2, input_box.y2);
 
   clutter_paint_node_add_child (root, node);
   clutter_paint_node_unref (node);
@@ -232,6 +267,9 @@ clutter_gst_aspectratio_get_property (GObject    *object,
     case PROP_PAINT_BORDERS:
       g_value_set_boolean (value, priv->paint_borders);
       break;
+    case PROP_FILL_ALLOCATION:
+      g_value_set_boolean (value, priv->fill_allocation);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -251,6 +289,13 @@ clutter_gst_aspectratio_set_property (GObject      *object,
       if (priv->paint_borders != g_value_get_boolean (value))
         {
           priv->paint_borders = g_value_get_boolean (value);
+          clutter_content_invalidate (CLUTTER_CONTENT (object));
+        }
+      break;
+    case PROP_FILL_ALLOCATION:
+      if (priv->fill_allocation != g_value_get_boolean (value))
+        {
+          priv->fill_allocation = g_value_get_boolean (value);
           clutter_content_invalidate (CLUTTER_CONTENT (object));
         }
       break;
@@ -297,6 +342,21 @@ clutter_gst_aspectratio_class_init (ClutterGstAspectratioClass *klass)
                                 FALSE,
                                 CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_PAINT_BORDERS, pspec);
+
+  /**
+   * ClutterGstAspectratio:fill-allocation:
+   *
+   * Whether the content should fill its allocation with video rather
+   * than adding borders.
+   *
+   * Since: 3.0
+   */
+  pspec = g_param_spec_boolean ("fill-allocation",
+                                "Fill Allocation",
+                                "Fill allocation",
+                                FALSE,
+                                CLUTTER_GST_PARAM_READWRITE);
+  g_object_class_install_property (object_class, PROP_FILL_ALLOCATION, pspec);
 }
 
 static void
