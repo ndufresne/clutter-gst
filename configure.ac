@@ -79,7 +79,7 @@ AC_SUBST([CLUTTER_GST_RELEASE_STATUS], [clutter_gst_release_status])
 
 # pkg-config requirements
 GLIB_REQ_VERSION=2.18.0
-COGL_REQ_VERSION=1.15.3
+COGL_REQ_VERSION=2.0
 COGL_GST_REQ_VERSION=2.0.0
 CLUTTER_REQ_VERSION=1.6.0
 GSTREAMER_REQ_VERSION=1.0.0
@@ -142,7 +142,7 @@ dnl ========================================================================
 
 PKG_CHECK_MODULES(CLUTTER_GST,
                   [clutter-1.0 >= $CLUTTER_REQ_VERSION
-                   cogl-1.0 >= $COGL_REQ_VERSION
+                   cogl-2.0-experimental >= $COGL_REQ_VERSION
                    cogl-gst >= $COGL_GST_REQ_VERSION
                    gio-2.0 >= $GLIB_REQ_VERSION])
 
