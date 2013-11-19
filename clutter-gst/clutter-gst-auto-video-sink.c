@@ -65,11 +65,14 @@ static GstStaticPadTemplate sink_template =
                            GST_PAD_ALWAYS,
                            GST_STATIC_CAPS_ANY);
 
+static ClutterInitError _clutter_initialized = CLUTTER_INIT_ERROR_UNKNOWN;
+
 static void
 _clutter_init (void)
 {
   /* We must ensure that clutter is initialized */
-  if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
+  _clutter_initialized = clutter_init (NULL, NULL);
+  if (_clutter_initialized != CLUTTER_INIT_SUCCESS)
     g_critical ("Unable to initialize Clutter");
 }
 
@@ -228,6 +231,9 @@ clutter_gst_auto_video_sink_change_state (GstElement     *element,
 
   switch (transition) {
   case GST_STATE_CHANGE_NULL_TO_READY:
+    if (_clutter_initialized != CLUTTER_INIT_SUCCESS)
+      return GST_STATE_CHANGE_FAILURE;
+
     if (!sink->content)
       {
         ClutterActor *stage = clutter_stage_new ();
@@ -252,14 +258,6 @@ clutter_gst_auto_video_sink_change_state (GstElement     *element,
   }
 
   ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
-
-  /* switch (transition) { */
-  /* case GST_STATE_CHANGE_READY_TO_NULL: */
-  /*   gst_auto_video_sink_reset (sink); */
-  /*   break; */
-  /* default: */
-  /*   break; */
-  /* } */
 
   return ret;
 }
