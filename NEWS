@@ -1,3 +1,45 @@
+clutter-gst 2.99.0 (19/11/2013)
+===============================================================================
+
+List of changes
+
+ o Split the concept of player from the concept of video display in
+   the Clutter scenegraph (ie. you can now display the same or part of
+   the same video stream several times in a one or multiple Clutter
+   scenes)
+
+   You should start by creating a Player that is in charge of decoding
+   a video (ClutterGstPlayer interface).
+
+   2 player classes are currently available :
+     ClutterGstPlayback (wrapper around playbin)
+     ClutterGstCamera (wrapper around camerabin)
+
+   You then attach a player to one of the ClutterGstContent, and put
+   the content into a ClutterActor anywhere in a scene.
+
+ o Introduce ClutterGstPlayer interface as a replacement for
+   ClutterMedia
+
+ o Introduce ClutterGstCameraManager to discover/list available camera
+   on the system
+
+ o Remove usage of Clutter and Cogl deprecated APIs
+
+ o Add many example to help with usage of the new API, including
+   JavaScript examples (see examples/ directory).
+
+ o Rework a basic GStreamer plugin
+
+
+Many Thanks to:
+
+   Andre Moreira Magalhaes
+   Bastian Winkler
+   Bastien Nocera
+   Marvin Schmidt
+   Sjoerd Simons
+
 clutter-gst 2.0.2 (26/02/2013)
 ===============================================================================
 
