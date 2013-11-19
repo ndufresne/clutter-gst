@@ -851,11 +851,12 @@ player_should_buffer (ClutterGstPlayback *self, GstQuery *query)
   gdouble time_left;
   gboolean busy;
 
-  /* Use the estimated total duration left as estimated by queue2 based on the
-   * averge incoming bitrate, we can stop buffering once the remaining download
-   * takes less time then the remaining play time (with a 10% safety margin).
-   * However regardless of that keep buffering as long as queue2 indicates that
-   * buffering should happen (based on its high water marks */
+  /* Use the estimated total duration left as estimated by queue2
+   * based on the average incoming bitrate, we can stop buffering once
+   * the remaining download takes less time then the remaining play
+   * time (with a 10% safety margin). However regardless of that keep
+   * buffering as long as queue2 indicates that buffering should
+   * happen (based on its high water marks) */
   gst_query_parse_buffering_range (query, NULL, NULL, NULL, &left);
   gst_query_parse_buffering_percent (query, &busy, NULL);
 
