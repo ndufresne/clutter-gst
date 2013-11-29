@@ -108,12 +108,17 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
                                                         CLUTTER_GST_TYPE_CONTENT,
                                                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  GstElement *cogl_sink = clutter_gst_create_video_sink ();
+
   gst_element_class_add_pad_template (eklass,
-                                      gst_static_pad_template_get (&sink_template));
+                                      gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (cogl_sink), "sink"));
+  /* gst_static_pad_template_get (&sink_template)); */
   gst_element_class_set_static_metadata (eklass, "Clutter Auto video sink",
                                          "Sink/Video",
                                          "Video sink using a Clutter as output",
                                          "Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>");
+
+  g_object_unref (cogl_sink);
 }
 
 static void
@@ -156,19 +161,22 @@ clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink *sink)
 
   /* pad, setting this target should always work */
   targetpad = gst_element_get_static_pad (sink->kid, "sink");
-  gst_ghost_pad_set_target (GST_GHOST_PAD (sink->pad), targetpad);
+  if (!gst_ghost_pad_set_target (GST_GHOST_PAD (sink->pad), targetpad))
+    g_warning ("Couldn't link ghostpad's to target pad");
   gst_object_unref (targetpad);
 }
 
 static void
 clutter_gst_auto_video_sink_init (ClutterGstAutoVideoSink *sink)
 {
+  sink->ts_offset = DEFAULT_TS_OFFSET;
+
   sink->pad = gst_ghost_pad_new_no_target ("sink", GST_PAD_SINK);
   gst_element_add_pad (GST_ELEMENT (sink), sink->pad);
 
   clutter_gst_auto_video_sink_reset (sink);
 
-  sink->ts_offset = DEFAULT_TS_OFFSET;
+
 
   /* mark as sink */
   GST_OBJECT_FLAG_SET (sink, GST_ELEMENT_FLAG_SINK);
