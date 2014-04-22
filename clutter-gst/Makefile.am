@@ -156,7 +156,7 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--include=GstPbutils-1.0 \
 		--add-init-section="clutter_gst_init(0,NULL);" \
 		--library=libclutter-gst-@CLUTTER_GST_API_VERSION@.la \
-		--libtool="$(top_builddir)/libtool" \
+		--libtool="${LIBTOOL}" \
 		--output $@ \
 		--pkg gobject-2.0 \
 		--pkg cogl-1.0 \
