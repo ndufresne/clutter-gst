@@ -27,9 +27,9 @@
 #define __CLUTTER_GST_PRIVATE_H__
 
 #include <glib.h>
-#include "clutter-gst.h"
+#include <gst/video/video.h>
 
-#include <cogl-gst/cogl-gst.h>
+#include "clutter-gst.h"
 
 G_BEGIN_DECLS
 
@@ -66,16 +66,19 @@ _internal_plugin_init (GstPlugin *plugin);
 
 CoglContext *clutter_gst_get_cogl_context (void);
 
-ClutterGstFrame *clutter_gst_frame_new (CoglPipeline *pipeline);
+ClutterGstFrame *clutter_gst_frame_new (void);
 
 ClutterGstFrame *clutter_gst_create_blank_frame (const ClutterColor *color);
 
 void clutter_gst_player_update_frame (ClutterGstPlayer *player,
                                       ClutterGstFrame **frame,
-                                      CoglPipeline     *pipeline);
+                                      ClutterGstFrame  *new_frame);
 
-void clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame  *frame,
-                                                  CoglGstVideoSink *sink);
+void clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame     *frame,
+                                                  ClutterGstVideoSink *sink);
+
+void clutter_gst_video_resolution_from_video_info (ClutterGstVideoResolution *resolution,
+                                                   GstVideoInfo              *info);
 
 G_END_DECLS
 

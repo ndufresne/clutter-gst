@@ -197,10 +197,6 @@ add_device (ClutterGstCameraManager *self,
 
   factory = gst_element_get_factory (videosrc);
 
-  if (!priv->camera_devices)
-    priv->camera_devices =
-      g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
-
   device = g_object_new (CLUTTER_GST_TYPE_CAMERA_DEVICE,
                          "element-factory", factory,
                          "node", device_node,
@@ -221,7 +217,7 @@ remove_device (ClutterGstCameraManager *self,
                const gchar             *device_name)
 {
   ClutterGstCameraManagerPrivate *priv = self->priv;
-  gint i;
+  guint i;
 
   for (i = 0; i < priv->camera_devices->len; i++)
     {
@@ -333,6 +329,9 @@ static void
 clutter_gst_camera_manager_init (ClutterGstCameraManager *self)
 {
   self->priv = GST_CAMERA_MANAGER_PRIVATE (self);
+
+  self->priv->camera_devices =
+    g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 
   probe_camera_devices (self);
 }

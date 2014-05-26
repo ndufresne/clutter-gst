@@ -40,9 +40,9 @@
 
 #include <glib-object.h>
 #include <gst/gst.h>
-#include <cogl-gst/cogl-gst.h>
 
 #include <clutter-gst/clutter-gst-types.h>
+#include <clutter-gst/clutter-gst-video-sink.h>
 
 G_BEGIN_DECLS
 
@@ -78,7 +78,7 @@ typedef struct _ClutterGstPlayerIfacePrivate ClutterGstPlayerIfacePrivate;
  * ClutterGstPlayerIface:
  * @get_frame: virtual function; returns the current visible frame
  * @get_pipeline: virtual function; returns the current GStreamer pipeline
- * @get_video_sink: virtual function; returns the current Cogl video sink
+ * @get_video_sink: virtual function; returns the current ClutterGst video sink
  * @get_idle: virtual function; returns whether the player is currently in idle state
  * @get_audio_volume: virtual function; returns the current audio volume
  * @set_audio_volume: virtual function; sets the audio volume
@@ -102,19 +102,19 @@ struct _ClutterGstPlayerIface
   ClutterGstPlayerIfacePrivate *priv;
 
   /*< public >*/
-  ClutterGstFrame * (* get_frame)        (ClutterGstPlayer *self);
-  GstElement *      (* get_pipeline)     (ClutterGstPlayer *self);
-  CoglGstVideoSink *(* get_video_sink)   (ClutterGstPlayer *self);
+  ClutterGstFrame     *(* get_frame)        (ClutterGstPlayer *self);
+  GstElement *         (* get_pipeline)     (ClutterGstPlayer *self);
+  ClutterGstVideoSink *(* get_video_sink)   (ClutterGstPlayer *self);
 
-  gboolean          (* get_idle)         (ClutterGstPlayer *self);
+  gboolean             (* get_idle)         (ClutterGstPlayer *self);
 
-  gdouble           (* get_audio_volume) (ClutterGstPlayer *self);
-  void              (* set_audio_volume) (ClutterGstPlayer *self,
-                                          gdouble           volume);
+  gdouble              (* get_audio_volume) (ClutterGstPlayer *self);
+  void                 (* set_audio_volume) (ClutterGstPlayer *self,
+                                             gdouble           volume);
 
-  gboolean          (* get_playing)      (ClutterGstPlayer *self);
-  void              (* set_playing)      (ClutterGstPlayer *self,
-                                          gboolean          playing);
+  gboolean             (* get_playing)      (ClutterGstPlayer *self);
+  void                 (* set_playing)      (ClutterGstPlayer *self,
+                                             gboolean          playing);
 
   /*< private >*/
   gpointer _padding_vfuncs[16];
@@ -140,7 +140,7 @@ ClutterGstFrame *         clutter_gst_player_get_frame        (ClutterGstPlayer 
 
 GstElement *              clutter_gst_player_get_pipeline     (ClutterGstPlayer        *self);
 
-CoglGstVideoSink *        clutter_gst_player_get_video_sink   (ClutterGstPlayer        *self);
+ClutterGstVideoSink *     clutter_gst_player_get_video_sink   (ClutterGstPlayer        *self);
 
 gboolean                  clutter_gst_player_get_idle         (ClutterGstPlayer        *self);
 

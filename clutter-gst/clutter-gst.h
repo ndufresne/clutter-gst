@@ -30,17 +30,18 @@
 
 #define __CLUTTER_GST_H_INSIDE__
 
-#include "clutter-gst-types.h"
-#include "clutter-gst-enum-types.h"
-#include "clutter-gst-aspectratio.h"
-#include "clutter-gst-camera-device.h"
-#include "clutter-gst-camera-manager.h"
-#include "clutter-gst-camera.h"
-#include "clutter-gst-content.h"
-#include "clutter-gst-crop.h"
-#include "clutter-gst-playback.h"
-#include "clutter-gst-player.h"
-#include "clutter-gst-util.h"
-#include "clutter-gst-version.h"
+#include <clutter-gst/clutter-gst-types.h>
+#include <clutter-gst/clutter-gst-enum-types.h>
+#include <clutter-gst/clutter-gst-aspectratio.h>
+#include <clutter-gst/clutter-gst-camera-device.h>
+#include <clutter-gst/clutter-gst-camera-manager.h>
+#include <clutter-gst/clutter-gst-camera.h>
+#include <clutter-gst/clutter-gst-content.h>
+#include <clutter-gst/clutter-gst-crop.h>
+#include <clutter-gst/clutter-gst-playback.h>
+#include <clutter-gst/clutter-gst-player.h>
+#include <clutter-gst/clutter-gst-util.h>
+#include <clutter-gst/clutter-gst-version.h>
+#include <clutter-gst/clutter-gst-video-sink.h>
 
 #endif /* __CLUTTER_GST_H__ */

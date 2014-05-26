@@ -43,7 +43,6 @@ FIXXREF_OPTIONS= \
 	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/glib \
 	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/gobject \
 	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/cogl \
-	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/cogl-gst \
 	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/gdk-pixbuf \
 	--extra-dir=$(GLIB_PREFIX)/share/gtk-doc/html/gstreamer-1.0 \
 	$(NULL)

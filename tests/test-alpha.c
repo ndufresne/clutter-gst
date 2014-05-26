@@ -32,7 +32,6 @@
 
 #include <glib/gprintf.h>
 #include <clutter-gst/clutter-gst.h>
-#include <cogl-gst/cogl-gst.h>
 
 static gint   opt_framerate = 30;
 static gchar *opt_fourcc    = "I420";

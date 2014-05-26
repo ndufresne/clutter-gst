@@ -202,9 +202,9 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
  * clutter_gst_player_get_frame:
  * @self: a #ClutterGstPlayer
  *
- * Retrieves the #CoglHandle of the last frame produced by @self.
+ * Retrieves the #ClutterGstFrame of the last frame produced by @self.
  *
- * Return value: (transfer none): the #CoglHandle of the last frame.
+ * Return value: (transfer none): the #ClutterGstFrame of the last frame.
  *
  * Since: 3.0
  */
@@ -213,7 +213,7 @@ clutter_gst_player_get_frame (ClutterGstPlayer *self)
 {
   ClutterGstPlayerIface *iface;
 
-  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (self), COGL_INVALID_HANDLE);
+  g_return_val_if_fail (CLUTTER_GST_IS_PLAYER (self), NULL);
 
   iface = CLUTTER_GST_PLAYER_GET_INTERFACE (self);
 
@@ -247,13 +247,13 @@ clutter_gst_player_get_pipeline (ClutterGstPlayer *self)
  * clutter_gst_player_get_video_sink:
  * @self: a #ClutterGstPlayer
  *
- * Retrieves the #CoglGstVideoSink used by the @self.
+ * Retrieves the #ClutterGstVideoSink used by the @self.
  *
- * Return value: (transfer none): the #CoglGstVideoSink element used by the player
+ * Return value: (transfer none): the #ClutterGstVideoSink element used by the player
  *
  * Since: 3.0
  */
-CoglGstVideoSink *
+ClutterGstVideoSink *
 clutter_gst_player_get_video_sink (ClutterGstPlayer *self)
 {
   ClutterGstPlayerIface *iface;
@@ -387,19 +387,17 @@ clutter_gst_player_get_idle (ClutterGstPlayer *self)
 void
 clutter_gst_player_update_frame (ClutterGstPlayer *player,
                                  ClutterGstFrame **frame,
-                                 CoglPipeline     *pipeline)
+                                 ClutterGstFrame  *new_frame)
 {
   ClutterGstFrame *old_frame = *frame;
-  ClutterGstFrame *new_frame = clutter_gst_frame_new (pipeline);
 
-  *frame = new_frame;
-
-  new_frame->resolution.par_n = old_frame->resolution.par_n;
-  new_frame->resolution.par_d = old_frame->resolution.par_d;
+  *frame = g_boxed_copy (CLUTTER_GST_TYPE_FRAME, new_frame);
 
   if (old_frame == NULL ||
       new_frame->resolution.width != old_frame->resolution.width ||
-      new_frame->resolution.height != old_frame->resolution.height)
+      new_frame->resolution.height != old_frame->resolution.height ||
+      new_frame->resolution.par_n != old_frame->resolution.par_n ||
+      new_frame->resolution.par_d != old_frame->resolution.par_d)
     {
       g_signal_emit (player, signals[SIZE_CHANGE], 0,
                      new_frame->resolution.width,
@@ -414,7 +412,7 @@ clutter_gst_player_update_frame (ClutterGstPlayer *player,
 
 void
 clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame  *frame,
-                                             CoglGstVideoSink *sink)
+                                             ClutterGstVideoSink *sink)
 {
   GValue value = G_VALUE_INIT;
 

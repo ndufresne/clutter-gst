@@ -52,7 +52,6 @@
 #include <string.h>
 
 #include <gio/gio.h>
-#include <cogl-gst/cogl-gst.h>
 #include <gst/video/video.h>
 #include <gst/tag/tag.h>
 #include <gst/audio/streamvolume.h>
@@ -123,7 +122,9 @@ struct _ClutterGstPlaybackPrivate
 {
   GstElement *pipeline;
   GstBus *bus;
-  CoglGstVideoSink *video_sink;
+  ClutterGstVideoSink *video_sink;
+  GArray *gst_pipe_sigs;
+  GArray *gst_bus_sigs;
 
   ClutterGstFrame *current_frame;
 
@@ -1426,7 +1427,7 @@ clutter_gst_playback_get_pipeline (ClutterGstPlayer *self)
   return priv->pipeline;
 }
 
-static CoglGstVideoSink *
+static ClutterGstVideoSink *
 clutter_gst_playback_get_video_sink (ClutterGstPlayer *self)
 {
   ClutterGstPlaybackPrivate *priv = CLUTTER_GST_PLAYBACK (self)->priv;
@@ -1655,6 +1656,7 @@ static void
 clutter_gst_playback_dispose (GObject *object)
 {
   ClutterGstPlaybackPrivate *priv = CLUTTER_GST_PLAYBACK (object)->priv;
+  guint i;
 
   if (priv->tick_timeout_id)
     {
@@ -1670,12 +1672,18 @@ clutter_gst_playback_dispose (GObject *object)
 
   if (priv->bus)
     {
+      for (i = 0; i < priv->gst_bus_sigs->len; i++)
+        g_signal_handler_disconnect (priv->bus,
+                                     g_array_index (priv->gst_bus_sigs, gulong, i));
       gst_bus_remove_signal_watch (priv->bus);
       priv->bus = NULL;
     }
 
   if (priv->pipeline)
     {
+      for (i = 0; i < priv->gst_pipe_sigs->len; i++)
+        g_signal_handler_disconnect (priv->pipeline,
+                                     g_array_index (priv->gst_pipe_sigs, gulong, i));
       gst_element_set_state (priv->pipeline, GST_STATE_NULL);
       g_clear_object (&priv->pipeline);
     }
@@ -1940,25 +1948,25 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
 }
 
 static void
-_new_frame_from_pipeline (CoglGstVideoSink *sink, ClutterGstPlayback *self)
+_new_frame_from_pipeline (ClutterGstVideoSink *sink, ClutterGstPlayback *self)
 {
   ClutterGstPlaybackPrivate *priv = self->priv;
 
   clutter_gst_player_update_frame (CLUTTER_GST_PLAYER (self),
                                    &priv->current_frame,
-                                   cogl_gst_video_sink_get_pipeline (sink));
+                                   clutter_gst_video_sink_get_frame (sink));
 }
 
 static void
-_ready_from_pipeline (CoglGstVideoSink *sink, ClutterGstPlayback *self)
+_ready_from_pipeline (ClutterGstVideoSink *sink, ClutterGstPlayback *self)
 {
   g_signal_emit_by_name (self, "ready");
 }
 
 static void
-_pixel_aspect_ratio_changed (CoglGstVideoSink   *sink,
-                             GParamSpec         *spec,
-                             ClutterGstPlayback *self)
+_pixel_aspect_ratio_changed (ClutterGstVideoSink   *sink,
+                             GParamSpec            *spec,
+                             ClutterGstPlayback    *self)
 {
   clutter_gst_frame_update_pixel_aspect_ratio (self->priv->current_frame, sink);
 }
@@ -1976,7 +1984,7 @@ get_pipeline (ClutterGstPlayback *self)
       return NULL;
     }
 
-  priv->video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
+  priv->video_sink = clutter_gst_video_sink_new ();
 
   g_signal_connect (priv->video_sink, "new-frame",
                     G_CALLBACK (_new_frame_from_pipeline), self);
@@ -1993,12 +2001,27 @@ get_pipeline (ClutterGstPlayback *self)
   return pipeline;
 }
 
+#define connect_signal_custom(store, object, signal, callback, data) \
+  do {                                                               \
+    gulong s = g_signal_connect (object, signal, callback, data);    \
+    g_array_append_val (store, s);                                   \
+  } while (0)
+
+#define connect_object_custom(store, object, signal, callback, data, flags)   \
+  do {                                                                  \
+    gulong s = g_signal_connect_object (object, signal, callback, data, flags); \
+    g_array_append_val (store, s);                                      \
+  } while (0)
+
 static void
 clutter_gst_playback_init (ClutterGstPlayback *self)
 {
   ClutterGstPlaybackPrivate *priv;
 
   self->priv = priv = GST_PLAYBACK_PRIVATE (self);
+
+  priv->gst_pipe_sigs = g_array_new (FALSE, FALSE, sizeof (gulong));
+  priv->gst_bus_sigs = g_array_new (FALSE, FALSE, sizeof (gulong));
 
   priv->is_idle = TRUE;
   priv->in_seek = FALSE;
@@ -2010,8 +2033,9 @@ clutter_gst_playback_init (ClutterGstPlayback *self)
 
   priv->current_frame = clutter_gst_create_blank_frame (NULL);
 
-  g_signal_connect (priv->pipeline, "notify::source",
-                    G_CALLBACK (on_source_changed), self);
+  connect_signal_custom (priv->gst_pipe_sigs, priv->pipeline,
+                         "notify::source",
+                         G_CALLBACK (on_source_changed), self);
 
   /* We default to not playing until someone calls set_playing(TRUE) */
   priv->target_state = GST_STATE_PAUSED;
@@ -2023,48 +2047,62 @@ clutter_gst_playback_init (ClutterGstPlayback *self)
 
   gst_bus_add_signal_watch (priv->bus);
 
-  g_signal_connect_object (priv->bus, "message::error",
-			   G_CALLBACK (bus_message_error_cb),
-			   self, 0);
-  g_signal_connect_object (priv->bus, "message::eos",
-			   G_CALLBACK (bus_message_eos_cb),
-			   self, 0);
-  g_signal_connect_object (priv->bus, "message::buffering",
-			   G_CALLBACK (bus_message_buffering_cb),
-			   self, 0);
-  g_signal_connect_object (priv->bus, "message::duration-changed",
-			   G_CALLBACK (bus_message_duration_changed_cb),
-			   self, 0);
-  g_signal_connect_object (priv->bus, "message::state-changed",
-			   G_CALLBACK (bus_message_state_change_cb),
-			   self, 0);
-  g_signal_connect_object (priv->bus, "message::async-done",
-                           G_CALLBACK (bus_message_async_done_cb),
-                           self, 0);
+  connect_object_custom (priv->gst_bus_sigs,
+                         priv->bus, "message::error",
+                         G_CALLBACK (bus_message_error_cb),
+                         self, 0);
+  connect_object_custom (priv->gst_bus_sigs,
+                         priv->bus, "message::eos",
+                         G_CALLBACK (bus_message_eos_cb),
+                         self, 0);
+  connect_object_custom (priv->gst_bus_sigs,
+                         priv->bus, "message::buffering",
+                         G_CALLBACK (bus_message_buffering_cb),
+                         self, 0);
+  connect_object_custom (priv->gst_bus_sigs,
+                         priv->bus, "message::duration-changed",
+                         G_CALLBACK (bus_message_duration_changed_cb),
+                         self, 0);
+  connect_object_custom (priv->gst_bus_sigs,
+                         priv->bus, "message::state-changed",
+                         G_CALLBACK (bus_message_state_change_cb),
+                         self, 0);
+  connect_object_custom (priv->gst_bus_sigs,
+                         priv->bus, "message::async-done",
+                         G_CALLBACK (bus_message_async_done_cb),
+                         self, 0);
 
-  g_signal_connect (priv->pipeline, "notify::volume",
-		    G_CALLBACK (on_volume_changed),
-                    self);
 
-  g_signal_connect (priv->pipeline, "audio-changed",
-                    G_CALLBACK (on_audio_changed),
-                    self);
-  g_signal_connect (priv->pipeline, "audio-tags-changed",
-                    G_CALLBACK (on_audio_tags_changed),
-                    self);
-  g_signal_connect (priv->pipeline, "notify::current-audio",
-                    G_CALLBACK (on_current_audio_changed),
-                    self);
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "notify::volume",
+                         G_CALLBACK (on_volume_changed),
+                         self);
 
-  g_signal_connect (priv->pipeline, "text-changed",
-                    G_CALLBACK (on_text_changed),
-                    self);
-  g_signal_connect (priv->pipeline, "text-tags-changed",
-                    G_CALLBACK (on_text_tags_changed),
-                    self);
-  g_signal_connect (priv->pipeline, "notify::current-text",
-                    G_CALLBACK (on_current_text_changed),
-                    self);
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "audio-changed",
+                         G_CALLBACK (on_audio_changed),
+                         self);
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "audio-tags-changed",
+                         G_CALLBACK (on_audio_tags_changed),
+                         self);
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "notify::current-audio",
+                         G_CALLBACK (on_current_audio_changed),
+                         self);
+
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "text-changed",
+                         G_CALLBACK (on_text_changed),
+                         self);
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "text-tags-changed",
+                         G_CALLBACK (on_text_tags_changed),
+                         self);
+  connect_signal_custom (priv->gst_pipe_sigs,
+                         priv->pipeline, "notify::current-text",
+                         G_CALLBACK (on_current_text_changed),
+                         self);
 
 #if defined(CLUTTER_WINDOWING_X11) && defined (HAVE_HW_DECODER_SUPPORT)
   if (clutter_check_windowing_backend (CLUTTER_WINDOWING_X11))

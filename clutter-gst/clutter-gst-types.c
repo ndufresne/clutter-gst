@@ -28,20 +28,9 @@
 #include "clutter-gst-types.h"
 
 ClutterGstFrame *
-clutter_gst_frame_new (CoglPipeline *pipeline)
+clutter_gst_frame_new (void)
 {
-  ClutterGstFrame *frame = g_slice_new0 (ClutterGstFrame);
-  CoglTexture *texture;
-
-  frame->pipeline = cogl_object_ref (pipeline);
-  texture = cogl_pipeline_get_layer_texture (pipeline, 0);
-
-  frame->resolution.width = cogl_texture_get_width (texture);
-  frame->resolution.height = cogl_texture_get_height (texture);
-  frame->resolution.par_n = 1;
-  frame->resolution.par_d = 1;
-
-  return frame;
+  return g_slice_new0 (ClutterGstFrame);
 }
 
 static gpointer
@@ -52,7 +41,7 @@ clutter_gst_frame_copy (gpointer data)
       ClutterGstFrame *frame = g_slice_dup (ClutterGstFrame, data);
 
       if (frame->pipeline != COGL_INVALID_HANDLE)
-        frame->pipeline = cogl_handle_ref (frame->pipeline);
+        frame->pipeline = cogl_object_ref (frame->pipeline);
 
       return frame;
     }
@@ -68,7 +57,10 @@ clutter_gst_frame_free (gpointer data)
       ClutterGstFrame *frame = (ClutterGstFrame *) data;
 
       if (frame->pipeline != COGL_INVALID_HANDLE)
-        cogl_handle_unref (frame->pipeline);
+        {
+          cogl_object_unref (frame->pipeline);
+          frame->pipeline = COGL_INVALID_HANDLE;
+        }
       g_slice_free (ClutterGstFrame, frame);
     }
 }

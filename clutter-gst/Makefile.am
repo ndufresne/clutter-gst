@@ -33,6 +33,7 @@ source_h = 					\
 	$(srcdir)/clutter-gst-aspectratio.h	\
 	$(srcdir)/clutter-gst-crop.h		\
 	$(srcdir)/clutter-gst-content.h		\
+	$(srcdir)/clutter-gst-video-sink.h	\
 	$(NULL)
 
 source_priv_h =					\
@@ -54,6 +55,7 @@ source_c = 					\
 	$(srcdir)/clutter-gst-aspectratio.c	\
 	$(srcdir)/clutter-gst-crop.c		\
 	$(srcdir)/clutter-gst-content.c		\
+	$(srcdir)/clutter-gst-video-sink.c	\
 	$(glib_enum_c)				\
 	$(NULL)
 
@@ -116,7 +118,9 @@ libgstclutter_@CLUTTER_GST_MAJORMINOR@_la_SOURCES =	\
 
 plugin_LTLIBRARIES = libgstclutter-@CLUTTER_GST_MAJORMINOR@.la
 
-libgstclutter_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = $(PLUGIN_LIBS) $(HW_LIBS) \
+libgstclutter_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = \
+	$(PLUGIN_LIBS) \
+	$(HW_LIBS) \
 	libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
 libgstclutter_@CLUTTER_GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(GL_LDFLAGS)		\
@@ -141,7 +145,7 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--add-include-path=$(srcdir) --add-include=path=. \
 		--c-include="clutter-gst/clutter-gst.h" \
 		--include=GObject-2.0 \
-		--include=Cogl-1.0 \
+		--include=Cogl-2.0 \
 		--include=Clutter-1.0 \
 		--include=GdkPixbuf-2.0 \
 		--add-include-path=`$(PKG_CONFIG) --variable=girdir gstreamer-1.0` \
@@ -159,7 +163,7 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--libtool="${LIBTOOL}" \
 		--output $@ \
 		--pkg gobject-2.0 \
-		--pkg cogl-1.0 \
+		--pkg cogl-2.0-experimental \
 		--pkg clutter-1.0 \
 		--pkg gdk-pixbuf-2.0 \
 		--pkg gstreamer-1.0 \

@@ -242,7 +242,7 @@ clutter_gst_init_with_args (int            *argc,
 /**
  * clutter_gst_create_video_sink:
  *
- * Creates a new #CoglGstVideoSink initialized with Clutter's Cogl context.
+ * Creates a new #ClutterGstVideoSink initialized with Clutter's Cogl context.
  *
  * Return value: (transfer full): the newly created #CoglGstVideoSink.
  *
@@ -251,7 +251,7 @@ clutter_gst_init_with_args (int            *argc,
 GstElement *
 clutter_gst_create_video_sink (void)
 {
-  return GST_ELEMENT (cogl_gst_video_sink_new (clutter_gst_get_cogl_context ()));
+  return GST_ELEMENT (clutter_gst_video_sink_new ());
 }
 
 /**/
@@ -266,8 +266,7 @@ ClutterGstFrame *
 clutter_gst_create_blank_frame (const ClutterColor *color)
 {
   CoglTexture *texture;
-  CoglPipeline *pipeline;
-  ClutterGstFrame *frame;
+  ClutterGstFrame *frame = clutter_gst_frame_new ();
   ClutterColor black_color = { 0x0, 0x0, 0x0, 0xff };
   const guint8 *color_ptr = color != NULL ?
     (const guint8 *) color : (const guint8 *) &black_color;
@@ -277,13 +276,20 @@ clutter_gst_create_blank_frame (const ClutterColor *color)
                                         COGL_PIXEL_FORMAT_RGBA_8888,
                                         1,
                                         color_ptr);
-  pipeline = cogl_pipeline_new (clutter_gst_get_cogl_context ());
-  cogl_pipeline_set_layer_texture (pipeline, 0, texture);
+  frame->pipeline = cogl_pipeline_new (clutter_gst_get_cogl_context ());
+  cogl_pipeline_set_layer_texture (frame->pipeline, 0, texture);
 
-  frame = clutter_gst_frame_new (pipeline);
-
-  cogl_object_unref (pipeline);
   cogl_object_unref (texture);
 
   return frame;
+}
+
+void
+clutter_gst_video_resolution_from_video_info (ClutterGstVideoResolution *resolution,
+                                              GstVideoInfo              *info)
+{
+  resolution->width = info->width;
+  resolution->height = info->height;
+  resolution->par_n = info->par_n;
+  resolution->par_d = info->par_d;
 }

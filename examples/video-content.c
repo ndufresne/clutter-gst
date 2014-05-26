@@ -22,7 +22,6 @@
  */
 
 #include <stdlib.h>
-#include <cogl-gst/cogl-gst.h>
 #include <clutter-gst/clutter-gst.h>
 
 
@@ -136,7 +135,7 @@ main (int argc, char *argv[])
 {
   ClutterActor *stage, *actor;
   ClutterContent *video;
-  CoglGstVideoSink *video_sink;
+  ClutterGstVideoSink *video_sink;
 
   if (clutter_init (&argc, &argv) != CLUTTER_INIT_SUCCESS)
     return EXIT_FAILURE;

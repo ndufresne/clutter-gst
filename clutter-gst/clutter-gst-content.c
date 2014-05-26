@@ -55,7 +55,7 @@ G_DEFINE_TYPE_WITH_CODE (ClutterGstContent,
 
 struct _ClutterGstContentPrivate
 {
-  CoglGstVideoSink *sink;
+  ClutterGstVideoSink *sink;
   ClutterGstPlayer *player;
   ClutterGstFrame *current_frame;
 };
@@ -84,14 +84,13 @@ static guint signals[LAST_SIGNAL];
 
 static void
 update_frame (ClutterGstContent *self,
-              CoglPipeline      *pipeline)
+              ClutterGstFrame   *new_frame)
 {
   ClutterGstContentPrivate *priv = self->priv;
-  ClutterGstFrame *old_frame, *new_frame;
+  ClutterGstFrame *old_frame;
 
   old_frame = priv->current_frame;
-  new_frame = clutter_gst_frame_new (pipeline);
-  priv->current_frame = new_frame;
+  priv->current_frame = g_boxed_copy (CLUTTER_GST_TYPE_FRAME, new_frame);
 
   if (old_frame)
     {
@@ -113,26 +112,26 @@ update_frame (ClutterGstContent *self,
 }
 
 static void
-_new_frame_from_pipeline (CoglGstVideoSink  *sink,
-                          ClutterGstContent *self)
+_new_frame_from_pipeline (ClutterGstVideoSink *sink,
+                          ClutterGstContent   *self)
 {
-  update_frame (self, cogl_gst_video_sink_get_pipeline (sink));
+  update_frame (self, clutter_gst_video_sink_get_frame (sink));
 
   clutter_content_invalidate (CLUTTER_CONTENT (self));
 }
 
 static void
-_pixel_aspect_ratio_changed (CoglGstVideoSink  *sink,
-                             GParamSpec        *pspec,
-                             ClutterGstContent *self)
+_pixel_aspect_ratio_changed (ClutterGstVideoSink *sink,
+                             GParamSpec          *pspec,
+                             ClutterGstContent   *self)
 {
   clutter_gst_frame_update_pixel_aspect_ratio (self->priv->current_frame,
                                                sink);
 }
 
-static void content_set_sink (ClutterGstContent *self,
-                              CoglGstVideoSink  *sink,
-                              gboolean           set_from_player);
+static void content_set_sink (ClutterGstContent   *self,
+                              ClutterGstVideoSink *sink,
+                              gboolean             set_from_player);
 
 static void
 content_set_player (ClutterGstContent *self,
@@ -158,9 +157,9 @@ content_set_player (ClutterGstContent *self,
 }
 
 static void
-content_set_sink (ClutterGstContent *self,
-                  CoglGstVideoSink  *sink,
-                  gboolean           set_from_player)
+content_set_sink (ClutterGstContent   *self,
+                  ClutterGstVideoSink *sink,
+                  gboolean             set_from_player)
 {
   ClutterGstContentPrivate *priv = self->priv;
 
@@ -187,11 +186,11 @@ content_set_sink (ClutterGstContent *self,
       g_signal_connect (priv->sink, "notify::pixel-aspect-ratio",
                         G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
-      if (cogl_gst_video_sink_is_ready (priv->sink))
+      if (clutter_gst_video_sink_is_ready (priv->sink))
         {
-          CoglPipeline *pipeline = cogl_gst_video_sink_get_pipeline (priv->sink);
-          if (pipeline)
-            update_frame (self, pipeline);
+          ClutterGstFrame *frame = clutter_gst_video_sink_get_frame (priv->sink);
+          if (frame)
+            update_frame (self, frame);
         }
     }
 
@@ -364,7 +363,7 @@ clutter_gst_content_class_init (ClutterGstContentClass *klass)
     g_param_spec_object ("video-sink",
                          "Cogl Video Sink",
                          "Cogl Video Sink",
-                         COGL_GST_TYPE_VIDEO_SINK,
+                         CLUTTER_GST_TYPE_VIDEO_SINK,
                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
   g_object_class_install_properties (gobject_class, PROP_LAST, props);
 
@@ -397,7 +396,7 @@ clutter_gst_content_init (ClutterGstContent *self)
   self->priv = priv = CLUTTER_GST_CONTENT_GET_PRIVATE (self);
 
   content_set_sink (self,
-                    COGL_GST_VIDEO_SINK (clutter_gst_create_video_sink ()),
+                    CLUTTER_GST_VIDEO_SINK (clutter_gst_create_video_sink ()),
                     FALSE);
 }
 
@@ -422,7 +421,7 @@ clutter_gst_content_new (void)
  * Since: 3.0
  */
 ClutterContent *
-clutter_gst_content_new_with_sink (CoglGstVideoSink *sink)
+clutter_gst_content_new_with_sink (ClutterGstVideoSink *sink)
 {
   return g_object_new (CLUTTER_GST_TYPE_CONTENT,
                        "video-sink", sink,
@@ -449,11 +448,11 @@ clutter_gst_content_get_frame (ClutterGstContent *self)
  * clutter_gst_content_get_sink:
  * @self: A #ClutterGstContent
  *
- * Returns: (transfer none): The #CoglGstVideoSink currently attached to @self.
+ * Returns: (transfer none): The #ClutterGstVideoSink currently attached to @self.
  *
  * Since: 3.0
  */
-CoglGstVideoSink *
+ClutterGstVideoSink *
 clutter_gst_content_get_sink (ClutterGstContent *self)
 {
   g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
@@ -464,16 +463,16 @@ clutter_gst_content_get_sink (ClutterGstContent *self)
 /**
  * clutter_gst_content_set_sink:
  * @self: A #ClutterGstContent
- * @sink: A #CoglGstVideoSink or %NULL
+ * @sink: A #ClutterGstVideoSink or %NULL
  *
  * Since: 3.0
  */
 void
-clutter_gst_content_set_sink (ClutterGstContent *self,
-                              CoglGstVideoSink  *sink)
+clutter_gst_content_set_sink (ClutterGstContent   *self,
+                              ClutterGstVideoSink *sink)
 {
   g_return_if_fail (CLUTTER_GST_IS_CONTENT (self));
-  g_return_if_fail (sink == NULL || COGL_GST_IS_VIDEO_SINK (sink));
+  g_return_if_fail (sink == NULL || CLUTTER_GST_IS_VIDEO_SINK (sink));
 
   content_set_sink (self, sink, FALSE);
 }

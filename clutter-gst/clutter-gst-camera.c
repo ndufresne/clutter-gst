@@ -67,7 +67,7 @@ struct _ClutterGstCameraPrivate
   GstBus *bus;
   GstElement *camerabin;
   GstElement *camera_source;
-  CoglGstVideoSink *video_sink;
+  ClutterGstVideoSink *video_sink;
 
   /* video filter */
   GstElement *video_filter_bin;
@@ -136,7 +136,7 @@ clutter_gst_camera_get_pipeline (ClutterGstPlayer *player)
   return priv->camerabin;
 }
 
-static CoglGstVideoSink *
+static ClutterGstVideoSink *
 clutter_gst_camera_get_video_sink (ClutterGstPlayer *player)
 {
   ClutterGstCameraPrivate *priv = CLUTTER_GST_CAMERA (player)->priv;
@@ -729,25 +729,25 @@ setup_camera_source (ClutterGstCamera *self)
 }
 
 static void
-_new_frame_from_pipeline (CoglGstVideoSink *sink, ClutterGstCamera *self)
+_new_frame_from_pipeline (ClutterGstVideoSink *sink, ClutterGstCamera *self)
 {
   ClutterGstCameraPrivate *priv = self->priv;
 
   clutter_gst_player_update_frame (CLUTTER_GST_PLAYER (self),
                                    &priv->current_frame,
-                                   cogl_gst_video_sink_get_pipeline (sink));
+                                   clutter_gst_video_sink_get_frame (sink));
 }
 
 static void
-_ready_from_pipeline (CoglGstVideoSink *sink, ClutterGstCamera *self)
+_ready_from_pipeline (ClutterGstVideoSink *sink, ClutterGstCamera *self)
 {
   g_signal_emit_by_name (self, "ready");
 }
 
 static void
-_pixel_aspect_ratio_changed (CoglGstVideoSink *sink,
-                             GParamSpec       *spec,
-                             ClutterGstCamera *self)
+_pixel_aspect_ratio_changed (ClutterGstVideoSink *sink,
+                             GParamSpec          *spec,
+                             ClutterGstCamera    *self)
 {
   clutter_gst_frame_update_pixel_aspect_ratio (self->priv->current_frame, sink);
 }
@@ -758,6 +758,8 @@ setup_pipeline (ClutterGstCamera *self)
   ClutterGstCameraPrivate *priv = self->priv;
   const GPtrArray *camera_devices =
     clutter_gst_camera_manager_get_camera_devices (clutter_gst_camera_manager_get_default ());
+
+
 
   priv->camerabin = gst_element_factory_make ("camerabin", "camerabin");
   if (G_UNLIKELY (!priv->camerabin))
@@ -778,7 +780,8 @@ setup_pipeline (ClutterGstCamera *self)
       return FALSE;
     }
 
-  if (!clutter_gst_camera_set_camera_device (self,
+  if (camera_devices->len > 0 &&
+      !clutter_gst_camera_set_camera_device (self,
                                              g_ptr_array_index (camera_devices, 0)))
     {
       g_critical ("Unable to select capture device");
@@ -787,7 +790,7 @@ setup_pipeline (ClutterGstCamera *self)
       return FALSE;
     }
 
-  priv->video_sink = cogl_gst_video_sink_new (clutter_gst_get_cogl_context ());
+  priv->video_sink = clutter_gst_video_sink_new ();
 
   g_signal_connect (priv->video_sink, "new-frame",
                     G_CALLBACK (_new_frame_from_pipeline), self);

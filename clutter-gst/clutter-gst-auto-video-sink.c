@@ -59,11 +59,11 @@ G_DEFINE_TYPE (ClutterGstAutoVideoSink,
                clutter_gst_auto_video_sink,
                GST_TYPE_BIN)
 
-static GstStaticPadTemplate sink_template =
-  GST_STATIC_PAD_TEMPLATE ("sink",
-                           GST_PAD_SINK,
-                           GST_PAD_ALWAYS,
-                           GST_STATIC_CAPS_ANY);
+/* static GstStaticPadTemplate sink_template = */
+/*   GST_STATIC_PAD_TEMPLATE ("sink", */
+/*                            GST_PAD_SINK, */
+/*                            GST_PAD_ALWAYS, */
+/*                            GST_STATIC_CAPS_ANY); */
 
 static ClutterInitError _clutter_initialized = CLUTTER_INIT_ERROR_UNKNOWN;
 
@@ -108,17 +108,19 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
                                                         CLUTTER_GST_TYPE_CONTENT,
                                                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  GstElement *cogl_sink = clutter_gst_create_video_sink ();
+  GstElement *clutter_sink = clutter_gst_create_video_sink ();
 
   gst_element_class_add_pad_template (eklass,
-                                      gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (cogl_sink), "sink"));
+                                      gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (clutter_sink),
+                                                                          "sink"));
   /* gst_static_pad_template_get (&sink_template)); */
-  gst_element_class_set_static_metadata (eklass, "Clutter Auto video sink",
+  gst_element_class_set_static_metadata (eklass,
+                                         "Clutter Auto Video Sink",
                                          "Sink/Video",
-                                         "Video sink using a Clutter as output",
+                                         "Video sink using the Clutter scene graph as output",
                                          "Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>");
 
-  g_object_unref (cogl_sink);
+  g_object_unref (clutter_sink);
 }
 
 static void
@@ -259,7 +261,7 @@ clutter_gst_auto_video_sink_change_state (GstElement     *element,
         clutter_actor_show (stage);
       }
     clutter_gst_content_set_sink (CLUTTER_GST_CONTENT (sink->content),
-                                  COGL_GST_VIDEO_SINK (sink->kid));
+                                  CLUTTER_GST_VIDEO_SINK (sink->kid));
     break;
   default:
     break;

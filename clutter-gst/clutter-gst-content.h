@@ -26,7 +26,6 @@
 
 #include <glib-object.h>
 
-#include <cogl-gst/cogl-gst.h>
 #include <clutter/clutter.h>
 #include <clutter-gst/clutter-gst-player.h>
 
@@ -80,14 +79,14 @@ GType                     clutter_gst_content_get_type      (void) G_GNUC_CONST;
 
 ClutterContent *          clutter_gst_content_new           (void);
 
-ClutterContent *          clutter_gst_content_new_with_sink (CoglGstVideoSink *sink);
+ClutterContent *          clutter_gst_content_new_with_sink (ClutterGstVideoSink *sink);
 
 ClutterGstFrame *         clutter_gst_content_get_frame     (ClutterGstContent *self);
 
-void                      clutter_gst_content_set_sink      (ClutterGstContent *self,
-                                                             CoglGstVideoSink  *sink);
+void                      clutter_gst_content_set_sink      (ClutterGstContent   *self,
+                                                             ClutterGstVideoSink *sink);
 
-CoglGstVideoSink *        clutter_gst_content_get_sink      (ClutterGstContent *self);
+ClutterGstVideoSink *     clutter_gst_content_get_sink      (ClutterGstContent *self);
 
 ClutterGstPlayer *        clutter_gst_content_get_player    (ClutterGstContent *self);
 
