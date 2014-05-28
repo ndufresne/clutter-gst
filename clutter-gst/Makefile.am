@@ -145,7 +145,7 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--add-include-path=$(srcdir) --add-include=path=. \
 		--c-include="clutter-gst/clutter-gst.h" \
 		--include=GObject-2.0 \
-		--include=Cogl-2.0 \
+		--include=Cogl-1.0 \
 		--include=Clutter-1.0 \
 		--include=GdkPixbuf-2.0 \
 		--add-include-path=`$(PKG_CONFIG) --variable=girdir gstreamer-1.0` \
@@ -163,7 +163,7 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--libtool="${LIBTOOL}" \
 		--output $@ \
 		--pkg gobject-2.0 \
-		--pkg cogl-2.0-experimental \
+		--pkg cogl-1.0 \
 		--pkg clutter-1.0 \
 		--pkg gdk-pixbuf-2.0 \
 		--pkg gstreamer-1.0 \
