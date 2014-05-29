@@ -133,6 +133,35 @@ clutter_gst_aspectratio_get_frame_box (ClutterGstAspectratio *self,
     }
 }
 
+static void
+clutter_gst_aspectratio_get_overlay_box (ClutterGstAspectratio *self,
+                                         ClutterGstBox         *input_box,
+                                         ClutterGstBox         *paint_box,
+                                         const ClutterGstBox   *frame_input,
+                                         const ClutterGstBox   *frame_box,
+                                         ClutterGstFrame       *frame,
+                                         ClutterGstOverlay     *overlay)
+{
+  gfloat box_width = frame_box->x2 - frame_box->x1,
+    box_height = frame_box->y2 - frame_box->y1;
+
+  /* texturing input */
+  input_box->x1 = (overlay->position.x1 - MAX (frame_input->x1 * frame->resolution.width, overlay->position.x1))
+    / (overlay->position.x2 - overlay->position.x1);
+  input_box->y1 = (overlay->position.y1 - MAX (frame_input->y1 * frame->resolution.height, overlay->position.y1))
+    / (overlay->position.y2 - overlay->position.y1);
+  input_box->x2 = 1 - (overlay->position.x2 - MIN (frame_input->x2 * frame->resolution.width, overlay->position.x2))
+    / (overlay->position.x2 - overlay->position.x1);
+  input_box->y2 = 1 - (overlay->position.y2 - MIN (frame_input->y2 * frame->resolution.height, overlay->position.y2))
+    / (overlay->position.y2 - overlay->position.y1);
+
+  /* vertex output */
+  paint_box->x1 = frame_box->x1 + overlay->position.x1 * box_width / frame->resolution.width;
+  paint_box->y1 = frame_box->y1 + overlay->position.y1 * box_height / frame->resolution.height;
+  paint_box->x2 = frame_box->x1 + overlay->position.x2 * box_width / frame->resolution.width;
+  paint_box->y2 = frame_box->y1 + overlay->position.y2 * box_height / frame->resolution.height;
+}
+
 /**/
 
 static gboolean
@@ -161,8 +190,8 @@ clutter_gst_aspectratio_paint_content (ClutterContent   *content,
 {
   ClutterGstAspectratio *self = CLUTTER_GST_ASPECTRATIO (content);
   ClutterGstAspectratioPrivate *priv = self->priv;
-  ClutterGstFrame *frame =
-    clutter_gst_content_get_frame (CLUTTER_GST_CONTENT (content));
+  ClutterGstContent *gst_content = CLUTTER_GST_CONTENT (content);
+  ClutterGstFrame *frame = clutter_gst_content_get_frame (gst_content);
   ClutterGstBox input_box, paint_box;
   ClutterActorBox content_box;
   ClutterPaintNode *node;
@@ -228,21 +257,66 @@ clutter_gst_aspectratio_paint_content (ClutterContent   *content,
       clutter_paint_node_unref (node);
     }
 
-  cogl_pipeline_set_color4ub (frame->pipeline,
-                              paint_opacity, paint_opacity,
-                              paint_opacity, paint_opacity);
+  if (clutter_gst_content_get_paint_frame (gst_content))
+    {
+      cogl_pipeline_set_color4ub (frame->pipeline,
+                                  paint_opacity, paint_opacity,
+                                  paint_opacity, paint_opacity);
 
-  node = clutter_pipeline_node_new (frame->pipeline);
-  clutter_paint_node_set_name (node, "AspectRatioVideoFrame");
+      node = clutter_pipeline_node_new (frame->pipeline);
+      clutter_paint_node_set_name (node, "AspectRatioVideoFrame");
 
-  clutter_paint_node_add_texture_rectangle_custom (node,
-                                                   paint_box.x1, paint_box.y1,
-                                                   paint_box.x2, paint_box.y2,
-                                                   input_box.x1, input_box.y1,
-                                                   input_box.x2, input_box.y2);
+      clutter_paint_node_add_texture_rectangle_custom (node,
+                                                       paint_box.x1, paint_box.y1,
+                                                       paint_box.x2, paint_box.y2,
+                                                       input_box.x1, input_box.y1,
+                                                       input_box.x2, input_box.y2);
 
-  clutter_paint_node_add_child (root, node);
-  clutter_paint_node_unref (node);
+      clutter_paint_node_add_child (root, node);
+      clutter_paint_node_unref (node);
+    }
+
+  if (clutter_gst_content_get_paint_overlays (gst_content))
+    {
+      ClutterGstOverlays *overlays = clutter_gst_content_get_overlays (gst_content);
+
+      if (overlays)
+        {
+          guint i;
+
+          for (i = 0; i < overlays->overlays->len; i++)
+            {
+              ClutterGstOverlay *overlay =
+                g_ptr_array_index (overlays->overlays, i);
+              ClutterGstBox overlay_box;
+              ClutterGstBox overlay_input_box;
+
+              clutter_gst_aspectratio_get_overlay_box (self,
+                                                       &overlay_input_box,
+                                                       &overlay_box,
+                                                       &input_box,
+                                                       &paint_box,
+                                                       frame,
+                                                       overlay);
+
+              cogl_pipeline_set_color4ub (overlay->pipeline,
+                                          paint_opacity, paint_opacity,
+                                          paint_opacity, paint_opacity);
+
+              node = clutter_pipeline_node_new (overlay->pipeline);
+              clutter_paint_node_set_name (node, "AspectRatioVideoOverlay");
+
+              clutter_paint_node_add_texture_rectangle_custom (node,
+                                                               overlay_box.x1, overlay_box.y1,
+                                                               overlay_box.x2, overlay_box.y2,
+                                                               overlay_input_box.x1, overlay_input_box.y1,
+                                                               overlay_input_box.x2, overlay_input_box.y2);
+
+              clutter_paint_node_add_child (root, node);
+              clutter_paint_node_unref (node);
+            }
+        }
+    }
 }
 
 static void

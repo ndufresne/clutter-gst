@@ -70,6 +70,10 @@ ClutterGstFrame *clutter_gst_frame_new (void);
 
 ClutterGstFrame *clutter_gst_create_blank_frame (const ClutterColor *color);
 
+ClutterGstOverlay *clutter_gst_overlay_new (void);
+
+ClutterGstOverlays *clutter_gst_overlays_new (void);
+
 void clutter_gst_player_update_frame (ClutterGstPlayer *player,
                                       ClutterGstFrame **frame,
                                       ClutterGstFrame  *new_frame);
@@ -79,6 +83,10 @@ void clutter_gst_frame_update_pixel_aspect_ratio (ClutterGstFrame     *frame,
 
 void clutter_gst_video_resolution_from_video_info (ClutterGstVideoResolution *resolution,
                                                    GstVideoInfo              *info);
+
+
+gboolean clutter_gst_content_get_paint_frame (ClutterGstContent *content);
+gboolean clutter_gst_content_get_paint_overlays (ClutterGstContent *content);
 
 G_END_DECLS
 

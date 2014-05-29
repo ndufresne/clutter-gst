@@ -97,6 +97,7 @@ struct _ClutterGstVideoSinkClass
   /*< public >*/
   void (* new_frame)      (ClutterGstVideoSink *sink);
   void (* pipeline_ready) (ClutterGstVideoSink *sink);
+  void (* new_overlays)   (ClutterGstVideoSink *sink);
 
   /*< private >*/
   void *_padding_dummy[8];
@@ -115,6 +116,8 @@ CoglPipeline *        clutter_gst_video_sink_get_pipeline   (ClutterGstVideoSink
 
 void                  clutter_gst_video_sink_setup_pipeline (ClutterGstVideoSink *sink,
                                                              CoglPipeline        *pipeline);
+
+ClutterGstOverlays *  clutter_gst_video_sink_get_overlays   (ClutterGstVideoSink *sink);
 
 G_END_DECLS
 

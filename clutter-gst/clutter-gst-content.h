@@ -74,6 +74,8 @@ struct _ClutterGstContentClass
   /*< private >*/
   GObjectClass parent_class;
 
+  gboolean (* has_painting_content) (ClutterGstContent *self);
+
   void *_padding_dummy[10];
 };
 
@@ -84,6 +86,8 @@ ClutterContent *          clutter_gst_content_new           (void);
 ClutterContent *          clutter_gst_content_new_with_sink (ClutterGstVideoSink *sink);
 
 ClutterGstFrame *         clutter_gst_content_get_frame     (ClutterGstContent *self);
+
+ClutterGstOverlays *      clutter_gst_content_get_overlays  (ClutterGstContent *self);
 
 void                      clutter_gst_content_set_sink      (ClutterGstContent   *self,
                                                              ClutterGstVideoSink *sink);

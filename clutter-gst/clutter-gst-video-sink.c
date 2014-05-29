@@ -130,6 +130,8 @@ enum
     PIPELINE_READY,
     NEW_FRAME,
 
+    NEW_OVERLAYS,
+
     LAST_SIGNAL
   };
 
@@ -231,7 +233,110 @@ struct _ClutterGstVideoSinkPrivate
   guint8 *tabley;
   guint8 *tableu;
   guint8 *tablev;
+
+  /**/
+  GstVideoOverlayComposition *last_composition;
+  ClutterGstOverlays *overlays;
 };
+
+/* Overlays */
+
+static void
+clutter_gst_video_sink_upload_overlay (ClutterGstVideoSink *sink, GstBuffer *buffer)
+{
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+
+  GstVideoOverlayComposition *composition = NULL;
+  GstVideoOverlayCompositionMeta *composition_meta;
+  guint i, nb_rectangle;
+
+  composition_meta = gst_buffer_get_video_overlay_composition_meta (buffer);
+  if (composition_meta)
+    composition = composition_meta->overlay;
+
+  if (composition == NULL)
+    {
+      if (priv->last_composition != NULL)
+        {
+          gst_video_overlay_composition_unref (priv->last_composition);
+          priv->last_composition = NULL;
+
+          if (priv->overlays)
+            g_boxed_free (CLUTTER_GST_TYPE_OVERLAYS, priv->overlays);
+          priv->overlays = clutter_gst_overlays_new ();
+
+          g_signal_emit (sink, video_sink_signals[NEW_OVERLAYS], 0);
+        }
+      return;
+    }
+
+  g_clear_pointer (&priv->last_composition, gst_video_overlay_composition_unref);
+  priv->last_composition = gst_video_overlay_composition_ref (composition);
+  if (priv->overlays)
+    g_boxed_free (CLUTTER_GST_TYPE_OVERLAYS, priv->overlays);
+  priv->overlays = clutter_gst_overlays_new ();
+
+  nb_rectangle = gst_video_overlay_composition_n_rectangles (composition);
+  for (i = 0; i < nb_rectangle; i++)
+    {
+      GstVideoOverlayRectangle *rectangle;
+      GstBuffer *comp_buffer;
+      GstMapInfo info;
+      GstVideoMeta *vmeta;
+      gpointer data;
+      gint comp_x, comp_y, stride;
+      guint comp_width, comp_height;
+      CoglTexture *tex;
+      CoglError *error;
+
+      rectangle = gst_video_overlay_composition_get_rectangle (composition, i);
+      comp_buffer =
+        gst_video_overlay_rectangle_get_pixels_unscaled_argb (rectangle,
+                                                              GST_VIDEO_OVERLAY_FORMAT_FLAG_PREMULTIPLIED_ALPHA);
+
+      gst_video_overlay_rectangle_get_render_rectangle (rectangle,
+                                                        &comp_x, &comp_y, &comp_width, &comp_height);
+
+      vmeta = gst_buffer_get_video_meta (comp_buffer);
+      gst_video_meta_map (vmeta, 0, &info, &data, &stride, GST_MAP_READ);
+
+      tex =
+        cogl_texture_2d_new_from_data (priv->ctx,
+                                       comp_width,
+                                       comp_height,
+                                       COGL_PIXEL_FORMAT_BGRA_8888,
+                                       stride, data,
+                                       &error);
+
+      gst_video_meta_unmap (vmeta, 0, &info);
+
+      if (tex != NULL)
+        {
+          ClutterGstOverlay *overlay = clutter_gst_overlay_new ();
+
+          overlay->position.x1 = comp_x;
+          overlay->position.y1 = comp_y;
+          overlay->position.x2 = comp_x + comp_width;
+          overlay->position.y2 = comp_y + comp_height;
+
+          overlay->pipeline = cogl_pipeline_new (priv->ctx);
+          cogl_pipeline_set_layer_texture (overlay->pipeline, 0, tex);
+
+          cogl_object_unref (tex);
+
+          g_ptr_array_add (priv->overlays->overlays, overlay);
+        }
+      else
+        {
+          GST_WARNING_OBJECT (sink,
+                              "Cannot upload overlay texture : %s",
+                              error->message);
+          cogl_error_free (error);
+        }
+    }
+
+  g_signal_emit (sink, video_sink_signals[NEW_OVERLAYS], 0);
+}
 
 /* Snippet cache */
 
@@ -1822,6 +1927,8 @@ clutter_gst_source_dispatch (GSource *source,
 
   if (buffer)
     {
+      clutter_gst_video_sink_upload_overlay (gst_source->sink, buffer);
+
       if (gst_buffer_get_video_gl_texture_upload_meta (buffer) != NULL) {
         if (!priv->renderer->upload_gl (gst_source->sink, buffer)) {
           goto fail_upload;
@@ -1919,6 +2026,7 @@ clutter_gst_video_sink_init (ClutterGstVideoSink *sink)
   priv->ctx = clutter_gst_get_cogl_context ();
   priv->renderers = clutter_gst_build_renderers_list (priv->ctx);
   priv->caps = clutter_gst_build_caps (priv->renderers);
+  priv->overlays = clutter_gst_overlays_new ();
 }
 
 static GstFlowReturn
@@ -2092,6 +2200,8 @@ clutter_gst_video_sink_propose_allocation (GstBaseSink *base_sink, GstQuery *que
                                  GST_VIDEO_META_API_TYPE, NULL);
   gst_query_add_allocation_meta (query,
                                  GST_VIDEO_GL_TEXTURE_UPLOAD_META_API_TYPE, NULL);
+  gst_query_add_allocation_meta (query,
+                                 GST_VIDEO_OVERLAY_COMPOSITION_META_API_TYPE, NULL);
 
   return TRUE;
 }
@@ -2189,6 +2299,29 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
                   CLUTTER_GST_TYPE_VIDEO_SINK,
                   G_SIGNAL_RUN_LAST,
                   G_STRUCT_OFFSET (ClutterGstVideoSinkClass, new_frame),
+                  NULL, /* accumulator */
+                  NULL, /* accu_data */
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE,
+                  0 /* n_params */);
+
+  /**
+   * ClutterGstVideoSink::new-overlays:
+   * @sink: the #ClutterGstVideoSink
+   *
+   * The sink will emit this signal whenever there are new textures
+   * available for set of overlays on the video. After this signal is
+   * emitted, an application can call
+   * clutter_gst_video_sink_get_overlays() to get a set of pipelines
+   * suitable for rendering overlays on a video frame.
+   *
+   * Since: 3.0
+   */
+  video_sink_signals[NEW_OVERLAYS] =
+    g_signal_new ("new-overlays",
+                  CLUTTER_GST_TYPE_VIDEO_SINK,
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (ClutterGstVideoSinkClass, new_overlays),
                   NULL, /* accumulator */
                   NULL, /* accu_data */
                   g_cclosure_marshal_VOID__VOID,
@@ -2394,4 +2527,13 @@ clutter_gst_video_sink_setup_pipeline (ClutterGstVideoSink *sink,
       clutter_gst_video_sink_setup_balance (sink, priv->pipeline);
       priv->renderer->setup_pipeline (sink, priv->pipeline);
     }
+}
+
+
+ClutterGstOverlays *
+clutter_gst_video_sink_get_overlays (ClutterGstVideoSink *sink)
+{
+  g_return_val_if_fail (CLUTTER_GST_IS_VIDEO_SINK (sink), NULL);
+
+  return sink->priv->overlays;
 }

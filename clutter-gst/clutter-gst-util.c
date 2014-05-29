@@ -271,11 +271,12 @@ clutter_gst_create_blank_frame (const ClutterColor *color)
   const guint8 *color_ptr = color != NULL ?
     (const guint8 *) color : (const guint8 *) &black_color;
 
-  texture = cogl_texture_new_from_data (1, 1, COGL_TEXTURE_NONE,
-                                        COGL_PIXEL_FORMAT_RGBA_8888,
-                                        COGL_PIXEL_FORMAT_RGBA_8888,
-                                        1,
-                                        color_ptr);
+  texture = cogl_texture_2d_new_from_data (clutter_gst_get_cogl_context (),
+                                           1, 1,
+                                           COGL_PIXEL_FORMAT_RGBA_8888,
+                                           1,
+                                           color_ptr,
+                                           NULL);
   frame->pipeline = cogl_pipeline_new (clutter_gst_get_cogl_context ());
   cogl_pipeline_set_layer_texture (frame->pipeline, 0, texture);
 
