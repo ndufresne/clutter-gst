@@ -1303,11 +1303,11 @@ static ClutterGstRenderer rgb32_glsl_renderer =
     "RGB 32",
     CLUTTER_GST_RGB32,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "{ RGBA, BGRA }")
-
-                     ";" GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
-                                                           "RGBA")),
+    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
+                                                           "RGBA")
+                     ";"
+                     GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                                       "{ RGBA, BGRA }")),
     1, /* n_layers */
     clutter_gst_rgb32_glsl_setup_pipeline,
     clutter_gst_rgb32_upload,
@@ -1684,12 +1684,12 @@ clutter_gst_build_renderers_list (CoglContext *ctx)
        * renderers will be preferred if they are available */
       &rgb24_renderer,
       &rgb32_renderer,
-      &rgb24_glsl_renderer,
-      &rgb32_glsl_renderer,
-      &yv12_glsl_renderer,
-      &i420_glsl_renderer,
       &ayuv_glsl_renderer,
       &nv12_glsl_renderer,
+      &yv12_glsl_renderer,
+      &i420_glsl_renderer,
+      &rgb24_glsl_renderer,
+      &rgb32_glsl_renderer,
       NULL
     };
 
