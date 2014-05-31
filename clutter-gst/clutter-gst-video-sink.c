@@ -1727,6 +1727,8 @@ clutter_gst_build_caps (GSList *renderers)
 
   g_slist_foreach (renderers, append_cap, caps);
 
+  /* g_message ("Caps list : %s", gst_caps_to_string (caps)); */
+
   return caps;
 }
 
@@ -1758,12 +1760,19 @@ clutter_gst_video_sink_get_caps (GstBaseSink *bsink,
                                  GstCaps *filter)
 {
   ClutterGstVideoSink *sink;
+  GstCaps *ret;
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
 
   if (sink->priv->caps == NULL)
-    return NULL;
+    ret = NULL;
+  else if (filter == NULL)
+    ret = gst_caps_ref (sink->priv->caps);
   else
-    return gst_caps_ref (sink->priv->caps);
+    ret = gst_caps_intersect (filter, sink->priv->caps);
+  g_message ("Filter %s |||||||||| Intersect result : %s",
+             gst_caps_to_string (filter), gst_caps_to_string (ret));
+
+  return ret;
 }
 
 static gboolean
@@ -1878,8 +1887,15 @@ clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
   priv = sink->priv;
 
+
   if (!clutter_gst_video_sink_parse_caps (caps, sink, FALSE))
-    return FALSE;
+    {
+      g_message ("Caps fail : %s", gst_caps_to_string (caps));
+      return FALSE;
+    }
+
+  g_message ("Caps success : %s", gst_caps_to_string (caps));
+
 
   g_mutex_lock (&priv->source->buffer_lock);
   priv->source->has_new_caps = TRUE;
@@ -2195,6 +2211,8 @@ clutter_gst_video_sink_propose_allocation (GstBaseSink *base_sink, GstQuery *que
   GstCaps *caps = NULL;
 
   gst_query_parse_allocation (query, &caps, &need_pool);
+
+  g_message ("clutter video sink propose allocation!");
 
   gst_query_add_allocation_meta (query,
                                  GST_VIDEO_META_API_TYPE, NULL);
