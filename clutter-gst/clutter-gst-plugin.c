@@ -56,6 +56,11 @@ plugin_init (GstPlugin *plugin)
                            0,
                            "clutter auto video sink");
 
+  GST_DEBUG_CATEGORY_INIT (clutter_gst_video_sink_debug,
+                           "cluttervideosink",
+                           0,
+                           "clutter video sink");
+
 #if defined (CLUTTER_WINDOWING_X11)
   /* Required by some GStreamer element like VA */
   XInitThreads ();
