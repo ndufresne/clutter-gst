@@ -92,6 +92,8 @@ struct _ClutterGstAspectratioClass
 {
   /*< private >*/
   ClutterGstContentClass parent_class;
+
+  void *_padding_dummy[8];
 };
 
 GType clutter_gst_aspectratio_get_type (void) G_GNUC_CONST;

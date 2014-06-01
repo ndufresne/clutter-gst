@@ -73,6 +73,8 @@ struct _ClutterGstContentClass
 {
   /*< private >*/
   GObjectClass parent_class;
+
+  void *_padding_dummy[10];
 };
 
 GType                     clutter_gst_content_get_type      (void) G_GNUC_CONST;
