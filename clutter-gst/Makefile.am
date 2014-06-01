@@ -163,7 +163,7 @@ ClutterGst-@CLUTTER_GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libclutter-gs
 		--libtool="${LIBTOOL}" \
 		--output $@ \
 		--pkg gobject-2.0 \
-		--pkg cogl-1.0 \
+		--pkg cogl-2.0-experimental \
 		--pkg clutter-1.0 \
 		--pkg gdk-pixbuf-2.0 \
 		--pkg gstreamer-1.0 \
