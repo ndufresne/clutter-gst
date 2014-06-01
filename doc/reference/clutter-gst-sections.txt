@@ -252,6 +252,16 @@ clutter_gst_create_video_sink
 </SECTION>
 
 <SECTION>
+<FILE>clutter-gst-video-sink</FILE>
+<TITLE>Video Sink</TITLE>
+clutter_gst_video_sink_new
+clutter_gst_video_sink_is_ready
+clutter_gst_video_sink_get_frame
+clutter_gst_video_sink_get_pipeline
+clutter_gst_video_sink_setup_pipeline
+</SECTION>
+
+<SECTION>
 <FILE>clutter-gst-version</FILE>
 <TITLE>Versioning Macros</TITLE>
 CLUTTER_GST_MAJOR_VERSION
