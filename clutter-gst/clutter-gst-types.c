@@ -41,7 +41,7 @@ clutter_gst_frame_copy (gpointer data)
       ClutterGstFrame *frame = g_slice_dup (ClutterGstFrame, data);
 
       if (frame->pipeline != COGL_INVALID_HANDLE)
-        frame->pipeline = cogl_object_ref (frame->pipeline);
+        frame->pipeline = cogl_pipeline_copy (frame->pipeline);
 
       return frame;
     }
