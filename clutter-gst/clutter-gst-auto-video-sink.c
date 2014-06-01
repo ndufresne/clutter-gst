@@ -42,8 +42,8 @@ enum
 static GstStateChangeReturn
 clutter_gst_auto_video_sink_change_state (GstElement     *element,
                                           GstStateChange  transition);
-static void clutter_gst_auto_video_sink_dispose (ClutterGstAutoVideoSink *sink);
-static void clutter_gst_auto_video_sink_clear_kid (ClutterGstAutoVideoSink *sink);
+static void clutter_gst_auto_video_sink_dispose (ClutterGstAutoVideoSink3 *sink);
+static void clutter_gst_auto_video_sink_clear_kid (ClutterGstAutoVideoSink3 *sink);
 
 static void clutter_gst_auto_video_sink_set_property (GObject      *object,
                                                       guint         prop_id,
@@ -55,7 +55,7 @@ static void clutter_gst_auto_video_sink_get_property (GObject    *object,
                                                       GParamSpec *pspec);
 
 #define clutter_gst_auto_video_sink_parent_class parent_class
-G_DEFINE_TYPE (ClutterGstAutoVideoSink,
+G_DEFINE_TYPE (ClutterGstAutoVideoSink3,
                clutter_gst_auto_video_sink,
                GST_TYPE_BIN)
 
@@ -77,7 +77,7 @@ _clutter_init (void)
 }
 
 static void
-clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
+clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSink3Class *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   GstElementClass *eklass = GST_ELEMENT_CLASS (klass);
@@ -124,7 +124,7 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSinkClass *klass)
 }
 
 static void
-clutter_gst_auto_video_sink_dispose (ClutterGstAutoVideoSink *sink)
+clutter_gst_auto_video_sink_dispose (ClutterGstAutoVideoSink3 *sink)
 {
   clutter_gst_auto_video_sink_clear_kid (sink);
 
@@ -132,7 +132,7 @@ clutter_gst_auto_video_sink_dispose (ClutterGstAutoVideoSink *sink)
 }
 
 static void
-clutter_gst_auto_video_sink_clear_kid (ClutterGstAutoVideoSink *sink)
+clutter_gst_auto_video_sink_clear_kid (ClutterGstAutoVideoSink3 *sink)
 {
   if (sink->kid)
     {
@@ -150,7 +150,7 @@ clutter_gst_auto_video_sink_clear_kid (ClutterGstAutoVideoSink *sink)
  */
 
 static void
-clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink *sink)
+clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink3 *sink)
 {
   GstPad *targetpad;
 
@@ -169,7 +169,7 @@ clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink *sink)
 }
 
 static void
-clutter_gst_auto_video_sink_init (ClutterGstAutoVideoSink *sink)
+clutter_gst_auto_video_sink_init (ClutterGstAutoVideoSink3 *sink)
 {
   sink->ts_offset = DEFAULT_TS_OFFSET;
 
@@ -190,7 +190,7 @@ clutter_gst_auto_video_sink_set_property (GObject      *object,
                                           const GValue *value,
                                           GParamSpec   *pspec)
 {
-  ClutterGstAutoVideoSink *sink = CLUTTER_GST_AUTO_VIDEO_SINK (object);
+  ClutterGstAutoVideoSink3 *sink = CLUTTER_GST_AUTO_VIDEO_SINK (object);
 
   switch (prop_id)
     {
@@ -200,8 +200,7 @@ clutter_gst_auto_video_sink_set_property (GObject      *object,
         g_object_set_property (G_OBJECT (sink->kid), pspec->name, value);
       break;
     case PROP_CONTENT:
-      if (sink->content != NULL)
-        g_clear_object (&sink->content);
+      g_clear_object (&sink->content);
       sink->content = g_value_get_object (value);
       break;
     default:
@@ -216,7 +215,7 @@ clutter_gst_auto_video_sink_get_property (GObject    *object,
                                           GValue     *value,
                                           GParamSpec *pspec)
 {
-  ClutterGstAutoVideoSink *sink = CLUTTER_GST_AUTO_VIDEO_SINK (object);
+  ClutterGstAutoVideoSink3 *sink = CLUTTER_GST_AUTO_VIDEO_SINK (object);
 
   switch (prop_id)
     {
@@ -237,7 +236,7 @@ clutter_gst_auto_video_sink_change_state (GstElement     *element,
                                           GstStateChange  transition)
 {
   GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
-  ClutterGstAutoVideoSink *sink = CLUTTER_GST_AUTO_VIDEO_SINK (element);
+  ClutterGstAutoVideoSink3 *sink = CLUTTER_GST_AUTO_VIDEO_SINK (element);
 
   switch (transition) {
   case GST_STATE_CHANGE_NULL_TO_READY:

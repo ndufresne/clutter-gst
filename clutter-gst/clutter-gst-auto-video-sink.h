@@ -38,20 +38,20 @@ G_BEGIN_DECLS
 #define CLUTTER_GST_AUTO_VIDEO_SINK(obj) \
   (G_TYPE_CHECK_INSTANCE_CAST((obj), \
                               CLUTTER_GST_TYPE_AUTO_VIDEO_SINK, \
-                              ClutterGstAutoVideoSink))
+                              ClutterGstAutoVideoSink3))
 
 #define CLUTTER_GST_AUTO_VIDEO_SINK_CAST(obj) \
-  ((ClutterGstAutoVideoSink *)(obj))
+  ((ClutterGstAutoVideoSink3 *)(obj))
 
 #define CLUTTER_GST_AUTO_VIDEO_SINK_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_CAST((klass), \
                            CLUTTER_GST_TYPE_AUTO_VIDEO_SINK, \
-                           ClutterGstAutoVideoSinkClass))
+                           ClutterGstAutoVideoSink3Class))
 
 #define CLUTTER_GST_AUTO_VIDEO_SINK_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
                               CLUTTER_GST_TYPE_AUTO_VIDEO_SINK, \
-                              ClutterGstAutoVideoSinkClass))
+                              ClutterGstAutoVideoSink3Class))
 
 #define CLUTTER_GST_IS_AUTO_VIDEO_SINK(obj) \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj), \
@@ -78,10 +78,10 @@ G_BEGIN_DECLS
     g_mutex_unlock (&CLUTTER_GST_AUTO_VIDEO_SINK(obj)->lock);            \
 } G_STMT_END
 
-typedef struct _ClutterGstAutoVideoSink ClutterGstAutoVideoSink;
-typedef struct _ClutterGstAutoVideoSinkClass ClutterGstAutoVideoSinkClass;
+typedef struct _ClutterGstAutoVideoSink3 ClutterGstAutoVideoSink3;
+typedef struct _ClutterGstAutoVideoSink3Class ClutterGstAutoVideoSink3Class;
 
-struct _ClutterGstAutoVideoSink
+struct _ClutterGstAutoVideoSink3
 {
   GstBin parent;
 
@@ -92,7 +92,7 @@ struct _ClutterGstAutoVideoSink
   ClutterContent *content;
 };
 
-struct _ClutterGstAutoVideoSinkClass
+struct _ClutterGstAutoVideoSink3Class
 {
   GstBinClass parent_class;
 };
