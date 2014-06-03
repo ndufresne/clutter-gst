@@ -3,7 +3,7 @@ clutter-gst 2.0.12 (1/06/2014)
 
 List of changes since 2.0.10
 
- o Depend on GStreamer 2.0
+ o Depend on GStreamer 1.2.0
 
  o Fix build issues
 
