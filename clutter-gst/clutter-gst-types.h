@@ -36,9 +36,13 @@
 
 #define CLUTTER_GST_TYPE_FRAME            (clutter_gst_frame_get_type ())
 #define CLUTTER_GST_TYPE_BOX              (clutter_gst_box_get_type ())
+#define CLUTTER_GST_TYPE_OVERLAY          (clutter_gst_overlay_get_type ())
+#define CLUTTER_GST_TYPE_OVERLAYS         (clutter_gst_overlays_get_type ())
 
 typedef struct _ClutterGstBox             ClutterGstBox;
 typedef struct _ClutterGstFrame           ClutterGstFrame;
+typedef struct _ClutterGstOverlay         ClutterGstOverlay;
+typedef struct _ClutterGstOverlays        ClutterGstOverlays;
 typedef struct _ClutterGstVideoResolution ClutterGstVideoResolution;
 
 /**
@@ -72,36 +76,6 @@ typedef enum _ClutterGstBufferingMode
 } ClutterGstBufferingMode;
 
 /**
- * ClutterGstVideoResolution:
- * @width: the width, in pixels
- * @height: the height, in pixels
- *
- * A video resolution.
- */
-struct _ClutterGstVideoResolution
-{
-  gint width;
-  gint height;
-
-  gint par_n;
-  gint par_d;
-};
-
-/**
- * ClutterGstFrame:
- * @resolution: a #ClutterGstVideoResolution
- * @pipeline: a #CoglHandle to the pipeline to paint a frame
- *
- * Represents a frame outputted by the #ClutterGstVideoSink.
- */
-struct _ClutterGstFrame
-{
-  ClutterGstVideoResolution  resolution;
-  CoglPipeline              *pipeline;
-};
-
-
-/**
  * ClutterGstBox:
  * @x1: X coordinate of the top left corner
  * @y1: Y coordinate of the top left corner
@@ -120,9 +94,62 @@ struct _ClutterGstBox
   gfloat y2;
 };
 
+/**
+ * ClutterGstVideoResolution:
+ * @width: the width, in pixels
+ * @height: the height, in pixels
+ *
+ * A video resolution.
+ */
+struct _ClutterGstVideoResolution
+{
+  gint width;
+  gint height;
 
-GType clutter_gst_frame_get_type (void) G_GNUC_CONST;
-GType clutter_gst_box_get_type   (void) G_GNUC_CONST;
+  gint par_n;
+  gint par_d;
+};
+
+/**
+ * ClutterGstFrame:
+ * @resolution: a #ClutterGstVideoResolution
+ * @pipeline: a #CoglPipeline to paint a frame
+ *
+ * Represents a frame outputted by the #ClutterGstVideoSink.
+ */
+struct _ClutterGstFrame
+{
+  ClutterGstVideoResolution  resolution;
+  CoglPipeline              *pipeline;
+};
+
+/**
+ * ClutterGstOverlay:
+ * @position: a #ClutterGstBox representing the position of the
+ *            overlay within a #ClutterGstFrame.
+ * @pipeline: a #CoglPipeline to paint an overlay
+ *
+ * Represents a video overlay outputted by the #ClutterGstVideoSink.
+ */
+struct _ClutterGstOverlay
+{
+  ClutterGstBox  position;
+  CoglPipeline  *pipeline;
+};
+
+/**
+ * ClutterGstOverlays:
+ * @overlays: an array of #ClutterGstOverlay
+ */
+struct _ClutterGstOverlays
+{
+  GPtrArray *overlays;
+};
+
+GType clutter_gst_frame_get_type     (void) G_GNUC_CONST;
+GType clutter_gst_box_get_type       (void) G_GNUC_CONST;
+GType clutter_gst_overlay_get_type   (void) G_GNUC_CONST;
+GType clutter_gst_overlays_get_type  (void) G_GNUC_CONST;
 
 gfloat clutter_gst_box_get_width     (const ClutterGstBox *box);
 gfloat clutter_gst_box_get_height    (const ClutterGstBox *box);

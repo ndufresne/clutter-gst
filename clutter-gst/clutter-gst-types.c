@@ -70,6 +70,97 @@ G_DEFINE_BOXED_TYPE (ClutterGstFrame,
                      clutter_gst_frame_copy,
                      clutter_gst_frame_free);
 
+
+ClutterGstOverlay *
+clutter_gst_overlay_new (void)
+{
+  return g_slice_new0 (ClutterGstOverlay);
+}
+
+static gpointer
+clutter_gst_overlay_copy (gpointer data)
+{
+  if (G_LIKELY (data))
+    {
+      ClutterGstOverlay *overlay = g_slice_dup (ClutterGstOverlay, data);
+
+      if (overlay->pipeline != COGL_INVALID_HANDLE)
+        overlay->pipeline = cogl_object_ref (overlay->pipeline);
+
+      return overlay;
+    }
+
+  return NULL;
+}
+
+static void
+clutter_gst_overlay_free (gpointer data)
+{
+  if (G_LIKELY (data))
+    {
+      ClutterGstOverlay *overlay = (ClutterGstOverlay *) data;
+
+      if (overlay->pipeline != COGL_INVALID_HANDLE)
+        {
+          cogl_object_unref (overlay->pipeline);
+          overlay->pipeline = COGL_INVALID_HANDLE;
+        }
+      g_slice_free (ClutterGstOverlay, overlay);
+    }
+}
+
+G_DEFINE_BOXED_TYPE (ClutterGstOverlay,
+                     clutter_gst_overlay,
+                     clutter_gst_overlay_copy,
+                     clutter_gst_overlay_free);
+
+ClutterGstOverlays *
+clutter_gst_overlays_new (void)
+{
+  ClutterGstOverlays *overlays = g_slice_new0 (ClutterGstOverlays);
+
+  overlays->overlays = g_ptr_array_new_with_free_func (clutter_gst_overlay_free);
+
+  return overlays;
+}
+
+static gpointer
+clutter_gst_overlays_copy (gpointer data)
+{
+  if (G_LIKELY (data))
+    {
+      ClutterGstOverlays *overlays = clutter_gst_overlays_new ();
+      GPtrArray *src_overlays = ((ClutterGstOverlays *) data)->overlays;
+      guint i;
+
+      for (i = 0; i < src_overlays->len; i++)
+        g_ptr_array_add (overlays->overlays,
+                         clutter_gst_overlay_copy (g_ptr_array_index (src_overlays,
+                                                                      i)));
+      return overlays;
+    }
+
+  return NULL;
+}
+
+static void
+clutter_gst_overlays_free (gpointer data)
+{
+  if (G_LIKELY (data))
+    {
+      ClutterGstOverlays *overlays = (ClutterGstOverlays *) data;
+
+      g_ptr_array_unref (overlays->overlays);
+
+      g_slice_free (ClutterGstOverlays, overlays);
+    }
+}
+
+G_DEFINE_BOXED_TYPE (ClutterGstOverlays,
+                     clutter_gst_overlays,
+                     clutter_gst_overlays_copy,
+                     clutter_gst_overlays_free);
+
 static ClutterGstBox *
 clutter_gst_box_copy (const ClutterGstBox *box)
 {

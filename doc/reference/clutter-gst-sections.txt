@@ -20,6 +20,14 @@ clutter_gst_frame_get_type
 CLUTTER_GST_TYPE_FRAME
 ClutterGstVideoResolution
 </SECTION>
+<SUBSECTION Standard>
+ClutterGstOverlay
+clutter_gst_overlay_get_type
+CLUTTER_GST_TYPE_OVERLAY
+ClutterGstOverlays
+clutter_gst_overlays_get_type
+CLUTTER_GST_TYPE_OVERLAYS
+</SECTION>
 
 <SECTION>
 <FILE>clutter-gst-content</FILE>
