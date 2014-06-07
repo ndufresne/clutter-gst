@@ -57,7 +57,12 @@ struct _ClutterGstContentPrivate
 {
   ClutterGstVideoSink *sink;
   ClutterGstPlayer *player;
+
   ClutterGstFrame *current_frame;
+  ClutterGstOverlays *overlays;
+
+  gboolean paint_frame;
+  gboolean paint_overlays;
 };
 
 enum
@@ -66,6 +71,8 @@ enum
 
   PROP_VIDEO_SINK,
   PROP_PLAYER,
+  PROP_PAINT_FRAME,
+  PROP_PAINT_OVERLAYS,
 
   PROP_LAST
 };
@@ -81,6 +88,56 @@ enum
 
 static guint signals[LAST_SIGNAL];
 
+
+/**/
+
+gboolean
+clutter_gst_content_get_paint_frame (ClutterGstContent *self)
+{
+  return self->priv->paint_frame;
+}
+
+static void
+clutter_gst_content_set_paint_frame (ClutterGstContent *self, gboolean value)
+{
+  if (self->priv->paint_frame == value)
+    return;
+
+  self->priv->paint_frame = value;
+  clutter_content_invalidate (CLUTTER_CONTENT (self));
+}
+
+gboolean
+clutter_gst_content_get_paint_overlays (ClutterGstContent *self)
+{
+  return self->priv->paint_overlays;
+}
+
+static void
+clutter_gst_content_set_paint_overlays (ClutterGstContent *self, gboolean value)
+{
+  if (self->priv->paint_overlays == value)
+    return;
+
+  self->priv->paint_overlays = value;
+  clutter_content_invalidate (CLUTTER_CONTENT (self));
+}
+
+static gboolean
+clutter_gst_content_has_painting_content (ClutterGstContent *self)
+{
+  ClutterGstContentPrivate *priv = self->priv;
+
+  if (priv->paint_frame && priv->current_frame)
+    return TRUE;
+
+  if (priv->paint_overlays && priv->overlays && priv->overlays->overlays->len > 0)
+    return TRUE;
+
+  return FALSE;
+}
+
+/**/
 
 static void
 update_frame (ClutterGstContent *self,
@@ -112,12 +169,38 @@ update_frame (ClutterGstContent *self,
 }
 
 static void
+update_overlays (ClutterGstContent  *self,
+                 ClutterGstOverlays *new_overlays)
+{
+  ClutterGstContentPrivate *priv = self->priv;
+
+  if (priv->overlays != NULL)
+    {
+      g_boxed_free (CLUTTER_GST_TYPE_OVERLAYS, priv->overlays);
+      priv->overlays = NULL;
+    }
+  if (new_overlays != NULL)
+    priv->overlays = g_boxed_copy (CLUTTER_GST_TYPE_OVERLAYS, new_overlays);
+}
+
+static void
 _new_frame_from_pipeline (ClutterGstVideoSink *sink,
                           ClutterGstContent   *self)
 {
   update_frame (self, clutter_gst_video_sink_get_frame (sink));
 
-  clutter_content_invalidate (CLUTTER_CONTENT (self));
+  if (CLUTTER_GST_CONTENT_GET_CLASS (self)->has_painting_content (self))
+    clutter_content_invalidate (CLUTTER_CONTENT (self));
+}
+
+static void
+_new_overlays_from_pipeline (ClutterGstVideoSink *sink,
+                             ClutterGstContent   *self)
+{
+  update_overlays (self, clutter_gst_video_sink_get_overlays (sink));
+
+  if (CLUTTER_GST_CONTENT_GET_CLASS (self)->has_painting_content (self))
+    clutter_content_invalidate (CLUTTER_CONTENT (self));
 }
 
 static void
@@ -183,14 +266,15 @@ content_set_sink (ClutterGstContent   *self,
       priv->sink = g_object_ref_sink (sink);
       g_signal_connect (priv->sink, "new-frame",
                         G_CALLBACK (_new_frame_from_pipeline), self);
+      g_signal_connect (priv->sink, "new-overlays",
+                        G_CALLBACK (_new_overlays_from_pipeline), self);
       g_signal_connect (priv->sink, "notify::pixel-aspect-ratio",
                         G_CALLBACK (_pixel_aspect_ratio_changed), self);
 
       if (clutter_gst_video_sink_is_ready (priv->sink))
         {
-          ClutterGstFrame *frame = clutter_gst_video_sink_get_frame (priv->sink);
-          if (frame)
-            update_frame (self, frame);
+          update_frame (self, clutter_gst_video_sink_get_frame (priv->sink));
+          update_overlays (self, clutter_gst_video_sink_get_overlays (priv->sink));
         }
     }
 
@@ -220,46 +304,82 @@ clutter_gst_content_paint_content (ClutterContent   *content,
                                    ClutterActor     *actor,
                                    ClutterPaintNode *root)
 {
-  ClutterGstContentPrivate *priv = CLUTTER_GST_CONTENT (content)->priv;
+  ClutterGstContent *self = CLUTTER_GST_CONTENT (content);
+  ClutterGstContentPrivate *priv = self->priv;
   ClutterActorBox box;
   ClutterPaintNode *node;
   ClutterContentRepeat repeat;
   guint8 paint_opacity;
 
-  if (!priv->current_frame)
+  if (!CLUTTER_GST_CONTENT_GET_CLASS (self)->has_painting_content (self))
     return;
 
   clutter_actor_get_content_box (actor, &box);
   paint_opacity = clutter_actor_get_paint_opacity (actor);
   repeat = clutter_actor_get_content_repeat (actor);
 
-
-  cogl_pipeline_set_color4ub (priv->current_frame->pipeline,
-                              paint_opacity, paint_opacity,
-                              paint_opacity, paint_opacity);
-
-  node = clutter_pipeline_node_new (priv->current_frame->pipeline);
-  clutter_paint_node_set_name (node, "Video");
-
-  if (repeat == CLUTTER_REPEAT_NONE)
-    clutter_paint_node_add_rectangle (node, &box);
-  else
+  if (priv->paint_frame && priv->current_frame)
     {
-      float t_w = 1.f, t_h = 1.f;
+      cogl_pipeline_set_color4ub (priv->current_frame->pipeline,
+                                  paint_opacity, paint_opacity,
+                                  paint_opacity, paint_opacity);
 
-      if ((repeat & CLUTTER_REPEAT_X_AXIS) != FALSE)
-        t_w = (box.x2 - box.x1) / priv->current_frame->resolution.width;
+      node = clutter_pipeline_node_new (priv->current_frame->pipeline);
+      clutter_paint_node_set_name (node, "Video");
 
-      if ((repeat & CLUTTER_REPEAT_Y_AXIS) != FALSE)
-        t_h = (box.y2 - box.y1) / priv->current_frame->resolution.height;
+      if (repeat == CLUTTER_REPEAT_NONE)
+        clutter_paint_node_add_rectangle (node, &box);
+      else
+        {
+          float t_w = 1.f, t_h = 1.f;
 
-      clutter_paint_node_add_texture_rectangle (node, &box,
-                                                0.f, 0.f,
-                                                t_w, t_h);
+          if ((repeat & CLUTTER_REPEAT_X_AXIS) != FALSE)
+            t_w = (box.x2 - box.x1) / priv->current_frame->resolution.width;
+
+          if ((repeat & CLUTTER_REPEAT_Y_AXIS) != FALSE)
+            t_h = (box.y2 - box.y1) / priv->current_frame->resolution.height;
+
+          clutter_paint_node_add_texture_rectangle (node, &box,
+                                                    0.f, 0.f,
+                                                    t_w, t_h);
+        }
+
+      clutter_paint_node_add_child (root, node);
+      clutter_paint_node_unref (node);
     }
 
-  clutter_paint_node_add_child (root, node);
-  clutter_paint_node_unref (node);
+  if (priv->paint_overlays && priv->overlays)
+    {
+      guint i;
+
+      for (i = 0; i < priv->overlays->overlays->len; i++)
+        {
+          ClutterGstOverlay *overlay =
+            g_ptr_array_index (priv->overlays->overlays, i);
+          gfloat box_width = clutter_actor_box_get_width (&box),
+            box_height = clutter_actor_box_get_height (&box);
+          ClutterActorBox obox = {
+            overlay->position.x1 * box_width / priv->current_frame->resolution.width,
+            overlay->position.y1 * box_height / priv->current_frame->resolution.height,
+            overlay->position.x2 * box_width / priv->current_frame->resolution.width,
+            overlay->position.y2 * box_height / priv->current_frame->resolution.height
+          };
+
+          cogl_pipeline_set_color4ub (overlay->pipeline,
+                                      paint_opacity, paint_opacity,
+                                      paint_opacity, paint_opacity);
+
+          node = clutter_pipeline_node_new (overlay->pipeline);
+          clutter_paint_node_set_name (node, "AspectRatioVideoOverlay");
+
+          clutter_paint_node_add_texture_rectangle (node, &obox,
+                                                    0, 0,
+                                                    1, 1);
+
+          clutter_paint_node_add_child (root, node);
+          clutter_paint_node_unref (node);
+        }
+    }
 }
 
 static void
@@ -288,6 +408,14 @@ clutter_gst_content_set_property (GObject      *object,
                           CLUTTER_GST_PLAYER (g_value_get_object (value)));
       break;
 
+    case PROP_PAINT_FRAME:
+      clutter_gst_content_set_paint_frame (self, g_value_get_boolean (value));
+      break;
+
+    case PROP_PAINT_OVERLAYS:
+      clutter_gst_content_set_paint_overlays (self, g_value_get_boolean (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -310,6 +438,14 @@ clutter_gst_content_get_property (GObject    *object,
 
     case PROP_PLAYER:
       g_value_set_object (value, priv->player);
+      break;
+
+    case PROP_PAINT_FRAME:
+      g_value_set_boolean (value, priv->paint_frame);
+      break;
+
+    case PROP_PAINT_OVERLAYS:
+      g_value_set_boolean (value, priv->paint_overlays);
       break;
 
     default:
@@ -350,6 +486,8 @@ clutter_gst_content_class_init (ClutterGstContentClass *klass)
   gobject_class->dispose        = clutter_gst_content_dispose;
   gobject_class->finalize       = clutter_gst_content_finalize;
 
+  klass->has_painting_content   = clutter_gst_content_has_painting_content;
+
   g_type_class_add_private (klass, sizeof (ClutterGstContentPrivate));
 
   props[PROP_PLAYER] =
@@ -365,6 +503,20 @@ clutter_gst_content_class_init (ClutterGstContentClass *klass)
                          "Cogl Video Sink",
                          CLUTTER_GST_TYPE_VIDEO_SINK,
                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
+
+  props[PROP_PAINT_FRAME] =
+    g_param_spec_boolean ("paint-frame",
+                          "Paint Video Overlays",
+                          "Paint Video Overlays",
+                          TRUE,
+                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
+
+  props[PROP_PAINT_OVERLAYS] =
+    g_param_spec_boolean ("paint-overlays",
+                          "Paint Video Overlays",
+                          "Paint Video Overlays",
+                          TRUE,
+                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
   g_object_class_install_properties (gobject_class, PROP_LAST, props);
 
 
@@ -398,6 +550,9 @@ clutter_gst_content_init (ClutterGstContent *self)
   content_set_sink (self,
                     CLUTTER_GST_VIDEO_SINK (clutter_gst_create_video_sink ()),
                     FALSE);
+
+  priv->paint_frame = TRUE;
+  priv->paint_overlays = TRUE;
 }
 
 
@@ -442,6 +597,22 @@ clutter_gst_content_get_frame (ClutterGstContent *self)
   g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
 
   return self->priv->current_frame;
+}
+
+/**
+ * clutter_gst_content_get_overlays:
+ * @self: A #ClutterGstContent
+ *
+ * Returns: (transfer none) (element-type ClutterGst.Overlay): The #ClutterGstFrame currently attached to @self.
+ *
+ * Since: 3.0
+ */
+ClutterGstOverlays *
+clutter_gst_content_get_overlays (ClutterGstContent *self)
+{
+  g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
+
+  return self->priv->overlays;
 }
 
 /**

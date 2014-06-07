@@ -87,6 +87,50 @@ clutter_gst_crop_get_preferred_size (ClutterContent *content,
   return TRUE;
 }
 
+static gboolean
+clutter_gst_crop_get_overlay_box (ClutterGstCrop      *self,
+                                  ClutterGstBox       *input_box,
+                                  ClutterGstBox       *paint_box,
+                                  const ClutterGstBox *frame_box,
+                                  ClutterGstFrame     *frame,
+                                  ClutterGstOverlay   *overlay)
+{
+  ClutterGstCropPrivate *priv = self->priv;
+  ClutterGstBox overlay_input_box;
+  ClutterGstBox frame_input_box;
+
+  /* Clamped frame input */
+  frame_input_box.x1 = priv->input_region.x1 * frame->resolution.width;
+  frame_input_box.y1 = priv->input_region.y1 * frame->resolution.height;
+  frame_input_box.x2 = priv->input_region.x2 * frame->resolution.width;
+  frame_input_box.y2 = priv->input_region.y2 * frame->resolution.height;
+
+  /* Clamp overlay box to frame's clamping */
+  overlay_input_box.x1 = MAX (priv->input_region.x1 * frame->resolution.width, overlay->position.x1);
+  overlay_input_box.y1 = MAX (priv->input_region.y1 * frame->resolution.height, overlay->position.y1);
+  overlay_input_box.x2 = MIN (priv->input_region.x2 * frame->resolution.width, overlay->position.x2);
+  overlay_input_box.y2 = MIN (priv->input_region.y2 * frame->resolution.height, overlay->position.y2);
+
+  /* normalize overlay input */
+  input_box->x1 = (overlay_input_box.x1 - overlay->position.x1) / (overlay->position.x2 - overlay->position.x1);
+  input_box->y1 = (overlay_input_box.y1 - overlay->position.y1) / (overlay->position.y2 - overlay->position.y1);
+  input_box->x2 = (overlay_input_box.x2 - overlay->position.x1) / (overlay->position.x2 - overlay->position.x1);
+  input_box->y2 = (overlay_input_box.y2 - overlay->position.y1) / (overlay->position.y2 - overlay->position.y1);
+
+  /* bail if not in the visible scope */
+  if (input_box->x1 >= input_box->x2 ||
+      input_box->y1 >= input_box->y2)
+    return FALSE;
+
+  /* Clamp overlay output */
+  paint_box->x1 = frame_box->x1 + (frame_box->x2 - frame_box->x1) * ((overlay_input_box.x1 - frame_input_box.x1) / (frame_input_box.x2 - frame_input_box.x1));
+  paint_box->y1 = frame_box->y1 + (frame_box->y2 - frame_box->y1) * ((overlay_input_box.y1 - frame_input_box.y1) / (frame_input_box.y2 - frame_input_box.y1));
+  paint_box->x2 = frame_box->x1 + (frame_box->x2 - frame_box->x1) * ((overlay_input_box.x2 - frame_input_box.x1) / (frame_input_box.x2 - frame_input_box.x1));
+  paint_box->y2 = frame_box->y1 + (frame_box->y2 - frame_box->y1) * ((overlay_input_box.y2 - frame_input_box.y1) / (frame_input_box.y2 - frame_input_box.y1));
+
+  return TRUE;
+}
+
 static void
 clutter_gst_crop_paint_content (ClutterContent   *content,
                                 ClutterActor     *actor,
@@ -94,10 +138,11 @@ clutter_gst_crop_paint_content (ClutterContent   *content,
 {
   ClutterGstCrop *self = CLUTTER_GST_CROP (content);
   ClutterGstCropPrivate *priv = self->priv;
-  ClutterGstFrame *frame =
-    clutter_gst_content_get_frame (CLUTTER_GST_CONTENT (content));
+  ClutterGstContent *gst_content = CLUTTER_GST_CONTENT (content);
+  ClutterGstFrame *frame = clutter_gst_content_get_frame (gst_content);
   guint8 paint_opacity = clutter_actor_get_paint_opacity (actor);
   ClutterActorBox content_box;
+  ClutterGstBox frame_box;
   gfloat box_width, box_height;
   ClutterColor color;
   ClutterPaintNode *node;
@@ -171,30 +216,82 @@ clutter_gst_crop_paint_content (ClutterContent   *content,
     }
 
 
-  cogl_pipeline_set_color4ub (frame->pipeline,
-                              paint_opacity,
-                              paint_opacity,
-                              paint_opacity,
-                              paint_opacity);
-  if (priv->cull_backface)
-    cogl_pipeline_set_cull_face_mode (frame->pipeline,
-                                      COGL_PIPELINE_CULL_FACE_MODE_BACK);
+  frame_box.x1 = content_box.x1 + box_width * priv->output_region.x1;
+  frame_box.y1 = content_box.y1 + box_height * priv->output_region.y1;
+  frame_box.x2 = content_box.x1 + box_width * priv->output_region.x2;
+  frame_box.y2 = content_box.y1 + box_height * priv->output_region.y2;
 
-  node = clutter_pipeline_node_new (frame->pipeline);
-  clutter_paint_node_set_name (node, "CropVideoFrame");
+  if (clutter_gst_content_get_paint_frame (gst_content))
+    {
+      cogl_pipeline_set_color4ub (frame->pipeline,
+                                  paint_opacity,
+                                  paint_opacity,
+                                  paint_opacity,
+                                  paint_opacity);
+      if (priv->cull_backface)
+        cogl_pipeline_set_cull_face_mode (frame->pipeline,
+                                          COGL_PIPELINE_CULL_FACE_MODE_BACK);
 
-  clutter_paint_node_add_texture_rectangle_custom (node,
-                                                   content_box.x1 + box_width * priv->output_region.x1,
-                                                   content_box.y1 + box_height * priv->output_region.y1,
-                                                   content_box.x1 + box_width * priv->output_region.x2,
-                                                   content_box.y1 + box_height * priv->output_region.y2,
-                                                   priv->input_region.x1,
-                                                   priv->input_region.y1,
-                                                   priv->input_region.x2,
-                                                   priv->input_region.y2);
+      node = clutter_pipeline_node_new (frame->pipeline);
+      clutter_paint_node_set_name (node, "CropVideoFrame");
 
-  clutter_paint_node_add_child (root, node);
-  clutter_paint_node_unref (node);
+      clutter_paint_node_add_texture_rectangle_custom (node,
+                                                       frame_box.x1,
+                                                       frame_box.y1,
+                                                       frame_box.x2,
+                                                       frame_box.y2,
+                                                       priv->input_region.x1,
+                                                       priv->input_region.y1,
+                                                       priv->input_region.x2,
+                                                       priv->input_region.y2);
+      clutter_paint_node_add_child (root, node);
+      clutter_paint_node_unref (node);
+    }
+
+
+  if (clutter_gst_content_get_paint_overlays (gst_content))
+    {
+      ClutterGstOverlays *overlays = clutter_gst_content_get_overlays (gst_content);
+
+      if (overlays)
+        {
+          guint i;
+
+          for (i = 0; i < overlays->overlays->len; i++)
+            {
+              ClutterGstOverlay *overlay =
+                g_ptr_array_index (overlays->overlays, i);
+              ClutterGstBox overlay_box;
+              ClutterGstBox overlay_input_box;
+
+              /* overlay outside the visible scope? -> next */
+              if (!clutter_gst_crop_get_overlay_box (self,
+                                                     &overlay_input_box,
+                                                     &overlay_box,
+                                                     /* &content_box, */
+                                                     &frame_box,
+                                                     frame,
+                                                     overlay))
+                continue;
+
+              cogl_pipeline_set_color4ub (overlay->pipeline,
+                                          paint_opacity, paint_opacity,
+                                          paint_opacity, paint_opacity);
+
+              node = clutter_pipeline_node_new (overlay->pipeline);
+              clutter_paint_node_set_name (node, "AspectRatioVideoOverlay");
+
+              clutter_paint_node_add_texture_rectangle_custom (node,
+                                                               overlay_box.x1, overlay_box.y1,
+                                                               overlay_box.x2, overlay_box.y2,
+                                                               overlay_input_box.x1, overlay_input_box.y1,
+                                                               overlay_input_box.x2, overlay_input_box.y2);
+
+              clutter_paint_node_add_child (root, node);
+              clutter_paint_node_unref (node);
+            }
+        }
+    }
 }
 
 static void
