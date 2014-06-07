@@ -18,10 +18,8 @@
  */
 
 const Lang = imports.lang;
-const Mainloop = imports.mainloop;
 const Clutter = imports.gi.Clutter;
 const ClutterGst = imports.gi.ClutterGst;
-const Gst = imports.gi.Gst;
 
 if (ARGV.length < 1)
     throw "Need 1 argument : simple-player.js videofile ";
@@ -53,13 +51,5 @@ let actor = new Clutter.Actor({
 stage.add_child(actor);
 
 stage.show();
-
-Mainloop.timeout_add(1000, function() {
-    log(player.get_pipeline());
-    Gst.debug_bin_to_dot_file_with_ts(player.get_pipeline(),
-                                      Gst.DebugGraphDetails.ALL,
-                                      "plop");
-    log('dumped.');
-});
 
 Clutter.main();
