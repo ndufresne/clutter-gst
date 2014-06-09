@@ -41,6 +41,7 @@ clutter_gst_content_get_player
 clutter_gst_content_get_sink
 clutter_gst_content_set_player
 clutter_gst_content_set_sink
+clutter_gst_content_get_overlays
 <SUBSECTION Standard>
 CLUTTER_GST_CONTENT
 CLUTTER_GST_IS_CONTENT
@@ -218,6 +219,7 @@ clutter_gst_playback_get_buffering_mode
 clutter_gst_playback_get_buffer_size
 clutter_gst_playback_get_duration
 clutter_gst_playback_get_in_seek
+clutter_gst_playback_get_position
 clutter_gst_playback_get_progress
 clutter_gst_playback_get_seek_flags
 clutter_gst_playback_get_subtitle_font_name
@@ -262,11 +264,24 @@ clutter_gst_create_video_sink
 <SECTION>
 <FILE>clutter-gst-video-sink</FILE>
 <TITLE>Video Sink</TITLE>
+ClutterGstVideoSink
+ClutterGstVideoSinkClass
 clutter_gst_video_sink_new
 clutter_gst_video_sink_is_ready
 clutter_gst_video_sink_get_frame
 clutter_gst_video_sink_get_pipeline
 clutter_gst_video_sink_setup_pipeline
+clutter_gst_video_sink_get_overlays
+<SUBSECTION Standard>
+CLUTTER_GST_IS_VIDEO_SINK
+CLUTTER_GST_IS_VIDEO_SINK_CLASS
+CLUTTER_GST_TYPE_VIDEO_SINK
+CLUTTER_GST_VIDEO_SINK
+CLUTTER_GST_VIDEO_SINK_CLASS
+CLUTTER_GST_VIDEO_SINK_GET_CLASS
+clutter_gst_video_sink_get_type
+<SUBSECTION Private>
+ClutterGstVideoSinkPrivate
 </SECTION>
 
 <SECTION>
