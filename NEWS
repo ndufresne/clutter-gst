@@ -1,3 +1,20 @@
+clutter-gst 2.99.2 (09/06/2014)
+===============================================================================
+
+List of changes
+
+ o Add color correction support using GLSL shaders
+
+ o Add overlay support using additional ClutterPaintNode
+
+ o Video sink now derives from GstVideoSink
+
+Many Thanks to:
+
+   Colin Walters
+   Ryan Lortie
+   Piotr Drąg
+
 clutter-gst 2.99.0 (19/11/2013)
 ===============================================================================
 
