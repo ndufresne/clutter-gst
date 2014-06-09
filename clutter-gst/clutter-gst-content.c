@@ -603,7 +603,7 @@ clutter_gst_content_get_frame (ClutterGstContent *self)
  * clutter_gst_content_get_overlays:
  * @self: A #ClutterGstContent
  *
- * Returns: (transfer none) (element-type ClutterGst.Overlay): The #ClutterGstFrame currently attached to @self.
+ * Returns: (transfer none): The #ClutterGstOverlays currently attached to @self.
  *
  * Since: 3.0
  */
