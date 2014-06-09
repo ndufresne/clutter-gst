@@ -114,10 +114,10 @@ clutter_gst_aspectratio_get_frame_box (ClutterGstAspectratio *self,
         }
     }
 
-  paint_box->x1 = (actor_width - new_width) / 2;
-  paint_box->y1 = (actor_height - new_height) / 2;
-  paint_box->x2 = paint_box->x1 + new_width;
-  paint_box->y2 = paint_box->y1 + new_height;
+  paint_box->x1 = MAX ((actor_width - new_width) / 2, 0);
+  paint_box->y1 = MAX ((actor_height - new_height) / 2, 0);
+  paint_box->x2 = MIN (paint_box->x1 + new_width, actor_width);
+  paint_box->y2 = MIN (paint_box->y1 + new_height, actor_height);
 
   if (priv->fill_allocation)
     {
