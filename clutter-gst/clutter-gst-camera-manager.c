@@ -29,6 +29,7 @@
  * SECTION:clutter-gst-camera-manager
  * @short_description: A component to list available cameras.
  *
+ * #ClutterGstCameraManager lists available cameras.
  */
 
 #ifdef HAVE_CONFIG_H

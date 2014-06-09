@@ -72,6 +72,7 @@ typedef struct _ClutterGstCameraManagerPrivate ClutterGstCameraManagerPrivate;
  */
 struct _ClutterGstCameraManager
 {
+  /*< private >*/
   GObject parent;
 
   ClutterGstCameraManagerPrivate *priv;
@@ -84,6 +85,7 @@ struct _ClutterGstCameraManager
  */
 struct _ClutterGstCameraManagerClass
 {
+  /*< private >*/
   GObjectClass parent_class;
 };
 
