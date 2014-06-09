@@ -84,6 +84,8 @@ typedef enum _ClutterGstBufferingMode
  *
  * Bounding box of an area in a video texture or actor's allocation.
  * Coordinates are usually expressed in the [0, 1] interval.
+ *
+ * Since: 3.0
  */
 struct _ClutterGstBox
 {
@@ -100,6 +102,8 @@ struct _ClutterGstBox
  * @height: the height, in pixels
  *
  * A video resolution.
+ *
+ * Since: 3.0
  */
 struct _ClutterGstVideoResolution
 {
@@ -116,6 +120,8 @@ struct _ClutterGstVideoResolution
  * @pipeline: a #CoglPipeline to paint a frame
  *
  * Represents a frame outputted by the #ClutterGstVideoSink.
+ *
+ * Since: 3.0
  */
 struct _ClutterGstFrame
 {
@@ -130,6 +136,8 @@ struct _ClutterGstFrame
  * @pipeline: a #CoglPipeline to paint an overlay
  *
  * Represents a video overlay outputted by the #ClutterGstVideoSink.
+ *
+ * Since: 3.0
  */
 struct _ClutterGstOverlay
 {
@@ -140,6 +148,8 @@ struct _ClutterGstOverlay
 /**
  * ClutterGstOverlays:
  * @overlays: an array of #ClutterGstOverlay
+ *
+ * Since: 3.0
  */
 struct _ClutterGstOverlays
 {
