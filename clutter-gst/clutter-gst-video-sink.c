@@ -116,7 +116,7 @@ static void color_balance_iface_init (GstColorBalanceInterface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (ClutterGstVideoSink,
                          clutter_gst_video_sink,
-                         GST_TYPE_BASE_SINK,
+                         GST_TYPE_VIDEO_SINK,
                          G_IMPLEMENT_INTERFACE (GST_TYPE_COLOR_BALANCE, color_balance_iface_init))
 
 enum
@@ -2059,6 +2059,13 @@ _clutter_gst_video_sink_render (GstBaseSink *bsink,
   }
 }
 
+static GstFlowReturn
+_clutter_gst_video_sink_show_frame (GstVideoSink *vsink,
+                                    GstBuffer *buffer)
+{
+  return _clutter_gst_video_sink_render (GST_BASE_SINK (vsink), buffer);
+}
+
 static void
 clutter_gst_video_sink_dispose (GObject *object)
 {
@@ -2210,6 +2217,7 @@ static void
 clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
 {
   GObjectClass *go_class = G_OBJECT_CLASS (klass);
+  GstVideoSinkClass *gv_class = GST_VIDEO_SINK_CLASS (klass);
   GstBaseSinkClass *gb_class = GST_BASE_SINK_CLASS (klass);
   GstElementClass *ge_class = GST_ELEMENT_CLASS (klass);
   GstPadTemplate *pad_template;
@@ -2241,6 +2249,8 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
   gb_class->set_caps = clutter_gst_video_sink_set_caps;
   gb_class->get_caps = clutter_gst_video_sink_get_caps;
   gb_class->propose_allocation = clutter_gst_video_sink_propose_allocation;
+
+  gv_class->show_frame = _clutter_gst_video_sink_show_frame;
 
   pspec = g_param_spec_int ("update-priority",
                             "Update Priority",

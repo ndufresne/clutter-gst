@@ -36,7 +36,7 @@
 #define __CLUTTER_GST_VIDEO_SINK_H__
 
 #include <cogl/cogl.h>
-#include <gst/base/gstbasesink.h>
+#include <gst/video/gstvideosink.h>
 #include <clutter-gst/clutter-gst-types.h>
 
 G_BEGIN_DECLS
@@ -78,7 +78,7 @@ typedef struct _ClutterGstVideoSinkPrivate ClutterGstVideoSinkPrivate;
 struct _ClutterGstVideoSink
 {
   /*< private >*/
-  GstBaseSink parent;
+  GstVideoSink parent;
   ClutterGstVideoSinkPrivate *priv;
 };
 
@@ -92,7 +92,7 @@ struct _ClutterGstVideoSink
 struct _ClutterGstVideoSinkClass
 {
   /*< private >*/
-  GstBaseSinkClass parent_class;
+  GstVideoSinkClass parent_class;
 
   /*< public >*/
   void (* new_frame)      (ClutterGstVideoSink *sink);
