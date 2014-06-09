@@ -496,7 +496,6 @@ set_uri (ClutterGstPlayback *self,
          const gchar        *uri)
 {
   ClutterGstPlaybackPrivate *priv = self->priv;
-  GstState state, pending;
 
   CLUTTER_GST_NOTE (MEDIA, "setting uri %s", uri);
 
@@ -671,7 +670,6 @@ static gboolean
 get_playing (ClutterGstPlayback *player)
 {
   ClutterGstPlaybackPrivate *priv = player->priv;
-  GstState state, pending;
   gboolean playing;
 
   if (!priv->pipeline || !priv->uri)
@@ -884,17 +882,11 @@ player_buffering_timeout (gpointer data)
 {
   ClutterGstPlayback *self = (ClutterGstPlayback *) data;
   ClutterGstPlaybackPrivate *priv = self->priv;
-  gdouble start_d, stop_d, seconds_buffered;
-  gint64 start, stop, left;
-  gint buffer_percent;
   GstQuery *query;
   gboolean res;
   gboolean busy;
-  gint avg_in, avg_out;
-  gdouble time_left;
   gboolean ret = TRUE;
   GstBufferingMode mode;
-  gdouble fill;
   gboolean should_buffer;
 
 
@@ -1975,7 +1967,7 @@ static GstElement *
 get_pipeline (ClutterGstPlayback *self)
 {
   ClutterGstPlaybackPrivate *priv = self->priv;
-  GstElement *pipeline, *audio_sink;
+  GstElement *pipeline;
 
   pipeline = gst_element_factory_make ("playbin", "pipeline");
   if (!pipeline)
