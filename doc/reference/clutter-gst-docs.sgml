@@ -66,6 +66,15 @@
     <xi:include href="xml/clutter-gst-camera.xml"/>
     <xi:include href="xml/clutter-gst-camera-device.xml"/>
     <xi:include href="xml/clutter-gst-playback.xml"/>
+  </chapter>
+
+  <chapter>
+    <title>ClutterGst sink</title>
+    <xi:include href="xml/clutter-gst-video-sink.xml"/>
+  </chapter>
+
+  <chapter>
+    <title>ClutterGst utils</title>
     <xi:include href="xml/clutter-gst-util.xml"/>
     <xi:include href="xml/clutter-gst-version.xml"/>
   </chapter>
