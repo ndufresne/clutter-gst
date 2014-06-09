@@ -34,7 +34,7 @@
  */
 
 /**
- * SECTION:cogl-gst-video-sink
+ * SECTION:clutter-gst-video-sink
  * @short_description: A video sink for integrating a GStreamer
  *   pipeline with a Cogl pipeline.
  *
@@ -1268,7 +1268,7 @@ clutter_gst_rgb32_upload_gl (ClutterGstVideoSink *sink,
 
   if (upload_meta->n_textures != priv->renderer->n_layers ||
       upload_meta->texture_type[0] != GST_VIDEO_GL_TEXTURE_TYPE_RGBA) {
-    GST_WARNING ("cogl-gst-video-sink only supports gl upload in a single RGBA texture");
+    GST_WARNING ("clutter-gst-video-sink only supports gl upload in a single RGBA texture");
     return FALSE;
   }
 
