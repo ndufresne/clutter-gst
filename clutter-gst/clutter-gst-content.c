@@ -370,7 +370,7 @@ clutter_gst_content_paint_content (ClutterContent   *content,
                                       paint_opacity, paint_opacity);
 
           node = clutter_pipeline_node_new (overlay->pipeline);
-          clutter_paint_node_set_name (node, "AspectRatioVideoOverlay");
+          clutter_paint_node_set_name (node, "VideoOverlay");
 
           clutter_paint_node_add_texture_rectangle (node, &obox,
                                                     0, 0,

@@ -159,7 +159,7 @@ clutter_gst_crop_paint_content (ClutterContent   *content,
           color.alpha = paint_opacity;
 
           node = clutter_color_node_new (&color);
-          clutter_paint_node_set_name (node, "BlankVideoFrame");
+          clutter_paint_node_set_name (node, "CropIdleVideo");
 
           clutter_paint_node_add_rectangle_custom (node,
                                                    content_box.x1, content_box.y1,
@@ -279,7 +279,7 @@ clutter_gst_crop_paint_content (ClutterContent   *content,
                                           paint_opacity, paint_opacity);
 
               node = clutter_pipeline_node_new (overlay->pipeline);
-              clutter_paint_node_set_name (node, "AspectRatioVideoOverlay");
+              clutter_paint_node_set_name (node, "CropVideoOverlay");
 
               clutter_paint_node_add_texture_rectangle_custom (node,
                                                                overlay_box.x1, overlay_box.y1,
