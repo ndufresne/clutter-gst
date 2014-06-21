@@ -320,8 +320,11 @@ clutter_gst_content_paint_content (ClutterContent   *content,
       ClutterColor color;
 
       clutter_actor_get_background_color (actor, &color);
+      color.alpha = paint_opacity;
+
       node = clutter_color_node_new (&color);
       clutter_paint_node_set_name (node, "IdleVideo");
+
       clutter_paint_node_add_child (root, node);
       clutter_paint_node_unref (node);
 
