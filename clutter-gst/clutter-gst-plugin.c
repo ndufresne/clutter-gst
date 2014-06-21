@@ -38,9 +38,6 @@
 #include "clutter-gst-auto-video-sink.h"
 #include "clutter-gst-video-sink.h"
 
-GST_DEBUG_CATEGORY (clutter_gst_auto_video_sink_debug);
-GST_DEBUG_CATEGORY (clutter_gst_video_sink_debug);
-
 /* entry point to initialize the plug-in
   * initialize the plug-in itself
   * register the element factories and pad templates
@@ -50,16 +47,6 @@ static gboolean
 plugin_init (GstPlugin *plugin)
 {
   gboolean ret;
-
-  GST_DEBUG_CATEGORY_INIT (clutter_gst_auto_video_sink_debug,
-                           "clutterautovideosink",
-                           0,
-                           "clutter auto video sink");
-
-  GST_DEBUG_CATEGORY_INIT (clutter_gst_video_sink_debug,
-                           "cluttervideosink",
-                           0,
-                           "clutter video sink");
 
 #if defined (CLUTTER_WINDOWING_X11)
   /* Required by some GStreamer element like VA */

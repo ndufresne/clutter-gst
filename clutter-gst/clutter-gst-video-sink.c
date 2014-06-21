@@ -87,6 +87,9 @@
 #include "clutter-gst-video-sink.h"
 #include "clutter-gst-private.h"
 
+GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
+#define GST_CAT_DEFAULT clutter_gst_video_sink_debug
+
 #define CLUTTER_GST_DEFAULT_PRIORITY G_PRIORITY_HIGH_IDLE
 
 #define BASE_SINK_CAPS "{ AYUV,"                \
@@ -742,6 +745,8 @@ clutter_gst_video_sink_setup_balance (ClutterGstVideoSink *sink,
                                         { 256, 256 } };
       SnippetCacheEntry *entry = get_layer_cache_entry (sink, &snippet_cache);
 
+      GST_INFO_OBJECT (sink, "attaching shader color correction");
+
       if (entry == NULL)
         {
           gchar *source = g_strdup_printf (color_balance_shader,
@@ -791,6 +796,8 @@ clutter_gst_video_sink_setup_balance (ClutterGstVideoSink *sink,
     }
   else
     {
+      GST_INFO_OBJECT (sink, "attaching null color correction");
+
       if (G_UNLIKELY (no_color_balance_snippet_vert == NULL))
         {
           no_color_balance_snippet_vert =
@@ -1760,6 +1767,8 @@ clutter_gst_video_sink_get_caps (GstBaseSink *bsink,
   ClutterGstVideoSink *sink;
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
 
+  GST_DEBUG_OBJECT (bsink, "Getting caps for %s", gst_caps_to_string (filter));
+
   if (sink->priv->caps == NULL)
     return NULL;
   else
@@ -1831,6 +1840,9 @@ clutter_gst_video_sink_parse_caps (GstCaps *caps,
 
   if (save)
     {
+
+      GST_INFO_OBJECT (sink, "saving infos");
+
       priv->info = vinfo;
 
       priv->format = format;
@@ -1877,6 +1889,8 @@ clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
 
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
   priv = sink->priv;
+
+  GST_INFO_OBJECT (bsink, "Setting caps to %s", gst_caps_to_string (caps));
 
   if (!clutter_gst_video_sink_parse_caps (caps, sink, FALSE))
     return FALSE;
@@ -1930,10 +1944,14 @@ clutter_gst_source_dispatch (GSource *source,
       clutter_gst_video_sink_upload_overlay (gst_source->sink, buffer);
 
       if (gst_buffer_get_video_gl_texture_upload_meta (buffer) != NULL) {
+        GST_DEBUG_OBJECT (gst_source->sink,
+                          "Trying to upload buffer %p with GL", buffer);
         if (!priv->renderer->upload_gl (gst_source->sink, buffer)) {
           goto fail_upload;
         }
       } else {
+        GST_DEBUG_OBJECT (gst_source->sink,
+                          "Trying to upload buffer %p with software", buffer);
         if (!priv->renderer->upload (gst_source->sink, buffer))
           goto fail_upload;
       }
@@ -2133,9 +2151,30 @@ clutter_gst_video_sink_start (GstBaseSink *base_sink)
   ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
   ClutterGstVideoSinkPrivate *priv = sink->priv;
 
+  GST_INFO_OBJECT (sink, "Start");
+
   priv->source = clutter_gst_source_new (sink);
   g_source_attach ((GSource *) priv->source, NULL);
   priv->flow_return = GST_FLOW_OK;
+  return TRUE;
+}
+
+static gboolean
+clutter_gst_video_sink_stop (GstBaseSink *base_sink)
+{
+  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+
+  GST_INFO_OBJECT (sink, "Stop");
+
+  if (priv->source)
+    {
+      GSource *source = (GSource *) priv->source;
+      g_source_destroy (source);
+      g_source_unref (source);
+      priv->source = NULL;
+    }
+
   return TRUE;
 }
 
@@ -2179,23 +2218,6 @@ clutter_gst_video_sink_get_property (GObject *object,
 }
 
 static gboolean
-clutter_gst_video_sink_stop (GstBaseSink *base_sink)
-{
-  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
-
-  if (priv->source)
-    {
-      GSource *source = (GSource *) priv->source;
-      g_source_destroy (source);
-      g_source_unref (source);
-      priv->source = NULL;
-    }
-
-  return TRUE;
-}
-
-static gboolean
 clutter_gst_video_sink_propose_allocation (GstBaseSink *base_sink, GstQuery *query)
 {
   gboolean need_pool = FALSE;
@@ -2222,6 +2244,11 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass *klass)
   GstElementClass *ge_class = GST_ELEMENT_CLASS (klass);
   GstPadTemplate *pad_template;
   GParamSpec *pspec;
+
+  GST_DEBUG_CATEGORY_INIT (clutter_gst_video_sink_debug,
+                           "cluttervideosink",
+                           0,
+                           "clutter video sink");
 
   g_type_class_add_private (klass, sizeof (ClutterGstVideoSinkPrivate));
   go_class->set_property = clutter_gst_video_sink_set_property;

@@ -29,6 +29,9 @@
 #include "clutter-gst-auto-video-sink.h"
 #include "clutter-gst-util.h"
 
+GST_DEBUG_CATEGORY (clutter_gst_auto_video_sink_debug);
+#define GST_CAT_DEFAULT clutter_gst_auto_video_sink_debug
+
 #define DEFAULT_TS_OFFSET           0
 
 /* Properties */
@@ -83,6 +86,11 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSink3Class *klass)
   GstElementClass *eklass = GST_ELEMENT_CLASS (klass);
 
   _clutter_init ();
+
+  GST_DEBUG_CATEGORY_INIT (clutter_gst_auto_video_sink_debug,
+                           "clutterautovideosink",
+                           0,
+                           "clutter auto video sink");
 
   gobject_class->dispose = (GObjectFinalizeFunc) clutter_gst_auto_video_sink_dispose;
   gobject_class->set_property = clutter_gst_auto_video_sink_set_property;
