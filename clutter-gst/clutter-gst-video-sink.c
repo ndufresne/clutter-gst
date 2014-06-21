@@ -1925,6 +1925,7 @@ clutter_gst_source_dispatch (GSource *source,
 
       gst_source->has_new_caps = FALSE;
 
+      clear_frame_textures (gst_source->sink);
       dirty_default_pipeline (gst_source->sink);
 
       /* We are now in a state where we could generate the pipeline if
