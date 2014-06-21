@@ -1771,8 +1771,11 @@ clutter_gst_video_sink_get_caps (GstBaseSink *bsink,
 
   if (sink->priv->caps == NULL)
     return NULL;
-  else
-    return gst_caps_ref (sink->priv->caps);
+
+  if (filter != NULL)
+    return gst_caps_intersect_full (filter, sink->priv->caps,
+                                    GST_CAPS_INTERSECT_FIRST);
+  return gst_caps_ref (sink->priv->caps);
 }
 
 static gboolean
