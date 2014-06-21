@@ -311,11 +311,23 @@ clutter_gst_content_paint_content (ClutterContent   *content,
   ClutterContentRepeat repeat;
   guint8 paint_opacity;
 
-  if (!CLUTTER_GST_CONTENT_GET_CLASS (self)->has_painting_content (self))
-    return;
-
   clutter_actor_get_content_box (actor, &box);
   paint_opacity = clutter_actor_get_paint_opacity (actor);
+
+  /* No content: paint background color */
+  if (!CLUTTER_GST_CONTENT_GET_CLASS (self)->has_painting_content (self))
+    {
+      ClutterColor color;
+
+      clutter_actor_get_background_color (actor, &color);
+      node = clutter_color_node_new (&color);
+      clutter_paint_node_set_name (node, "IdleVideo");
+      clutter_paint_node_add_child (root, node);
+      clutter_paint_node_unref (node);
+
+      return;
+    }
+
   repeat = clutter_actor_get_content_repeat (actor);
 
   if (priv->paint_frame && priv->current_frame)
