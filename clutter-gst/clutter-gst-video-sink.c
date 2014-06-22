@@ -101,12 +101,15 @@ GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
   "BGR,"                                        \
   "NV12 }"
 
+#define MAKE_CAPS(feature, caps) \
+  GST_VIDEO_CAPS_MAKE_WITH_FEATURES(feature "," GST_CAPS_FEATURE_META_GST_VIDEO_OVERLAY_COMPOSITION, caps) \
+  ";" \
+  GST_VIDEO_CAPS_MAKE_WITH_FEATURES(feature, caps)
+
 static const char clutter_gst_video_sink_caps_str[] =
-  GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                    BASE_SINK_CAPS)
+  MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY, BASE_SINK_CAPS)
   ";"
-  GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
-                                    "RGBA");
+  MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META, BASE_SINK_CAPS);
 
 
   static GstStaticPadTemplate sinktemplate_all =
@@ -1145,8 +1148,8 @@ static ClutterGstRenderer rgb24_glsl_renderer =
     CLUTTER_GST_RGB24,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
 
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                        "{ RGB, BGR }")),
+    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                "{ RGB, BGR }")),
     1, /* n_layers */
     clutter_gst_rgb24_glsl_setup_pipeline,
     clutter_gst_rgb24_upload,
@@ -1159,8 +1162,8 @@ static ClutterGstRenderer rgb24_renderer =
     "RGB 24",
     CLUTTER_GST_RGB24,
     0,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                        "{ RGB, BGR }")),
+    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                "{ RGB, BGR }")),
     1, /* n_layers */
     clutter_gst_rgb24_setup_pipeline,
     clutter_gst_rgb24_upload,
@@ -1310,11 +1313,11 @@ static ClutterGstRenderer rgb32_glsl_renderer =
     "RGB 32",
     CLUTTER_GST_RGB32,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
-                                                           "RGBA")
+    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
+                                "RGBA")
                      ";"
-                     GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "{ RGBA, BGRA }")),
+                     MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                "{ RGBA, BGRA }")),
     1, /* n_layers */
     clutter_gst_rgb32_glsl_setup_pipeline,
     clutter_gst_rgb32_upload,
@@ -1327,8 +1330,8 @@ static ClutterGstRenderer rgb32_renderer =
     "RGB 32",
     CLUTTER_GST_RGB32,
     0,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "{ RGBA, BGRA }")),
+    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                "{ RGBA, BGRA }")),
     2, /* n_layers */
     clutter_gst_rgb32_setup_pipeline,
     clutter_gst_rgb32_upload,
@@ -1476,8 +1479,8 @@ static ClutterGstRenderer yv12_glsl_renderer =
     "YV12 glsl",
     CLUTTER_GST_YV12,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "YV12")),
+    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                "YV12")),
     3, /* n_layers */
     clutter_gst_yv12_glsl_setup_pipeline,
     clutter_gst_yv12_upload,
@@ -1490,8 +1493,8 @@ static ClutterGstRenderer i420_glsl_renderer =
     "I420 glsl",
     CLUTTER_GST_I420,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "I420")),
+    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                                "I420")),
     3, /* n_layers */
     clutter_gst_yv12_glsl_setup_pipeline,
     clutter_gst_i420_upload,
@@ -1574,8 +1577,8 @@ static ClutterGstRenderer ayuv_glsl_renderer =
     "AYUV glsl",
     CLUTTER_GST_AYUV,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "AYUV")),
+    GST_STATIC_CAPS (MAKE_CAPS(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                               "AYUV")),
     1, /* n_layers */
     clutter_gst_ayuv_glsl_setup_pipeline,
     clutter_gst_ayuv_upload,
@@ -1669,8 +1672,8 @@ static ClutterGstRenderer nv12_glsl_renderer =
     "NV12 glsl",
     CLUTTER_GST_NV12,
     CLUTTER_GST_RENDERER_NEEDS_GLSL | CLUTTER_GST_RENDERER_NEEDS_TEXTURE_RG,
-    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                                       "NV12")),
+    GST_STATIC_CAPS (MAKE_CAPS(GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
+                               "NV12")),
     2, /* n_layers */
     clutter_gst_nv12_glsl_setup_pipeline,
     clutter_gst_nv12_upload,
