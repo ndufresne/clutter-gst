@@ -694,7 +694,7 @@ clutter_gst_video_sink_attach_frame (ClutterGstVideoSink *sink,
   ClutterGstVideoSinkPrivate *priv = sink->priv;
   guint i;
 
-  for (i = 0; i < G_N_ELEMENTS (priv->frame); i++)
+  for (i = 0; i < priv->renderer->n_layers; i++)
     if (priv->frame[i] != NULL)
       cogl_pipeline_set_layer_texture (pln, i + priv->video_start,
                                        priv->frame[i]);
