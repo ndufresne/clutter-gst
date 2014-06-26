@@ -1259,6 +1259,8 @@ clutter_gst_rgb32_upload (ClutterGstVideoSink *sink,
   }
 }
 
+static CoglUserDataKey gl_upload_texture_private_key;
+#define MAX_ALLOCATED_GL_TEXTURES (1)
 
 static gboolean
 clutter_gst_rgb32_upload_gl (ClutterGstVideoSink *sink,
@@ -1266,6 +1268,7 @@ clutter_gst_rgb32_upload_gl (ClutterGstVideoSink *sink,
 {
   ClutterGstVideoSinkPrivate *priv = sink->priv;
   GstVideoGLTextureUploadMeta *upload_meta;
+  gint i;
   guint gl_handle[1];
 
   //clear_frame_textures (sink);
@@ -1284,16 +1287,33 @@ clutter_gst_rgb32_upload_gl (ClutterGstVideoSink *sink,
 
   if (priv->frame[0] == NULL)
     {
-      priv->frame[0] = COGL_TEXTURE (cogl_texture_2d_new_with_size (priv->ctx,
-                                                                    priv->info.width,
-                                                                    priv->info.height));
-      cogl_texture_set_components (priv->frame[0], COGL_TEXTURE_COMPONENTS_RGBA);
+      for (i = 0; i < MAX_ALLOCATED_GL_TEXTURES; i++) {
+        priv->frame[i] = COGL_TEXTURE (cogl_texture_2d_new_with_size (priv->ctx,
+                                                                      priv->info.width,
+                                                                      priv->info.height));
+        cogl_texture_set_components (priv->frame[i], COGL_TEXTURE_COMPONENTS_RGBA);
 
-      if (!cogl_texture_allocate (priv->frame[0], NULL)) {
-        GST_WARNING ("Couldn't allocate cogl texture");
-        return FALSE;
+        if (!cogl_texture_allocate (priv->frame[i], NULL)) {
+          GST_WARNING ("Couldn't allocate cogl texture");
+          return FALSE;
+        }
       }
     }
+  else
+    {
+      CoglTexture *tmp;
+
+      tmp = priv->frame[0];
+      for (i = 0; i < MAX_ALLOCATED_GL_TEXTURES - 1; i++)
+        priv->frame[i] = priv->frame[i + 1];
+      priv->frame[MAX_ALLOCATED_GL_TEXTURES - 1] = tmp;
+    }
+
+  cogl_object_set_user_data (COGL_OBJECT (priv->frame[0]),
+                             &gl_upload_texture_private_key,
+                             gst_buffer_ref (buffer),
+                             (CoglUserDataDestroyCallback) gst_buffer_unref);
+
 
   if (!cogl_texture_get_gl_texture (priv->frame[0], &gl_handle[0], NULL)) {
     GST_WARNING ("Couldn't get gl texture");
