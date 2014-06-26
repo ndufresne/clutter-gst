@@ -221,14 +221,19 @@ dnl ========================================================================
 dnl Experimental support for hardware accelerated decoders.
 dnl Temporarily disabling for GStreamer 1.0 since it's causing too many issues
 dnl and the API for hw support isn't yet put in stone
-have_hw_decoder_support=no
-# PKG_CHECK_MODULES(HW,
-#                  [gstreamer-basevideo-$GST_MAJORMINOR >= $GST_PLUGINS_BAD_REQ_VERSION],
-#                  [
-#                    have_hw_decoder_support=yes
-#                    AC_DEFINE([HAVE_HW_DECODER_SUPPORT], [1],
-#                              ["Defined if building Clutter with HW decoder support"])
-#                  ],[ have_hw_decoder_support=no ])
+m4_define([texture_upload_default], yes)
+AC_ARG_ENABLE([gl-texture-upload],
+              [AC_HELP_STRING([--enable-gl-texture-upload=@<:@no/yes@:>@],
+                              [Enable GL texture upload support @<:@default=]texture_upload_default[@:>@])],
+              [],
+              enable_gl_texture_upload=texture_upload_default)
+
+AS_IF([test "x$enable_gl_texture_upload" = "xyes"],
+      [
+        AC_DEFINE([HAVE_GL_TEXTURE_UPLOAD], [1],
+                  ["GL texture upload support"])
+      ]
+)
 
 dnl ========================================================================
 
@@ -332,6 +337,6 @@ echo ""
 echo " • Extra:"
 echo "        API documentation : ${enable_gtk_doc}"
 echo "        Introspection data: ${enable_introspection}"
-echo "        HW Decoder support: ${have_hw_decoder_support}"
+echo "        GL texture upload : ${enable_gl_texture_upload}"
 echo "        UDEV support      : ${have_gudev}"
 echo ""

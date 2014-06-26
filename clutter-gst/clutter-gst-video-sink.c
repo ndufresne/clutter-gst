@@ -108,8 +108,11 @@ GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
 
 static const char clutter_gst_video_sink_caps_str[] =
   MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY, BASE_SINK_CAPS)
+#ifdef HAVE_GL_TEXTURE_UPLOAD
   ";"
-  MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META, BASE_SINK_CAPS);
+  MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META, BASE_SINK_CAPS)
+#endif
+;
 
 
   static GstStaticPadTemplate sinktemplate_all =
@@ -1333,9 +1336,12 @@ static ClutterGstRenderer rgb32_glsl_renderer =
     "RGB 32",
     CLUTTER_GST_RGB32,
     CLUTTER_GST_RENDERER_NEEDS_GLSL,
-    GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
+    GST_STATIC_CAPS (
+#ifdef HAVE_GL_TEXTURE_UPLOAD
+                     MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META,
                                 "RGBA")
                      ";"
+#endif
                      MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
                                 "{ RGBA, BGRA }")),
     1, /* n_layers */
@@ -2254,8 +2260,11 @@ clutter_gst_video_sink_propose_allocation (GstBaseSink *base_sink, GstQuery *que
 
   gst_query_add_allocation_meta (query,
                                  GST_VIDEO_META_API_TYPE, NULL);
+#ifdef HAVE_GL_TEXTURE_UPLOAD
+
   gst_query_add_allocation_meta (query,
                                  GST_VIDEO_GL_TEXTURE_UPLOAD_META_API_TYPE, NULL);
+#endif
   gst_query_add_allocation_meta (query,
                                  GST_VIDEO_OVERLAY_COMPOSITION_META_API_TYPE, NULL);
 
