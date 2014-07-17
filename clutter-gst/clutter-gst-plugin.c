@@ -60,13 +60,6 @@ plugin_init (GstPlugin *plugin)
   if (!ret)
     return FALSE;
 
-  ret = gst_element_register (plugin,
-                              "cluttervideosink",
-                              GST_RANK_NONE,
-                              CLUTTER_GST_TYPE_VIDEO_SINK);
-  if (!ret)
-    return FALSE;
-
   return TRUE;
 }
 
