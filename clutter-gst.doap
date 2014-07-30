@@ -8,6 +8,7 @@
 	<name>Clutter-Gst</name>
   <shortname>clutter-gst</shortname>
 	<created>2006-11-29</created>
+  <category rdf:resource="http://api.gnome.org/doap-extensions#core" />
 
   <shortdesc xml:lang="en">A GStreamer integration library for Clutter</shortdesc>
 
