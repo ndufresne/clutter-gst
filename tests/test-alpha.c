@@ -35,8 +35,6 @@
 
 static gint   opt_framerate = 30;
 static gchar *opt_fourcc    = "I420";
-static gint   opt_bpp       = 24;
-static gint   opt_depth     = 24;
 
 static GOptionEntry options[] =
 {

@@ -76,7 +76,6 @@ main (int argc, char *argv[])
   GstElement       *sink;
   GstCaps          *caps;
   GstVideoFormat    format;
-  ClutterGstPlayer *player;
 
   result = clutter_gst_init_with_args (&argc,
                                        &argv,

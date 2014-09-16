@@ -64,7 +64,6 @@ main (int argc, char *argv[])
   GstElement       *capsfilter;
   GstElement       *sink;
   GstCaps          *caps;
-  ClutterGstPlayer *player;
 
   result = clutter_gst_init_with_args (&argc,
                                        &argv,
