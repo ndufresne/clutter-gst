@@ -69,7 +69,7 @@ enum
 {
   PROP_0,
 
-  PROP_VIDEO_SINK,
+  PROP_SINK,
   PROP_PLAYER,
   PROP_PAINT_FRAME,
   PROP_PAINT_OVERLAYS,
@@ -278,7 +278,7 @@ content_set_sink (ClutterGstContent   *self,
         }
     }
 
-  g_object_notify (G_OBJECT (self), "video-sink");
+  g_object_notify (G_OBJECT (self), "sink");
 }
 
 static gboolean
@@ -414,7 +414,7 @@ clutter_gst_content_set_property (GObject      *object,
 
   switch (prop_id)
     {
-    case PROP_VIDEO_SINK:
+    case PROP_SINK:
       content_set_sink (self, g_value_get_object (value), FALSE);
       break;
 
@@ -447,7 +447,7 @@ clutter_gst_content_get_property (GObject    *object,
 
   switch (prop_id)
     {
-    case PROP_VIDEO_SINK:
+    case PROP_SINK:
       g_value_set_object (value, priv->sink);
       break;
 
@@ -512,8 +512,8 @@ clutter_gst_content_class_init (ClutterGstContentClass *klass)
                          G_TYPE_OBJECT,
                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
 
-  props[PROP_VIDEO_SINK] =
-    g_param_spec_object ("video-sink",
+  props[PROP_SINK] =
+    g_param_spec_object ("sink",
                          "Cogl Video Sink",
                          "Cogl Video Sink",
                          CLUTTER_GST_TYPE_VIDEO_SINK,
@@ -594,7 +594,7 @@ ClutterContent *
 clutter_gst_content_new_with_sink (ClutterGstVideoSink *sink)
 {
   return g_object_new (CLUTTER_GST_TYPE_CONTENT,
-                       "video-sink", sink,
+                       "sink", sink,
                        NULL);
 }
 

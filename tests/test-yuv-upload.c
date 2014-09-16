@@ -94,7 +94,7 @@ main (int argc, char *argv[])
   /* Video actor */
   actor = g_object_new (CLUTTER_TYPE_ACTOR,
                         "content", g_object_new (CLUTTER_GST_TYPE_CONTENT,
-                                                 "video-sink", sink,
+                                                 "sink", sink,
                                                  NULL),
                         "width", clutter_actor_get_width (stage),
                         "height", clutter_actor_get_height (stage),
