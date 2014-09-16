@@ -97,9 +97,12 @@ GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
   "I420,"                                       \
   "RGBA,"                                       \
   "BGRA,"                                       \
+  "RGBX,"                                       \
+  "BGRX,"                                       \
   "RGB,"                                        \
   "BGR,"                                        \
   "NV12 }"
+
 
 #define MAKE_CAPS(feature, caps) \
   GST_VIDEO_CAPS_MAKE_WITH_FEATURES(feature "," GST_CAPS_FEATURE_META_GST_VIDEO_OVERLAY_COMPOSITION, caps) \
@@ -1343,7 +1346,7 @@ static ClutterGstRenderer rgb32_glsl_renderer =
                      ";"
 #endif
                      MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                "{ RGBA, BGRA }")),
+                                "{ RGBA, BGRA, RGBx, BGRx }")),
     1, /* n_layers */
     clutter_gst_rgb32_glsl_setup_pipeline,
     clutter_gst_rgb32_upload,
@@ -1357,7 +1360,7 @@ static ClutterGstRenderer rgb32_renderer =
     CLUTTER_GST_RGB32,
     0,
     GST_STATIC_CAPS (MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY,
-                                "{ RGBA, BGRA }")),
+                                "{ RGBA, BGRA, RGBx, BGRx }")),
     2, /* n_layers */
     clutter_gst_rgb32_setup_pipeline,
     clutter_gst_rgb32_upload,
@@ -1852,10 +1855,12 @@ clutter_gst_video_sink_parse_caps (GstCaps *caps,
       bgr = TRUE;
       break;
     case GST_VIDEO_FORMAT_RGBA:
+    case GST_VIDEO_FORMAT_RGBx:
       format = CLUTTER_GST_RGB32;
       bgr = FALSE;
       break;
     case GST_VIDEO_FORMAT_BGRA:
+    case GST_VIDEO_FORMAT_BGRx:
       format = CLUTTER_GST_RGB32;
       bgr = TRUE;
       break;
