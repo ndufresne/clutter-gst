@@ -90,7 +90,7 @@ AM_CFLAGS = 				\
 
 lib_LTLIBRARIES = libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
 
-libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = @CLUTTER_GST_LIBS@ $(GST_LIBS) $(GUDEV_LIBS) $(HW_LIBS)
+libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = @CLUTTER_GST_LIBS@ $(GST_LIBS) $(GUDEV_LIBS) $(HW_LIBS) $(LIBM)
 libclutter_gst_@CLUTTER_GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(CLUTTER_GST_LT_LDFLAGS)			\
 	$(GL_LDFLAGS)					\
@@ -121,6 +121,7 @@ plugin_LTLIBRARIES = libgstclutter-@CLUTTER_GST_MAJORMINOR@.la
 libgstclutter_@CLUTTER_GST_MAJORMINOR@_la_LIBADD  = \
 	$(PLUGIN_LIBS) \
 	$(HW_LIBS) \
+	$(LIBM) \
 	libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
 libgstclutter_@CLUTTER_GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(GL_LDFLAGS)		\

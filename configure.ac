@@ -140,6 +140,8 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 
 dnl ========================================================================
 
+LT_LIB_M
+
 PKG_CHECK_MODULES(CLUTTER_GST,
                   [clutter-1.0 >= $CLUTTER_REQ_VERSION
                    cogl-2.0-experimental >= $COGL_REQ_VERSION
