@@ -87,6 +87,9 @@ ClutterContent *          clutter_gst_content_new_with_sink (ClutterGstVideoSink
 
 ClutterGstFrame *         clutter_gst_content_get_frame     (ClutterGstContent *self);
 
+void                      clutter_gst_content_set_frame     (ClutterGstContent *self,
+                                                             ClutterGstFrame   *frame);
+
 ClutterGstOverlays *      clutter_gst_content_get_overlays  (ClutterGstContent *self);
 
 void                      clutter_gst_content_set_sink      (ClutterGstContent   *self,

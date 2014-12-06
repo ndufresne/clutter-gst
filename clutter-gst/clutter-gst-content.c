@@ -69,6 +69,7 @@ enum
 {
   PROP_0,
 
+  PROP_FRAME,
   PROP_SINK,
   PROP_PLAYER,
   PROP_PAINT_FRAME,
@@ -281,6 +282,30 @@ content_set_sink (ClutterGstContent   *self,
   g_object_notify (G_OBJECT (self), "sink");
 }
 
+static void
+content_set_frame (ClutterGstContent *self,
+                   ClutterGstFrame   *frame)
+{
+  ClutterGstContentPrivate *priv = self->priv;
+
+  if (!frame)
+    {
+      if (priv->current_frame)
+        {
+          g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->current_frame);
+          priv->current_frame = NULL;
+
+          clutter_content_invalidate (CLUTTER_CONTENT (self));
+        }
+      return;
+    }
+
+  update_frame (self, frame);
+
+  if (CLUTTER_GST_CONTENT_GET_CLASS (self)->has_painting_content (self))
+    clutter_content_invalidate (CLUTTER_CONTENT (self));
+}
+
 static gboolean
 clutter_gst_content_get_preferred_size (ClutterContent *content,
                                         gfloat         *width,
@@ -414,6 +439,10 @@ clutter_gst_content_set_property (GObject      *object,
 
   switch (prop_id)
     {
+    case PROP_FRAME:
+      content_set_frame (self, g_value_get_boxed (value));
+      break;
+
     case PROP_SINK:
       content_set_sink (self, g_value_get_object (value), FALSE);
       break;
@@ -447,6 +476,10 @@ clutter_gst_content_get_property (GObject    *object,
 
   switch (prop_id)
     {
+    case PROP_FRAME:
+      g_value_set_boxed (value, priv->current_frame);
+      break;
+
     case PROP_SINK:
       g_value_set_object (value, priv->sink);
       break;
@@ -511,6 +544,13 @@ clutter_gst_content_class_init (ClutterGstContentClass *klass)
                          "ClutterGst Player",
                          G_TYPE_OBJECT,
                          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
+
+  props[PROP_FRAME] =
+    g_param_spec_boxed ("frame",
+                        "ClutterGst Frame",
+                        "ClutterGst Frame",
+                        CLUTTER_GST_TYPE_FRAME,
+                        G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE);
 
   props[PROP_SINK] =
     g_param_spec_object ("sink",
@@ -612,6 +652,24 @@ clutter_gst_content_get_frame (ClutterGstContent *self)
   g_return_val_if_fail (CLUTTER_GST_IS_CONTENT (self), NULL);
 
   return self->priv->current_frame;
+}
+
+/**
+ * clutter_gst_content_set_frame:
+ * @self: A #ClutterGstContent
+ * @frame: A #ClutterGstFrame
+ *
+ * Set the current frame.
+ *
+ * Since: 3.0
+ */
+void
+clutter_gst_content_set_frame (ClutterGstContent *self,
+                               ClutterGstFrame   *frame)
+{
+  g_return_if_fail (CLUTTER_GST_IS_CONTENT (self));
+
+  content_set_frame (self, frame);
 }
 
 /**
