@@ -1,9 +1,9 @@
 # clutter package version number, (as distinct from shared library version)
 # An odd micro number indicates in-progress developmen
 # An even micro number indicates a released version.
-m4_define(clutter_gst_major_version, 2)
-m4_define(clutter_gst_minor_version, 99)
-m4_define(clutter_gst_micro_version, 5)
+m4_define(clutter_gst_major_version, 3)
+m4_define(clutter_gst_minor_version, 0)
+m4_define(clutter_gst_micro_version, 0)
 
 m4_define(clutter_api_version, 1.0)
 m4_define([clutter_gst_api_version], [3.0])

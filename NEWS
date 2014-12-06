@@ -1,3 +1,19 @@
+clutter-gst 3.0.0 (06/12/2014)
+===============================================================================
+
+List of changes
+
+ o Add ability to set modified frames on content
+
+ o Add RGBx/BGRx format support to video sink
+
+ o A few small bug fixes
+
+Many Thanks to:
+
+   Olav Vitters
+   Philip Withnall
+
 clutter-gst 2.99.4 (26/06/2014)
 ===============================================================================
 
