@@ -993,16 +993,6 @@ dirty_default_pipeline (ClutterGstVideoSink *sink)
     }
 }
 
-static int
-_clutter_gst_video_sink_get_video_layer (ClutterGstVideoSink *sink)
-{
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
-
-  if (clutter_gst_video_sink_needs_color_balance_shader (sink))
-    return priv->custom_start + 3;
-  return priv->custom_start;
-}
-
 static void
 clear_frame_textures (ClutterGstVideoSink *sink)
 {
