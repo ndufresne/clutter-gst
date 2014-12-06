@@ -79,6 +79,7 @@
 
 #include <gst/gst.h>
 #include <gst/gstvalue.h>
+#include <gst/video/navigation.h>
 #include <gst/video/video.h>
 #include <gst/riff/riff-ids.h>
 #include <string.h>
@@ -118,18 +119,21 @@ static const char clutter_gst_video_sink_caps_str[] =
 ;
 
 
-  static GstStaticPadTemplate sinktemplate_all =
+static GstStaticPadTemplate sinktemplate_all =
     GST_STATIC_PAD_TEMPLATE ("sink",
                              GST_PAD_SINK,
                              GST_PAD_ALWAYS,
                              GST_STATIC_CAPS (clutter_gst_video_sink_caps_str));
 
 static void color_balance_iface_init (GstColorBalanceInterface *iface);
+static void navigation_interface_init (GstNavigationInterface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (ClutterGstVideoSink,
                          clutter_gst_video_sink,
                          GST_TYPE_VIDEO_SINK,
-                         G_IMPLEMENT_INTERFACE (GST_TYPE_COLOR_BALANCE, color_balance_iface_init))
+                         G_IMPLEMENT_INTERFACE (GST_TYPE_COLOR_BALANCE, color_balance_iface_init)
+                         G_IMPLEMENT_INTERFACE (GST_TYPE_NAVIGATION,
+                                                navigation_interface_init))
 
 enum
 {
@@ -676,6 +680,22 @@ color_balance_iface_init (GstColorBalanceInterface *iface)
   iface->get_value = clutter_gst_video_sink_color_balance_get_value;
 
   iface->get_balance_type = clutter_gst_video_sink_color_balance_get_balance_type;
+}
+
+/**/
+
+static void
+clutter_gst_video_sink_navigation_send_event (GstNavigation *navigation,
+                                              GstStructure  *structure)
+{
+  // TODO: how do we feed the events back to the UI layer? New
+  // signals?
+}
+
+static void
+navigation_interface_init (GstNavigationInterface * iface)
+{
+  iface->send_event = clutter_gst_video_sink_navigation_send_event;
 }
 
 /**/
