@@ -8,7 +8,7 @@ AM_CPPFLAGS = -I$(top_srcdir) \
 
 camera_player_SOURCES = camera-player.c
 camera_player_CFLAGS = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
-camera_player_LDFLAGS = \
+camera_player_LDADD = \
     $(CLUTTER_GST_LIBS) \
     $(GST_LIBS)   \
     $(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
@@ -36,7 +36,7 @@ video_sink_navigation_LDADD = \
 
 video_content_SOURCES = video-content.c
 video_content_CFLAGS = $(CLUTTER_GST_CFLAGS) $(GST_CFLAGS)
-video_content_LDFLAGS = \
+video_content_LDADD = \
     $(CLUTTER_GST_LIBS) \
     $(GST_LIBS)   \
     $(top_builddir)/clutter-gst/libclutter-gst-@CLUTTER_GST_MAJORMINOR@.la
