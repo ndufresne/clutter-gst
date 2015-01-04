@@ -62,12 +62,6 @@ G_DEFINE_TYPE (ClutterGstAutoVideoSink3,
                clutter_gst_auto_video_sink,
                GST_TYPE_BIN)
 
-/* static GstStaticPadTemplate sink_template = */
-/*   GST_STATIC_PAD_TEMPLATE ("sink", */
-/*                            GST_PAD_SINK, */
-/*                            GST_PAD_ALWAYS, */
-/*                            GST_STATIC_CAPS_ANY); */
-
 static ClutterInitError _clutter_initialized = CLUTTER_INIT_ERROR_UNKNOWN;
 
 static void
@@ -116,19 +110,20 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSink3Class *klass)
                                                         CLUTTER_GST_TYPE_CONTENT,
                                                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  GstElement *clutter_sink = clutter_gst_create_video_sink ();
+  if (_clutter_initialized) {
+    GstElement *clutter_sink = clutter_gst_create_video_sink ();
 
-  gst_element_class_add_pad_template (eklass,
-                                      gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (clutter_sink),
-                                                                          "sink"));
-  /* gst_static_pad_template_get (&sink_template)); */
-  gst_element_class_set_static_metadata (eklass,
-                                         "Clutter Auto Video Sink",
-                                         "Sink/Video",
-                                         "Video sink using the Clutter scene graph as output",
-                                         "Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>");
+    gst_element_class_add_pad_template (eklass,
+                                        gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (clutter_sink),
+                                                                            "sink"));
+    gst_element_class_set_static_metadata (eklass,
+                                           "Clutter Auto Video Sink",
+                                           "Sink/Video",
+                                           "Video sink using the Clutter scene graph as output",
+                                           "Lionel Landwerlin <lionel.g.landwerlin@linux.intel.com>");
 
-  g_object_unref (clutter_sink);
+    g_object_unref (clutter_sink);
+  }
 }
 
 static void
@@ -162,6 +157,9 @@ clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink3 *sink)
 {
   GstPad *targetpad;
 
+  if (!_clutter_initialized)
+    return;
+
   /* Remove any existing element */
   clutter_gst_auto_video_sink_clear_kid (sink);
 
@@ -185,8 +183,6 @@ clutter_gst_auto_video_sink_init (ClutterGstAutoVideoSink3 *sink)
   gst_element_add_pad (GST_ELEMENT (sink), sink->pad);
 
   clutter_gst_auto_video_sink_reset (sink);
-
-
 
   /* mark as sink */
   GST_OBJECT_FLAG_SET (sink, GST_ELEMENT_FLAG_SINK);
