@@ -110,7 +110,7 @@ clutter_gst_auto_video_sink_class_init (ClutterGstAutoVideoSink3Class *klass)
                                                         CLUTTER_GST_TYPE_CONTENT,
                                                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  if (_clutter_initialized) {
+  if (_clutter_initialized == CLUTTER_INIT_SUCCESS) {
     GstElement *clutter_sink = clutter_gst_create_video_sink ();
 
     gst_element_class_add_pad_template (eklass,
@@ -157,7 +157,7 @@ clutter_gst_auto_video_sink_reset (ClutterGstAutoVideoSink3 *sink)
 {
   GstPad *targetpad;
 
-  if (!_clutter_initialized)
+  if (_clutter_initialized != CLUTTER_INIT_SUCCESS)
     return;
 
   /* Remove any existing element */
