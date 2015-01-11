@@ -1,3 +1,20 @@
+clutter-gst 3.0.2 (11/01/2015)
+===============================================================================
+
+List of changes
+
+ o Fix dependency version of Gstreamer and Cogl
+
+ o Fix crash with the autovideosink when you're running without a
+   display server
+
+ o Fix linking problem with examples
+
+Many Thanks to:
+
+   Koop Mast
+   Ting-Wei Lan
+
 clutter-gst 3.0.0 (06/12/2014)
 ===============================================================================
 
