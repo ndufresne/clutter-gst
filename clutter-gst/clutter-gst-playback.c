@@ -1725,8 +1725,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
                                "URI",
                                "URI of a media file",
                                NULL,
-                               CLUTTER_GST_PARAM_READWRITE |
-                               G_PARAM_DEPRECATED);
+                               CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_URI, pspec);
 
   /**
@@ -1739,8 +1738,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
                                "Progress",
                                "Current progress of the playback",
                                0.0, 1.0, 0.0,
-                               CLUTTER_GST_PARAM_READWRITE |
-                               G_PARAM_DEPRECATED);
+                               CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_PROGRESS, pspec);
 
   /**
@@ -1752,8 +1750,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
                                "Subtitle URI",
                                "URI of a subtitle file",
                                NULL,
-                               CLUTTER_GST_PARAM_READWRITE |
-                               G_PARAM_DEPRECATED);
+                               CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_SUBTITLE_URI, pspec);
 
   /**
@@ -1767,8 +1764,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
                                "Subtitle Font Name",
                                "The font used to display subtitles",
                                NULL,
-                               CLUTTER_GST_PARAM_READWRITE |
-                               G_PARAM_DEPRECATED);
+                               CLUTTER_GST_PARAM_READWRITE);
   g_object_class_install_property (object_class, PROP_SUBTITLE_FONT_NAME, pspec);
 
   /**
@@ -1780,8 +1776,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
                                 "Can Seek",
                                 "Whether the current stream is seekable",
                                 FALSE,
-                                CLUTTER_GST_PARAM_READABLE |
-                                G_PARAM_DEPRECATED);
+                                CLUTTER_GST_PARAM_READABLE);
   g_object_class_install_property (object_class, PROP_CAN_SEEK, pspec);
 
   /**
@@ -1794,8 +1789,7 @@ clutter_gst_playback_class_init (ClutterGstPlaybackClass *klass)
                                "Buffer Fill",
                                "The fill level of the buffer",
                                0.0, 1.0, 0.0,
-                               CLUTTER_GST_PARAM_READABLE |
-                               G_PARAM_DEPRECATED);
+                               CLUTTER_GST_PARAM_READABLE);
   g_object_class_install_property (object_class, PROP_BUFFER_FILL, pspec);
 
   /**
