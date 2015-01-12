@@ -79,8 +79,7 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
                                 "Playing",
                                 "Whether the player is playing",
                                 FALSE,
-                                CLUTTER_GST_PARAM_READWRITE |
-                                G_PARAM_DEPRECATED);
+                                CLUTTER_GST_PARAM_READWRITE);
   g_object_interface_install_property (iface, pspec);
 
   /**
@@ -93,8 +92,7 @@ clutter_gst_player_default_init (ClutterGstPlayerIface *iface)
                                "Audio Volume",
                                "The volume of the audio",
                                0.0, 1.0, 0.5,
-                               CLUTTER_GST_PARAM_READWRITE |
-                               G_PARAM_DEPRECATED);
+                               CLUTTER_GST_PARAM_READWRITE);
   g_object_interface_install_property (iface, pspec);
 
   /**
