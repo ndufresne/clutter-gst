@@ -1,3 +1,16 @@
+clutter-gst 3.0.4 (24/01/2015)
+===============================================================================
+
+List of changes
+
+ o Fix introspection problem on systems with no display
+
+ o Fix introspection problems with clutter-gst 2.0 installed
+
+ o Fix incorrect warnings about deprecated properties
+
+ o Only advertise RGBA format for texture upload
+
 clutter-gst 3.0.2 (11/01/2015)
 ===============================================================================
 
