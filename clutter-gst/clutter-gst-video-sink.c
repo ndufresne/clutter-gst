@@ -2012,13 +2012,15 @@ clutter_gst_source_dispatch (GSource *source,
 
       if (gst_buffer_get_video_gl_texture_upload_meta (buffer) != NULL) {
         GST_DEBUG_OBJECT (gst_source->sink,
-                          "Trying to upload buffer %p with GL", buffer);
+                          "Trying to upload buffer %p with GL using renderer %s",
+                          buffer, priv->renderer->name);
         if (!priv->renderer->upload_gl (gst_source->sink, buffer)) {
           goto fail_upload;
         }
       } else {
         GST_DEBUG_OBJECT (gst_source->sink,
-                          "Trying to upload buffer %p with software", buffer);
+                          "Trying to upload buffer %p with software using renderer %s",
+                          buffer, priv->renderer->name);
         if (!priv->renderer->upload (gst_source->sink, buffer))
           goto fail_upload;
       }
