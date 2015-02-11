@@ -64,6 +64,7 @@ main (int argc, char *argv[])
   GstElement       *capsfilter;
   GstElement       *sink;
   GstCaps          *caps;
+  gchar            *capsstr;
 
   result = clutter_gst_init_with_args (&argc,
                                        &argv,
@@ -106,7 +107,9 @@ main (int argc, char *argv[])
                               NULL);
   g_object_set (capsfilter, "caps", caps, NULL);
 
-  g_printf ("%s: [caps] %s\n", __FILE__, gst_caps_to_string (caps));
+  capsstr = gst_caps_to_string (caps);
+  g_printf ("%s: [caps] %s\n", __FILE__, capsstr);
+  g_free (capsstr);
   gst_bin_add_many (GST_BIN (pipeline), src, capsfilter, sink, NULL);
   result = gst_element_link_many (src, capsfilter, sink, NULL);
   if (result == FALSE)
