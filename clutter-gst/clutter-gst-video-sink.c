@@ -1812,7 +1812,7 @@ clutter_gst_video_sink_get_caps (GstBaseSink *bsink,
   ClutterGstVideoSink *sink;
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
 
-  GST_DEBUG_OBJECT (bsink, "Getting caps for %s", gst_caps_to_string (filter));
+  GST_DEBUG_OBJECT (bsink, "Getting caps for %" GST_PTR_FORMAT, filter);
 
   if (sink->priv->caps == NULL)
     return NULL;
@@ -1940,7 +1940,7 @@ clutter_gst_video_sink_set_caps (GstBaseSink *bsink,
   sink = CLUTTER_GST_VIDEO_SINK (bsink);
   priv = sink->priv;
 
-  GST_INFO_OBJECT (bsink, "Setting caps to %s", gst_caps_to_string (caps));
+  GST_INFO_OBJECT (bsink, "Setting caps to %" GST_PTR_FORMAT, caps);
 
   if (!clutter_gst_video_sink_parse_caps (caps, sink, FALSE))
     return FALSE;
