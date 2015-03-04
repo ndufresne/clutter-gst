@@ -115,6 +115,8 @@ static const char clutter_gst_video_sink_caps_str[] =
   MAKE_CAPS (GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY, BASE_SINK_CAPS)
 #ifdef HAVE_GL_TEXTURE_UPLOAD
   ";"
+  MAKE_CAPS_COMPOSITON (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META, "{ RGBA }")
+  ";"
   MAKE_CAPS (GST_CAPS_FEATURE_META_GST_VIDEO_GL_TEXTURE_UPLOAD_META, "{ RGBA }")
 #endif
   ";"
@@ -1764,9 +1766,23 @@ append_cap (gpointer data,
 {
   ClutterGstRenderer *renderer = (ClutterGstRenderer *) data;
   GstCaps *caps = (GstCaps *) user_data;
+  guint i, count;
+  GstCapsFeatures *features;
   GstCaps *writable_caps;
+  GstCaps *writable_caps_with_composition;
+
   writable_caps =
     gst_caps_make_writable (gst_static_caps_get (&renderer->caps));
+
+  writable_caps_with_composition = gst_caps_copy (writable_caps);
+  count = gst_caps_get_size (writable_caps_with_composition);
+
+  for (i = 0; i < count; i++) {
+    features = gst_caps_get_features (writable_caps_with_composition, i);
+    gst_caps_features_add (features, GST_CAPS_FEATURE_META_GST_VIDEO_OVERLAY_COMPOSITION);
+  }
+
+  gst_caps_append (caps, writable_caps_with_composition);
   gst_caps_append (caps, writable_caps);
 }
 
