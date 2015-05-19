@@ -1971,6 +1971,31 @@ clutter_gst_video_sink_propose_allocation (GstBaseSink * base_sink, GstQuery * q
   return TRUE;
 }
 
+static gboolean
+clutter_gst_video_sink_event (GstBaseSink * basesink, GstEvent * event)
+{
+  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (basesink);
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  ClutterGstSource *gst_source = priv->source;
+
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_FLUSH_START:
+      g_mutex_lock (&gst_source->buffer_lock);
+      if (gst_source->buffer) {
+        GST_DEBUG ("Freeing existing buffer %p", gst_source->buffer);
+        gst_buffer_unref (gst_source->buffer);
+        gst_source->buffer = NULL;
+      }
+      g_mutex_unlock (&gst_source->buffer_lock);
+      break;
+
+    default:
+      break;
+  }
+
+  return GST_BASE_SINK_CLASS (parent_class)->event (basesink, event);
+}
+
 static void
 clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass * klass)
 {
@@ -2007,6 +2032,7 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass * klass)
   gstbase_sink_class->set_caps = clutter_gst_video_sink_set_caps;
   gstbase_sink_class->get_caps = clutter_gst_video_sink_get_caps;
   gstbase_sink_class->propose_allocation = clutter_gst_video_sink_propose_allocation;
+  gstbase_sink_class->event = clutter_gst_video_sink_event;
 
   /**
    * ClutterGstVideoSink:texture:
