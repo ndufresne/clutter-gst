@@ -1,3 +1,20 @@
+clutter-gst 3.0.6 (24/05/2015)
+===============================================================================
+
+List of changes
+
+ o fix memory leaks in get/set_caps
+
+ o advertize the GstVideoOverlayComposition feature in caps
+
+ o clear buffer in flush
+
+Many Thanks to:
+
+   Matthieu Bouron
+   Víctor Manuel Jáquez Leal
+   Wim Taymans
+
 clutter-gst 3.0.4 (24/01/2015)
 ===============================================================================
 
