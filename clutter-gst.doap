@@ -92,6 +92,16 @@
 
   <release>
     <Version>
+      <name>2.0.16 Release</name>
+      <created>2015-04-25</created>
+      <branch>clutter-gst-2.0</branch>
+      <revision>2.0.16</revision>
+      <file-release rdf:resource="http://download.gnome.org/sources/clutter-gst/2.0/clutter-gst-2.0.16.tar.xz" />
+    </Version>
+  </release>
+
+  <release>
+    <Version>
       <name>2.0.14 Release</name>
       <created>2015-01-25</created>
       <branch>clutter-gst-2.0</branch>
