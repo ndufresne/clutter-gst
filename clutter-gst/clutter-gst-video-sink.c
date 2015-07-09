@@ -1052,40 +1052,15 @@ video_texture_new_from_data (CoglContext *ctx,
                              int rowstride,
                              const uint8_t *data)
 {
-  CoglBitmap *bitmap;
   CoglTexture *tex;
   CoglError *internal_error = NULL;
 
-  bitmap = cogl_bitmap_new_for_data (ctx,
-                                     width, height,
-                                     format,
-                                     rowstride,
-                                     (uint8_t *) data);
-
-  if ((is_pot (cogl_bitmap_get_width (bitmap)) &&
-       is_pot (cogl_bitmap_get_height (bitmap))) ||
-      cogl_has_feature (ctx, COGL_FEATURE_ID_TEXTURE_NPOT_BASIC))
-    {
-      tex = cogl_texture_2d_new_from_bitmap (bitmap);
-      if (!tex)
-        {
-          cogl_error_free (internal_error);
-          internal_error = NULL;
-        }
-    }
-  else
-    tex = NULL;
-
-  if (!tex)
-    {
-      /* Otherwise create a sliced texture */
-      tex = cogl_texture_2d_sliced_new_from_bitmap (bitmap,
-                                                    -1); /* no maximum waste */
-    }
-
-  cogl_object_unref (bitmap);
-
-  cogl_texture_set_premultiplied (tex, FALSE);
+  tex = cogl_texture_2d_new_from_data (ctx, width, height, format,
+                                       rowstride, data, &internal_error);
+  if (tex == NULL) {
+    GST_WARNING ("Cannot allocate Cogl texture : %s", internal_error->message);
+    return NULL;
+  }
 
   return tex;
 }
