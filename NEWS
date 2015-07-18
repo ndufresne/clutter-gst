@@ -1,3 +1,12 @@
+clutter-gst 3.0.8 (18/07/2015)
+===============================================================================
+
+List of changes
+
+ o Fix crash when video frame has not been uploaded yet, gets disposed
+   and Clutter try to paint with it.
+
+
 clutter-gst 3.0.6 (24/05/2015)
 ===============================================================================
 
