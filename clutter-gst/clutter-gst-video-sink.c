@@ -1566,7 +1566,7 @@ clutter_gst_ayuv_upload (ClutterGstVideoSink *sink,
                          GstBuffer *buffer)
 {
   ClutterGstVideoSinkPrivate *priv = sink->priv;
-  CoglPixelFormat format = COGL_PIXEL_FORMAT_RGBA_8888;
+  CoglPixelFormat format = COGL_PIXEL_FORMAT_RGBA_8888_PRE;
   GstVideoFrame frame;
 
   if (!gst_video_frame_map (&frame, &priv->info, buffer, GST_MAP_READ))
