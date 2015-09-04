@@ -1058,7 +1058,8 @@ video_texture_new_from_data (CoglContext *ctx,
   tex = cogl_texture_2d_new_from_data (ctx, width, height, format,
                                        rowstride, data, &internal_error);
   if (tex == NULL) {
-    GST_WARNING ("Cannot allocate Cogl texture : %s", internal_error->message);
+    GST_WARNING ("Cannot create Cogl texture : %s", internal_error->message);
+    cogl_error_free (internal_error);
     return NULL;
   }
 
