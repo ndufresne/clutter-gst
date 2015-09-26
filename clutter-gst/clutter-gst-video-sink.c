@@ -225,7 +225,6 @@ struct _ClutterGstVideoSinkPrivate
 {
   CoglContext *ctx;
   CoglPipeline *template_pipeline;
-  CoglPipeline *pipeline;
   ClutterGstFrame *clt_frame;
 
   CoglTexture *frame[3];
@@ -1002,10 +1001,10 @@ dirty_default_pipeline (ClutterGstVideoSink *sink)
 {
   ClutterGstVideoSinkPrivate *priv = sink->priv;
 
-  if (priv->pipeline)
+  if (priv->clt_frame != NULL)
     {
-      cogl_object_unref (priv->pipeline);
-      priv->pipeline = NULL;
+      g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
+      priv->clt_frame = NULL;
       priv->had_upload_once = FALSE;
     }
 }
@@ -2157,12 +2156,6 @@ clutter_gst_video_sink_dispose (GObject *object)
     priv->renderer = NULL;
   }
 
-  if (priv->pipeline)
-    {
-      cogl_object_unref (priv->pipeline);
-      priv->pipeline = NULL;
-    }
-
   if (priv->clt_frame)
     {
       g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
@@ -2526,30 +2519,38 @@ ClutterGstFrame *
 clutter_gst_video_sink_get_frame (ClutterGstVideoSink *sink)
 {
   ClutterGstVideoSinkPrivate *priv;
-  CoglPipeline *pipeline;
 
   g_return_val_if_fail (CLUTTER_GST_IS_VIDEO_SINK (sink), NULL);
 
-  priv = sink->priv;
-
-  pipeline = clutter_gst_video_sink_get_pipeline (sink);
-
-  if (pipeline == NULL)
+  if (!clutter_gst_video_sink_is_ready (sink))
     return NULL;
 
-  if (priv->clt_frame != NULL && priv->clt_frame->pipeline != pipeline)
-    {
-      g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
-      priv->clt_frame = NULL;
-    }
+  priv = sink->priv;
 
   if (priv->clt_frame == NULL)
     {
       priv->clt_frame = clutter_gst_frame_new ();
-      priv->clt_frame->pipeline = cogl_object_ref (pipeline);
-      clutter_gst_video_resolution_from_video_info (&priv->clt_frame->resolution,
-                                                    &priv->info);
+      priv->clt_frame->pipeline = cogl_pipeline_new (priv->ctx);
+      clutter_gst_video_sink_setup_pipeline (sink, priv->clt_frame->pipeline);
+      clutter_gst_video_sink_attach_frame (sink, priv->clt_frame->pipeline);
+      priv->balance_dirty = FALSE;
     }
+  else if (priv->balance_dirty)
+    {
+      g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
+      priv->clt_frame = clutter_gst_frame_new ();
+      priv->clt_frame->pipeline = cogl_pipeline_new (priv->ctx);
+
+      clutter_gst_video_sink_setup_pipeline (sink, priv->clt_frame->pipeline);
+      clutter_gst_video_sink_attach_frame (sink, priv->clt_frame->pipeline);
+      priv->balance_dirty = FALSE;
+    }
+  else if (priv->frame_dirty)
+    {
+      clutter_gst_video_sink_attach_frame (sink, priv->clt_frame->pipeline);
+    }
+
+  priv->frame_dirty = FALSE;
 
   return priv->clt_frame;
 }
@@ -2582,39 +2583,10 @@ clutter_gst_video_sink_get_pipeline (ClutterGstVideoSink *sink)
 
   g_return_val_if_fail (CLUTTER_GST_IS_VIDEO_SINK (sink), NULL);
 
-  if (!clutter_gst_video_sink_is_ready (sink))
+  if (clutter_gst_video_sink_get_frame (sink) == NULL)
     return NULL;
 
-  priv = sink->priv;
-
-  if (priv->pipeline == NULL)
-    {
-      priv->pipeline = cogl_pipeline_new (priv->ctx);
-      clutter_gst_video_sink_setup_pipeline (sink, priv->pipeline);
-      clutter_gst_video_sink_attach_frame (sink, priv->pipeline);
-      priv->balance_dirty = FALSE;
-    }
-  else if (priv->balance_dirty)
-    {
-      cogl_object_unref (priv->pipeline);
-      priv->pipeline = cogl_pipeline_new (priv->ctx);
-
-      clutter_gst_video_sink_setup_pipeline (sink, priv->pipeline);
-      clutter_gst_video_sink_attach_frame (sink, priv->pipeline);
-      priv->balance_dirty = FALSE;
-    }
-  else if (priv->frame_dirty)
-    {
-      CoglPipeline *pipeline = cogl_pipeline_copy (priv->pipeline);
-      cogl_object_unref (priv->pipeline);
-      priv->pipeline = pipeline;
-
-      clutter_gst_video_sink_attach_frame (sink, pipeline);
-    }
-
-  priv->frame_dirty = FALSE;
-
-  return priv->pipeline;
+  return priv->clt_frame->pipeline;
 }
 
 /**
