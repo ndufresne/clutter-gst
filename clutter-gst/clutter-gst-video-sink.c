@@ -693,8 +693,20 @@ static void
 clutter_gst_video_sink_navigation_send_event (GstNavigation *navigation,
                                               GstStructure  *structure)
 {
-  // TODO: how do we feed the events back to the UI layer? New
-  // signals?
+  GstEvent *event;
+  GstPad *pad = NULL;
+
+  event = gst_event_new_navigation (structure);
+
+  pad = gst_pad_get_peer (GST_VIDEO_SINK_PAD (navigation));
+
+  if (GST_IS_PAD (pad))
+    {
+      gst_pad_send_event (pad, event);
+      gst_object_unref (pad);
+    }
+  else
+    gst_event_unref (event);
 }
 
 static void
