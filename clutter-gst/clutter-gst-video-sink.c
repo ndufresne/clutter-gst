@@ -2646,9 +2646,9 @@ clutter_gst_video_sink_setup_pipeline (ClutterGstVideoSink *sink,
 
   if (priv->renderer)
     {
-      clutter_gst_video_sink_setup_conversions (sink, priv->pipeline);
-      clutter_gst_video_sink_setup_balance (sink, priv->pipeline);
-      priv->renderer->setup_pipeline (sink, priv->pipeline);
+      clutter_gst_video_sink_setup_conversions (sink, pipeline);
+      clutter_gst_video_sink_setup_balance (sink, pipeline);
+      priv->renderer->setup_pipeline (sink, pipeline);
     }
 }
 
