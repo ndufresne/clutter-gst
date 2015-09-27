@@ -2530,6 +2530,8 @@ clutter_gst_video_sink_get_frame (ClutterGstVideoSink *sink)
   if (priv->clt_frame == NULL)
     {
       priv->clt_frame = clutter_gst_frame_new ();
+      clutter_gst_video_resolution_from_video_info (&priv->clt_frame->resolution,
+                                                    &priv->info);
       priv->clt_frame->pipeline = cogl_pipeline_new (priv->ctx);
       clutter_gst_video_sink_setup_pipeline (sink, priv->clt_frame->pipeline);
       clutter_gst_video_sink_attach_frame (sink, priv->clt_frame->pipeline);
@@ -2538,7 +2540,10 @@ clutter_gst_video_sink_get_frame (ClutterGstVideoSink *sink)
   else if (priv->balance_dirty)
     {
       g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
+
       priv->clt_frame = clutter_gst_frame_new ();
+      clutter_gst_video_resolution_from_video_info (&priv->clt_frame->resolution,
+                                                    &priv->info);
       priv->clt_frame->pipeline = cogl_pipeline_new (priv->ctx);
 
       clutter_gst_video_sink_setup_pipeline (sink, priv->clt_frame->pipeline);
