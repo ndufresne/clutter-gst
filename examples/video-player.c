@@ -245,7 +245,7 @@ input_cb (ClutterStage *stage,
 
         switch (clutter_event_get_key_symbol (event))
           {
-          case CLUTTER_d:
+          case CLUTTER_KEY_d:
             if (app->vactor)
               {
                 clutter_actor_remove_child (app->stage, app->vactor);
@@ -257,12 +257,12 @@ input_cb (ClutterStage *stage,
                 app->control = NULL;
               }
             break;
-          case CLUTTER_q:
-          case CLUTTER_Escape:
+          case CLUTTER_KEY_q:
+          case CLUTTER_KEY_Escape:
             clutter_actor_destroy (app->stage);
             break;
 
-          case CLUTTER_e:
+          case CLUTTER_KEY_e:
             if (app->vactor == NULL)
               break;
 

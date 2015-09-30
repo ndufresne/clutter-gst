@@ -166,29 +166,29 @@ input_cb (ClutterStage *stage,
       {
         switch (clutter_event_get_key_symbol (event))
           {
-          case CLUTTER_minus:
+          case CLUTTER_KEY_minus:
             app->decrease_selected = TRUE;
             break;
-          case CLUTTER_plus:
+          case CLUTTER_KEY_plus:
             app->decrease_selected = FALSE;
             break;
-          case CLUTTER_b:
+          case CLUTTER_KEY_b:
             update_color_balance (app, "brightness");
             break;
-          case CLUTTER_c:
+          case CLUTTER_KEY_c:
             update_color_balance (app, "contrast");
             break;
-          case CLUTTER_s:
+          case CLUTTER_KEY_s:
             update_color_balance (app, "saturation");
             break;
-          case CLUTTER_h:
+          case CLUTTER_KEY_h:
             update_color_balance (app, "hue");
             break;
-          case CLUTTER_g:
+          case CLUTTER_KEY_g:
             update_gamma (app);
             break;
 
-          case CLUTTER_d:
+          case CLUTTER_KEY_d:
             {
               ClutterGstCameraDevice *device;
 
@@ -206,12 +206,12 @@ input_cb (ClutterStage *stage,
               break;
             }
 
-          case CLUTTER_q:
-          case CLUTTER_Escape:
+          case CLUTTER_KEY_q:
+          case CLUTTER_KEY_Escape:
             clutter_main_quit ();
             break;
 
-          case CLUTTER_v:
+          case CLUTTER_KEY_v:
             {
               gchar *filename;
               static guint photos_cnt = 0;
@@ -237,7 +237,7 @@ input_cb (ClutterStage *stage,
               break;
             }
 
-          case CLUTTER_p:
+          case CLUTTER_KEY_p:
             {
               gchar *filename;
               static guint photos_cnt = 0;
@@ -259,7 +259,7 @@ input_cb (ClutterStage *stage,
               break;
             }
 
-          case CLUTTER_e:
+          case CLUTTER_KEY_e:
             {
               GstElement *filter;
               gboolean ret;
@@ -278,7 +278,7 @@ input_cb (ClutterStage *stage,
               break;
             }
 
-          case CLUTTER_r:
+          case CLUTTER_KEY_r:
             clutter_gst_camera_remove_filter (app->camera_player);
             break;
 
