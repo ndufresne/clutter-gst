@@ -400,12 +400,12 @@ add_layer_cache_entry (ClutterGstVideoSink *sink,
 
   default_source =
     g_strdup_printf ("  cogl_layer *= clutter_gst_sample_video%i "
-                     "(cogl_tex_coord%i_in.st);\n",
+                     "(cogl_tex_coord%i_in.st * clutter_gst_transform);\n",
                      priv->video_start,
                      priv->video_start);
   entry->default_sample_snippet =
     cogl_snippet_new (COGL_SNIPPET_HOOK_LAYER_FRAGMENT,
-                      NULL, /* declarations */
+                      "uniform mat2 clutter_gst_transform;\n",
                       default_source);
   g_free (default_source);
 
@@ -964,6 +964,30 @@ clutter_gst_video_sink_setup_conversions (ClutterGstVideoSink *sink,
 
   cogl_pipeline_add_snippet (pipeline, entry->vertex_snippet);
   cogl_pipeline_add_snippet (pipeline, entry->fragment_snippet);
+}
+
+/* Transformation for cropped videos */
+
+static void
+clutter_gst_video_sink_setup_transformation (ClutterGstVideoSink *sink,
+                                             CoglPipeline *pipeline)
+{
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  float transform[] = { 1.0, 0.0,
+                        0.0, 1.0 };
+  gint transform_location;
+
+  if (priv->frame[0] != NULL)
+    {
+      transform[0] = (float) GST_VIDEO_INFO_COMP_WIDTH (&priv->info, 0) /
+        (float) cogl_texture_get_width (priv->frame[0]);
+      transform[3] = (float) GST_VIDEO_INFO_COMP_HEIGHT (&priv->info, 0) /
+        (float) cogl_texture_get_height (priv->frame[0]);
+    }
+  transform_location =
+    cogl_pipeline_get_uniform_location (pipeline, "clutter_gst_transform");
+  cogl_pipeline_set_uniform_matrix (pipeline, transform_location,
+                                    2, 1, FALSE, transform);
 }
 
 /**/
@@ -2625,6 +2649,7 @@ clutter_gst_video_sink_setup_pipeline (ClutterGstVideoSink *sink,
     {
       clutter_gst_video_sink_setup_conversions (sink, pipeline);
       clutter_gst_video_sink_setup_balance (sink, pipeline);
+      clutter_gst_video_sink_setup_transformation (sink, pipeline);
       priv->renderer->setup_pipeline (sink, pipeline);
     }
 }
