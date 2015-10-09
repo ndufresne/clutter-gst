@@ -1673,19 +1673,19 @@ clutter_gst_nv12_upload (ClutterGstVideoSink *sink,
 
   priv->frame[0] =
     video_texture_new_from_data (priv->ctx,
-                                 GST_VIDEO_INFO_COMP_WIDTH (&priv->info, 0),
-                                 GST_VIDEO_INFO_COMP_HEIGHT (&priv->info, 0),
+                                 GST_VIDEO_FRAME_COMP_WIDTH (&frame, 0),
+                                 GST_VIDEO_FRAME_COMP_HEIGHT (&frame, 0),
                                  COGL_PIXEL_FORMAT_A_8,
-                                 priv->info.stride[0],
-                                 frame.data[0]);
+                                 GST_VIDEO_FRAME_COMP_STRIDE (&frame, 0),
+                                 GST_VIDEO_FRAME_COMP_DATA (&frame, 0));
 
   priv->frame[1] =
     video_texture_new_from_data (priv->ctx,
-                                 GST_VIDEO_INFO_COMP_WIDTH (&priv->info, 1),
-                                 GST_VIDEO_INFO_COMP_HEIGHT (&priv->info, 1),
+                                 GST_VIDEO_FRAME_COMP_WIDTH (&frame, 1),
+                                 GST_VIDEO_FRAME_COMP_HEIGHT (&frame, 1),
                                  COGL_PIXEL_FORMAT_RG_88,
-                                 priv->info.stride[1],
-                                 frame.data[1]);
+                                 GST_VIDEO_FRAME_COMP_STRIDE (&frame, 1),
+                                 GST_VIDEO_FRAME_COMP_DATA (&frame, 1));
 
   gst_video_frame_unmap (&frame);
 
