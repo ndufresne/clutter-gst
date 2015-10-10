@@ -745,10 +745,38 @@ clutter_gst_video_sink_attach_frame (ClutterGstVideoSink *sink,
 /* Color balance */
 
 static const gchar *no_color_balance_shader =
+  "\n"
   "#define clutter_gst_get_corrected_color_from_yuv(arg) (arg)\n"
   "#define clutter_gst_get_corrected_color_from_rgb(arg) (arg)\n";
 
 static const gchar *color_balance_shader =
+  "\n"
+  "vec3\n"
+  "clutter_gst_rgb_to_yuv (vec3 rgb)\n"
+  "{\n"
+  "  return mat3 (0.2126, -0.114626,  0.5,\n"
+  "               0.7152, -0.385428, -0.454153,\n"
+  "               0.0722,  0.5,       0.045847 ) * rgb;\n"
+  "}\n"
+  "\n"
+  /* " /\* bt601 version *\/\n" */
+  /* "vec3\n" */
+  /* "clutter_gst_rgb_to_yuv (vec3 rgb)\n" */
+  /* "{\n" */
+  /* "  return mat3 (0.299,  0.5,      -0.168736,\n" */
+  /* "               0.587, -0.418688, -0.331264,\n" */
+  /* "               0.114, -0.081312,  0.5      ) * rgb;\n" */
+  /* "}\n" */
+  /* "\n" */
+  /* " /\* bt2020 version *\/\n" */
+  /* "vec3\n" */
+  /* "clutter_gst_rgb_to_bt2020 (vec3 rgb)\n" */
+  /* "{\n" */
+  /* "  return mat3 (0.2627, -0.139630,  0.503380,\n" */
+  /* "               0.6780, -0.360370, -0.462893,\n" */
+  /* "               0.0593,  0.5,      -0.040486 ) * rgb;\n" */
+  /* "}\n" */
+
   "vec3\n"
   "clutter_gst_get_corrected_color_from_yuv (vec3 yuv)\n"
   "{\n"
@@ -761,11 +789,11 @@ static const gchar *color_balance_shader =
   "vec3\n"
   "clutter_gst_get_corrected_color_from_rgb (vec3 rgb)\n"
   "{\n"
-  "  vec3 yuv = clutter_gst_yuv_srgb_to_bt601 (rgb);\n"
+  "  vec3 yuv = clutter_gst_rgb_to_yuv (rgb);\n"
   "  vec3 corrected_yuv = vec3 (texture2D (cogl_sampler%i, vec2 (yuv[0], 0)).a,\n"
   "                             texture2D (cogl_sampler%i, vec2 (yuv[2], yuv[1])).a,\n"
   "                             texture2D (cogl_sampler%i, vec2 (yuv[2], yuv[1])).a);\n"
-  "  return clutter_gst_yuv_bt601_to_srgb (corrected_yuv);\n"
+  "  return clutter_gst_yuv_to_rgb (corrected_yuv);\n"
   "}\n";
 
 static void
@@ -864,84 +892,62 @@ clutter_gst_video_sink_setup_balance (ClutterGstVideoSink *sink,
 
 /* YUV <-> RGB conversions */
 
-static const gchar *color_conversions_shaders =
+static const gchar *no_color_conversions_shader =
   "\n"
-  "/* These conversion functions take : */\n"
+  "#define clutter_gst_yuv_to_rgb(color) (color)\n";
+static const gchar *color_conversions_shader =
+  "\n"
+  "/* This conversion functions take : */\n"
   "/*   Y = [0, 1] */\n"
   "/*   U = [-0.5, 0.5] */\n"
   "/*   V = [-0.5, 0.5] */\n"
-  "vec3\n"
-  "clutter_gst_yuv_bt601_to_srgb (vec3 yuv)\n"
-  "{\n"
-  "  return mat3 (1.0,    1.0,      1.0,\n"
-  "               0.0,   -0.344136, 1.772,\n"
-  "               1.402, -0.714136, 0.0   ) * yuv;\n"
-  "}\n"
-  "\n"
-  "vec3\n"
-  "clutter_gst_yuv_bt709_to_srgb (vec3 yuv)\n"
-  "{\n"
-  "  return mat3 (1.0,     1.0,      1.0,\n"
-  "               0.0,    -0.187324, 1.8556,\n"
-  "               1.5748, -0.468124, 0.0    ) * yuv;\n"
-  "}\n"
-  "\n"
-  "vec3\n"
-  "clutter_gst_yuv_bt2020_to_srgb (vec3 yuv)\n"
-  "{\n"
-  "  return mat3 (1.0,     1.0,      1.0,\n"
-  "               0.0,     0.571353, 1.8814,\n"
-  "               1.4746,  0.164553, 0.0    ) * yuv;\n"
-  "}\n"
-  "/* Original transformation, still no idea where these values come from... */\n"
-  "vec3\n"
-  "clutter_gst_yuv_originalyuv_to_srgb (vec3 yuv)\n"
-  "{\n"
-  "  return mat3 (1.0,         1.0,      1.0,\n"
-  "               0.0,        -0.390625, 2.015625,\n"
-  "               1.59765625, -0.8125,   0.0      ) * yuv;\n"
-  "}\n"
-  "\n"
-  "vec3\n"
-  "clutter_gst_yuv_srgb_to_bt601 (vec3 rgb)\n"
-  "{\n"
-  "  return mat3 (0.299,  0.5,      -0.168736,\n"
-  "               0.587, -0.418688, -0.331264,\n"
-  "               0.114, -0.081312,  0.5      ) * rgb;\n"
-  "}\n"
-  "\n"
-  "vec3\n"
-  "clutter_gst_yuv_srgb_to_bt709 (vec3 rgb)\n"
-  "{\n"
-  "  return mat3 (0.2126, -0.114626,  0.5,\n"
-  "               0.7152, -0.385428, -0.454153,\n"
-  "               0.0722,  0.5,       0.045847 ) * rgb;\n"
-  "}\n"
-  "\n"
-  "vec3\n"
-  "clutter_gst_yuv_srgb_to_bt2020 (vec3 rgb)\n"
-  "{\n"
-  "  return mat3 (0.2627, -0.139630,  0.503380,\n"
-  "               0.6780, -0.360370, -0.462893,\n"
-  "               0.0593,  0.5,      -0.040486 ) * rgb;\n"
-  "}\n"
-  "\n"
-  "#define clutter_gst_default_yuv_to_srgb(arg) clutter_gst_yuv_%s_to_srgb(arg)\n"
+  "uniform mat3 clutter_gst_yuv_to_rgb_;\n"
+  "#define clutter_gst_yuv_to_rgb(yuv) (clutter_gst_yuv_to_rgb_ * (yuv))\n"
   "\n";
 
-static const char *
-_gst_video_color_matrix_to_string (GstVideoColorMatrix matrix)
+static const float *
+_matrix_from_colorimetry (GstVideoColorMatrix matrix)
 {
+  static const float bt601[] = { 1.0,    1.0,      1.0,
+                                 0.0,   -0.344136, 1.772,
+                                 1.402, -0.714136, 0.0    };
+  static const float bt709[] = { 1.0,     1.0,      1.0,
+                                 0.0,    -0.187324, 1.8556,
+                                 1.5748, -0.468124, 0.0     };
+#if GST_CHECK_VERSION(1, 6, 0)
+  static const float bt2020[] = { 1.0,     1.0,      1.0,
+                                  0.0,     0.571353, 1.8814,
+                                  1.4746,  0.164553, 0.0     };
+#endif
+#if 0
+  /* Original transformation from the clutter-gst 2.0/1.6 days.
+   * Still no idea where these values come from...
+   */
+  static const float original[] = { 1.0,         1.0,      1.0,
+                                    0.0,        -0.390625, 2.015625,
+                                    1.59765625, -0.8125,   0.0       };
+#endif
+
   switch (matrix)
     {
+#if GST_CHECK_VERSION(1, 6, 0)
+    case GST_VIDEO_COLOR_MATRIX_BT2020:
+      return bt2020;
+#endif
     case GST_VIDEO_COLOR_MATRIX_BT601:
-      return "bt601";
+      return bt601;
     case GST_VIDEO_COLOR_MATRIX_BT709:
-      return "bt709";
-
     default:
-      return "bt709";
+      return bt709;
     }
+}
+
+static const gchar *
+_shader_from_colorimetry (GstVideoColorMatrix matrix)
+{
+  if (matrix == GST_VIDEO_COLOR_MATRIX_RGB)
+    return no_color_conversions_shader;
+  return color_conversions_shader;
 }
 
 static void
@@ -955,15 +961,21 @@ clutter_gst_video_sink_setup_conversions (ClutterGstVideoSink *sink,
 
   if (entry == NULL)
     {
-      char *source = g_strdup_printf (color_conversions_shaders,
-                                      _gst_video_color_matrix_to_string (matrix));
-
+      const char *source = _shader_from_colorimetry (matrix);
       entry = add_global_cache_entry (&snippet_cache, source, matrix);
-      g_free (source);
     }
 
   cogl_pipeline_add_snippet (pipeline, entry->vertex_snippet);
   cogl_pipeline_add_snippet (pipeline, entry->fragment_snippet);
+
+  if (matrix != GST_VIDEO_COLOR_MATRIX_RGB)
+    {
+      gint yuv_to_rgb_location =
+        cogl_pipeline_get_uniform_location (pipeline, "clutter_gst_yuv_to_rgb_");
+      cogl_pipeline_set_uniform_matrix (pipeline, yuv_to_rgb_location,
+                                        3, 1, FALSE,
+                                        _matrix_from_colorimetry (matrix));
+    }
 }
 
 /* Transformation for cropped videos */
@@ -1513,7 +1525,7 @@ clutter_gst_yv12_glsl_setup_pipeline (ClutterGstVideoSink *sink,
                          "  float v = texture2D (cogl_sampler%i, UV).a - 0.5;\n"
                          "  vec3 corrected = clutter_gst_get_corrected_color_from_yuv (vec3 (y, u, v));\n"
                          "  vec4 color;\n"
-                         "  color.rgb = clutter_gst_default_yuv_to_srgb (corrected);\n"
+                         "  color.rgb = clutter_gst_yuv_to_rgb (corrected);\n"
                          "  color.a = 1.0;\n"
                          "  return color;\n"
                          "}\n",
@@ -1581,7 +1593,7 @@ clutter_gst_ayuv_glsl_setup_pipeline (ClutterGstVideoSink *sink,
                            "  float v = color.a - 0.5;\n"
                            "  vec3 corrected = clutter_gst_get_corrected_color_from_yuv (vec3 (y, u, v));\n"
                            "  color.a = color.r;\n"
-                           "  color.rgb = clutter_gst_default_yuv_to_srgb (corrected);\n"
+                           "  color.rgb = clutter_gst_yuv_to_rgb (corrected);\n"
                            /* Premultiply the color */
                            "  color.rgb *= color.a;\n"
                            "  return color;\n"
@@ -1668,7 +1680,7 @@ clutter_gst_nv12_glsl_setup_pipeline (ClutterGstVideoSink *sink,
                          "  float u = uv.x;\n"
                          "  float v = uv.y;\n"
                          "  vec3 corrected = clutter_gst_get_corrected_color_from_yuv (vec3 (y, u, v));\n"
-                         "  color.rgb = clutter_gst_default_yuv_to_srgb (corrected);\n"
+                         "  color.rgb = clutter_gst_yuv_to_rgb (corrected);\n"
                          "  color.a = 1.0;\n"
                          "  return color;\n"
                          "}\n",
