@@ -2031,8 +2031,6 @@ clutter_gst_source_dispatch (GSource *source,
 
   if (buffer)
     {
-      clutter_gst_video_sink_upload_overlay (gst_source->sink, buffer);
-
       if (gst_buffer_get_video_gl_texture_upload_meta (buffer) != NULL) {
         GST_DEBUG_OBJECT (gst_source->sink,
                           "Trying to upload buffer %p with GL using renderer %s",
@@ -2047,6 +2045,8 @@ clutter_gst_source_dispatch (GSource *source,
         if (!priv->renderer->upload (gst_source->sink, buffer))
           goto fail_upload;
       }
+
+      clutter_gst_video_sink_upload_overlay (gst_source->sink, buffer);
 
       priv->had_upload_once = TRUE;
 
