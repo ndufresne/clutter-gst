@@ -1,3 +1,15 @@
+clutter-gst 3.0.14 (10/10/2015)
+===============================================================================
+
+List of changes
+
+ o Fix rendering issue with non power of 2 video frame sizes
+
+ o Reduce color conversion shader's size
+
+ o Fix crash with vaapi plugins when frame upload fails
+
+
 clutter-gst 3.0.12 (30/09/2015)
 ===============================================================================
 
