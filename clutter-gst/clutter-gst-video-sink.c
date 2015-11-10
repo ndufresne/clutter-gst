@@ -137,6 +137,7 @@ static gchar *yv12_to_rgba_shader =
                        "I420," \
                        "RGBA," \
                        "BGRA," \
+                       "BGRx," \
                        "RGB," \
                        "BGR }"
 
@@ -404,6 +405,7 @@ clutter_gst_parse_caps (GstCaps * caps,
       bgr = FALSE;
       break;
     case GST_VIDEO_FORMAT_BGRA:
+    case GST_VIDEO_FORMAT_BGRx:
       format = CLUTTER_GST_RGB32;
       bgr = TRUE;
       break;
@@ -968,7 +970,7 @@ static ClutterGstRenderer rgb32_renderer = {
   "RGB 32",
   CLUTTER_GST_RGB32,
   0,
-  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("{ RGBA, BGRA }")),
+  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("{ RGBA, BGRA, BGRx }")),
   NULL,
   clutter_gst_rgb_init,
   clutter_gst_dummy_deinit,
