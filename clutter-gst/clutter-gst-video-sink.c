@@ -1717,6 +1717,8 @@ clutter_gst_video_sink_init (ClutterGstVideoSink * sink)
 
   priv->signal_handler_ids = g_array_new (FALSE, TRUE, sizeof (gulong));
   priv->priority = CLUTTER_GST_DEFAULT_PRIORITY;
+
+  gst_base_sink_set_qos_enabled (GST_BASE_SINK (sink), TRUE);
 }
 
 static GstFlowReturn
