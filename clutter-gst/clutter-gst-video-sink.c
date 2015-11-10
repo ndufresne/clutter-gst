@@ -2004,6 +2004,10 @@ clutter_gst_video_sink_class_init (ClutterGstVideoSinkClass * klass)
   GstBaseSinkClass *gstbase_sink_class = GST_BASE_SINK_CLASS (klass);
   GParamSpec *pspec;
 
+  /* We must ensure that clutter is initialized */
+  if (clutter_init (NULL, NULL) != CLUTTER_INIT_SUCCESS)
+    g_critical ("Unable to initialize Clutter");
+
   GST_DEBUG_CATEGORY_INIT (clutter_gst_video_sink_debug,
       "cluttersink", 0, "clutter video sink");
 
