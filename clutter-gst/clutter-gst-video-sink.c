@@ -1961,11 +1961,14 @@ clutter_gst_video_sink_stop (GstBaseSink * base_sink)
 static gboolean
 clutter_gst_video_sink_propose_allocation (GstBaseSink * base_sink, GstQuery * query)
 {
+  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
   gboolean need_pool = FALSE;
   GstCaps * caps = NULL;
 
   gst_query_parse_allocation (query, &caps, &need_pool);
 
+  gst_query_add_allocation_pool (query, NULL, priv->info.size, 6, 0);
   gst_query_add_allocation_meta (query,
       GST_VIDEO_META_API_TYPE, NULL);
 
