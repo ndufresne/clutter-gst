@@ -1807,23 +1807,8 @@ clutter_gst_video_sink_dispose (GObject * object)
   self = CLUTTER_GST_VIDEO_SINK (object);
   priv = self->priv;
 
-  if (priv->material_template != COGL_INVALID_HANDLE) {
-    cogl_object_unref (priv->material_template);
-    priv->material_template = COGL_INVALID_HANDLE;
-  }
-
-  if (priv->renderer) {
-    priv->renderer->deinit (self);
-    priv->renderer = NULL;
-  }
-
   if (priv->texture)
     clutter_gst_video_sink_set_texture (self, NULL);
-
-  if (priv->caps) {
-    gst_caps_unref (priv->caps);
-    priv->caps = NULL;
-  }
 
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
@@ -1953,6 +1938,21 @@ clutter_gst_video_sink_stop (GstBaseSink * base_sink)
     g_source_destroy (source);
     g_source_unref (source);
     priv->source = NULL;
+  }
+
+  if (priv->renderer) {
+    priv->renderer->deinit (sink);
+    priv->renderer = NULL;
+  }
+
+  if (priv->material_template != COGL_INVALID_HANDLE) {
+    cogl_object_unref (priv->material_template);
+    priv->material_template = COGL_INVALID_HANDLE;
+  }
+
+  if (priv->caps) {
+    gst_caps_unref (priv->caps);
+    priv->caps = NULL;
   }
 
   return TRUE;
