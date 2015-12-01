@@ -615,20 +615,12 @@ clutter_gst_source_dispatch (GSource * source,
       g_signal_connect (stage, "allocation-changed",
           G_CALLBACK (on_stage_allocation_changed), gst_source);
 
-      /* FIXME : We already call this above ? */
-      if (!clutter_gst_parse_caps (caps, gst_source->sink, TRUE))
-        goto negotiation_fail;
-
       if (priv->has_crop_meta)
         clutter_actor_set_size (stage,
             priv->crop_meta.width, priv->crop_meta.height);
       else
         clutter_actor_set_size (stage, priv->info.width, priv->info.height);
       clutter_actor_show (stage);
-    } else {
-      /* FIXME : We already call this above ? */
-      if (!clutter_gst_parse_caps (caps, gst_source->sink, TRUE))
-        goto negotiation_fail;
     }
 
     while (!priv->renderer->init (gst_source->sink)) {
