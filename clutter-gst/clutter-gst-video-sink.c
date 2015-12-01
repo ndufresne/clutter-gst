@@ -765,6 +765,10 @@ get_n_fragment_texture_units (void)
 
   backend = clutter_get_default_backend ();
   context = clutter_backend_get_cogl_context (backend);
+
+  if (context == NULL)
+    return 0;
+
   display = cogl_context_get_display (context);
   renderer = cogl_display_get_renderer (display);
 
@@ -1642,6 +1646,10 @@ clutter_gst_build_renderers_list (void)
   };
 
   nb_texture_units = get_n_fragment_texture_units ();
+
+  /* probably no display */
+  if (nb_texture_units == 0)
+    return NULL;
 
   if (nb_texture_units >= 3)
     features |= CLUTTER_GST_MULTI_TEXTURE;
