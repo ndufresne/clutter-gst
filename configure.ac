@@ -154,7 +154,8 @@ PKG_CHECK_MODULES(GST,
                    gstreamer-base-$GST_MAJORMINOR
                    gstreamer-video-$GST_MAJORMINOR
                    gstreamer-audio-$GST_MAJORMINOR
-                   gstreamer-tag-$GST_MAJORMINOR])
+                   gstreamer-tag-$GST_MAJORMINOR
+                   gstreamer-allocators-$GST_MAJORMINOR])
 
 dnl libs used by the plugin
 PKG_CHECK_MODULES([PLUGIN],
@@ -162,7 +163,8 @@ PKG_CHECK_MODULES([PLUGIN],
                    gstreamer-$GST_MAJORMINOR >= $GSTREAMER_REQ_VERSION
                    gstreamer-base-$GST_MAJORMINOR
                    gstreamer-video-$GST_MAJORMINOR
-                   gstreamer-audio-$GST_MAJORMINOR])
+                   gstreamer-audio-$GST_MAJORMINOR
+                   gstreamer-allocators-$GST_MAJORMINOR])
 
 dnl define location of gstreamer plugin directory
 plugindir="\$(libdir)/gstreamer-$GST_MAJORMINOR"

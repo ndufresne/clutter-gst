@@ -58,6 +58,7 @@
 #include <gst/video/gstvideosink.h>
 #include <gst/video/navigation.h>
 #include <gst/riff/riff-ids.h>
+#include <gst/allocators/gstdmabuf.h>
 
 #ifdef CLUTTER_WINDOWING_X11
 #include <cogl/cogl-texture-pixmap-x11.h>
@@ -71,6 +72,18 @@
 
 #include <glib.h>
 #include <string.h>
+
+#ifdef COGL_HAS_EGL_SUPPORT
+#include <cogl/cogl-egl.h>
+#include <libdrm/drm_fourcc.h>
+
+typedef gpointer (* EGLGetProcAddressProc) (const gchar * name);
+typedef void (* GLBindTextureProc) (guint target, guint texture);
+typedef EGLImageKHR (* EGLCreateImageKHRProc) (EGLDisplay dpy, EGLContext ctx, EGLenum target,
+    EGLClientBuffer buffer, const EGLint * attrib_list);
+typedef EGLBoolean (* EGLDestroyImageKHRProc) (EGLDisplay dpy, EGLImageKHR image);
+typedef void (* GLEglImageTargetTexture2DOESProc) (guint target, EGLImageKHR image);
+#endif
 
 /* Flags to give to cogl_texture_new(). Since clutter 1.1.10 put NO_ATLAS to
  * be sure the frames don't end up in an atlas */
@@ -1607,6 +1620,242 @@ static ClutterGstRenderer gl_texture_upload_renderer = {
 };
 #endif
 
+#ifdef COGL_HAS_EGL_SUPPORT
+typedef struct {
+  gboolean is_initialized;
+
+  GLBindTextureProc glBindTexture;
+  EGLCreateImageKHRProc eglCreateImageKHR;
+  EGLDestroyImageKHRProc eglDestroyImageKHR;
+  GLEglImageTargetTexture2DOESProc glEGLImageTargetTexture2DOES;
+  EGLGetProcAddressProc eglGetProcAddress;
+
+  GstBuffer *cur_buffer;
+  GstBuffer *last_buffer;
+} DmabufContext;
+
+static gboolean
+clutter_gst_dmabuf_init (ClutterGstVideoSink * sink)
+{
+  ClutterGstRenderer *renderer = sink->priv->renderer;
+  GModule *module;
+  DmabufContext *ctx;
+
+  if (renderer->context)
+    return TRUE;
+
+  switch (GST_VIDEO_INFO_FORMAT (&sink->priv->info)) {
+    case GST_VIDEO_FORMAT_BGRA:
+    case GST_VIDEO_FORMAT_BGRx:
+      break;
+    default:
+      return FALSE;
+  }
+
+  ctx = g_new0 (DmabufContext, 1);
+
+  module = g_module_open (NULL, 0);
+  g_module_symbol(module, "eglGetProcAddress", (gpointer*) &ctx->eglGetProcAddress);
+  g_module_symbol(module, "glBindTexture", (gpointer*) &ctx->glBindTexture);
+  g_module_close (module);
+
+  if (!ctx->eglGetProcAddress || !ctx->glBindTexture)
+    goto failed;
+
+  ctx->eglCreateImageKHR = (EGLCreateImageKHRProc) ctx->eglGetProcAddress ("eglCreateImageKHR");
+  ctx->eglDestroyImageKHR = (EGLDestroyImageKHRProc) ctx->eglGetProcAddress ("eglDestroyImageKHR");
+  ctx->glEGLImageTargetTexture2DOES = (GLEglImageTargetTexture2DOESProc) ctx->eglGetProcAddress ("glEGLImageTargetTexture2DOES");
+  ctx->cur_buffer = NULL;
+  ctx->last_buffer = NULL;
+  renderer->context = ctx;
+
+  if (ctx->eglCreateImageKHR &&
+      ctx->eglDestroyImageKHR &&
+      ctx->glEGLImageTargetTexture2DOES)
+    return TRUE;
+
+failed:
+  renderer->context = NULL;
+  g_free (ctx);
+
+  return FALSE;
+}
+
+static void
+clutter_gst_dmabuf_deinit (ClutterGstVideoSink * sink)
+{
+  ClutterGstRenderer *renderer = sink->priv->renderer;
+  DmabufContext *ctx = renderer->context;
+
+  gst_buffer_replace (&ctx->cur_buffer, NULL);
+  gst_buffer_replace (&ctx->last_buffer, NULL);
+  g_free (ctx);
+  renderer->context = NULL;
+}
+
+static EGLImageKHR
+clutter_gst_egl_image_from_dmabuf (DmabufContext *ctx, GstVideoInfo * info,
+    GstBuffer * buffer)
+{
+  gint atti = 0;
+  EGLint attribs[32];
+  EGLImageKHR img = EGL_NO_IMAGE_KHR;
+
+  attribs[atti++] = EGL_WIDTH;
+  attribs[atti++] = GST_VIDEO_INFO_WIDTH (info);
+  attribs[atti++] = EGL_HEIGHT;
+  attribs[atti++] = GST_VIDEO_INFO_HEIGHT (info);
+
+  attribs[atti++] = EGL_LINUX_DRM_FOURCC_EXT;
+  /* FIXME this should be ARGB8888, MALI presumed bug */
+  attribs[atti++] = DRM_FORMAT_BGRA8888;
+
+  attribs[atti++] = EGL_DMA_BUF_PLANE0_FD_EXT;
+  attribs[atti++] =
+    gst_dmabuf_memory_get_fd (gst_buffer_peek_memory (buffer, 0));
+  attribs[atti++] = EGL_DMA_BUF_PLANE0_OFFSET_EXT;
+  attribs[atti++] = GST_VIDEO_INFO_PLANE_OFFSET (info, 0);
+  attribs[atti++] = EGL_DMA_BUF_PLANE0_PITCH_EXT;
+  attribs[atti++] = GST_VIDEO_INFO_PLANE_STRIDE (info, 0);
+
+  attribs[atti] = EGL_NONE;
+  g_assert (atti < 32);
+
+  img = ctx->eglCreateImageKHR (eglGetCurrentDisplay (), EGL_NO_CONTEXT,
+      EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
+
+  if (!img) {
+    GST_ERROR ("eglCreateImage: 0x%x", eglGetError ());
+    return EGL_NO_IMAGE_KHR;
+  }
+
+  return img;
+}
+
+static gboolean
+clutter_dmabuf_init_texture (ClutterGstVideoSink * sink)
+{
+  CoglHandle material;
+  CoglTexture *tex = NULL, *crop_tex = NULL;
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  GstVideoCropMeta *crop_meta = &priv->crop_meta;
+  ClutterGstRenderer *renderer = sink->priv->renderer;
+  DmabufContext *context = renderer->context;
+
+  tex = cogl_texture_new_with_size (priv->info.width,
+      priv->info.height, CLUTTER_GST_TEXTURE_FLAGS, COGL_PIXEL_FORMAT_RGBA_8888);
+
+  if (!tex) {
+    GST_WARNING ("Couldn't create cogl texture");
+    return FALSE;
+  }
+
+  if (priv->has_crop_meta) {
+    crop_tex = cogl_texture_new_from_sub_texture (tex, crop_meta->x,
+        crop_meta->y, crop_meta->width, crop_meta->height);
+  }
+
+  material = cogl_material_new ();
+  if (!material) {
+    GST_WARNING ("Couldn't create cogl material");
+    return FALSE;
+  }
+
+  if (priv->has_crop_meta)
+    cogl_material_set_layer (material, 0, crop_tex);
+  else
+    cogl_material_set_layer (material, 0, tex);
+
+  clutter_texture_set_cogl_material (priv->texture, material);
+
+  cogl_object_unref (tex);
+  if (crop_tex)
+    cogl_object_unref (crop_tex);
+  cogl_object_unref (material);
+
+  context->is_initialized = TRUE;
+  return TRUE;
+}
+
+static gboolean
+clutter_gst_dmabuf_import (ClutterGstVideoSink * sink, GstBuffer * buffer)
+{
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  DmabufContext *ctx = priv->renderer->context;
+  CoglTexture *tex;
+  guint gl_handle, gl_target;
+  EGLImageKHR img;
+  GstVideoMeta *meta;
+
+  if (!gst_is_dmabuf_memory (gst_buffer_peek_memory (buffer, 0)))
+    return FALSE;
+
+  if (!ctx->is_initialized || priv->crop_meta_has_changed) {
+    gboolean ret = clutter_dmabuf_init_texture (sink);
+    if (!ret)
+      return ret;
+  }
+
+  if (!(tex = clutter_texture_get_cogl_texture (priv->texture))) {
+    GST_WARNING ("Couldn't get Cogl texture");
+    return FALSE;
+  }
+
+  if (!cogl_texture_get_gl_texture (tex, &gl_handle, &gl_target)) {
+    GST_WARNING ("Couldn't get GL texture");
+    return FALSE;
+  }
+
+
+  meta = gst_buffer_get_video_meta (buffer);
+  if (meta) {
+    guint i;
+
+    GST_DEBUG ("n_planes %d format: %s",
+        meta->n_planes, gst_video_format_to_string (meta->format));
+
+    for (i = 0; i < meta->n_planes; i++) {
+      priv->info.stride[i] = meta->stride[i];
+      priv->info.offset[i] = meta->offset[i];
+
+      GST_DEBUG ("meta: offset[%u]: %" G_GSIZE_FORMAT ", stride[%u]: %d",
+          i, meta->offset[i], i, meta->stride[i]);
+    }
+  }
+
+  img = clutter_gst_egl_image_from_dmabuf (ctx, &priv->info, buffer);
+  if (img == EGL_NO_IMAGE_KHR)
+    return FALSE;
+
+  ctx->glBindTexture(gl_target, gl_handle);
+  ctx->glEGLImageTargetTexture2DOES (gl_target, img);
+  ctx->eglDestroyImageKHR (eglGetCurrentDisplay (), img);
+  ctx->glBindTexture(gl_target, 0);
+
+  /* We need to keep the buffer around until we have a new one to display,
+   * otherwise the decoder will reuse it and cause flickering. Ideally a fence
+   * shall be used, but instead we keep one more */
+  if (ctx->last_buffer)
+    gst_buffer_unref (ctx->last_buffer);
+  ctx->last_buffer = ctx->cur_buffer;
+  ctx->cur_buffer = gst_buffer_ref (buffer);
+
+  clutter_actor_queue_redraw (CLUTTER_ACTOR (priv->texture));
+  return TRUE;
+}
+
+static ClutterGstRenderer dmabuf_import_renderer = {
+    "DMA-Buf import renderer",
+    CLUTTER_GST_RGB32,
+    CLUTTER_GST_GLSL,
+    GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("{ BGRx, BGRA }")),
+    NULL,
+    clutter_gst_dmabuf_init,
+    clutter_gst_dmabuf_deinit,
+    clutter_gst_dmabuf_import,
+};
+#endif
+
 static GSList *
 clutter_gst_build_renderers_list (void)
 {
@@ -1633,6 +1882,9 @@ clutter_gst_build_renderers_list (void)
 #endif
 #ifdef CLUTTER_COGL_HAS_GL
     &gl_texture_upload_renderer,
+#endif
+#ifdef COGL_HAS_EGL_SUPPORT
+    &dmabuf_import_renderer,
 #endif
     NULL
   };
