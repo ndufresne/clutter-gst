@@ -224,7 +224,7 @@ typedef struct _ClutterGstRenderer
   GstStaticCaps caps;           /* caps handled by the renderer */
   gpointer context;             /* rendering context if any */
 
-  void (*init) (ClutterGstVideoSink * sink);
+  gboolean (*init) (ClutterGstVideoSink * sink);
   void (*deinit) (ClutterGstVideoSink * sink);
   gboolean (*upload) (ClutterGstVideoSink * sink, GstBuffer * buffer);
 } ClutterGstRenderer;
@@ -316,14 +316,26 @@ clutter_gst_source_check (GSource * source)
 }
 
 static ClutterGstRenderer *
-clutter_gst_find_renderer_by_format (ClutterGstVideoSink * sink,
-    ClutterGstVideoFormat format)
+clutter_gst_find_next_renderer_by_format (ClutterGstVideoSink * sink,
+    ClutterGstRenderer * cur_renderer, ClutterGstVideoFormat format)
 {
   ClutterGstVideoSinkPrivate *priv = sink->priv;
   ClutterGstRenderer *renderer = NULL;
   GSList *element;
 
   for (element = priv->renderers; element; element = g_slist_next (element)) {
+    ClutterGstRenderer *candidate = (ClutterGstRenderer *) element->data;
+
+    if (!cur_renderer)
+      break;
+
+    if (candidate == cur_renderer) {
+      element = g_slist_next (element);
+      break;
+    }
+  }
+
+  for (; element; element = g_slist_next (element)) {
     ClutterGstRenderer *candidate = (ClutterGstRenderer *) element->data;
 
     if (candidate->format == format) {
@@ -333,6 +345,13 @@ clutter_gst_find_renderer_by_format (ClutterGstVideoSink * sink,
   }
 
   return renderer;
+}
+
+static ClutterGstRenderer *
+clutter_gst_find_renderer_by_format (ClutterGstVideoSink * sink,
+    ClutterGstVideoFormat format)
+{
+  return clutter_gst_find_next_renderer_by_format (sink, NULL, format);
 }
 
 static void
@@ -612,7 +631,17 @@ clutter_gst_source_dispatch (GSource * source,
         goto negotiation_fail;
     }
 
-    priv->renderer->init (gst_source->sink);
+    while (!priv->renderer->init (gst_source->sink)) {
+      priv->renderer =
+        clutter_gst_find_next_renderer_by_format (gst_source->sink,
+            priv->renderer, priv->format);
+
+      if (!priv->renderer) {
+        GST_ERROR_OBJECT (gst_source->sink, "No working renderer found");
+        g_mutex_unlock (&gst_source->buffer_lock);
+        return FALSE;
+      }
+    }
     gst_source->has_new_caps = FALSE;
 
     ensure_texture_pixel_aspect_ratio (gst_source->sink);
@@ -626,8 +655,17 @@ clutter_gst_source_dispatch (GSource * source,
   g_mutex_unlock (&gst_source->buffer_lock);
 
   if (buffer) {
-    if (!priv->renderer->upload (gst_source->sink, buffer))
-      goto fail_upload;
+    while (!priv->renderer->upload (gst_source->sink, buffer)) {
+      do {
+        priv->renderer =
+          clutter_gst_find_next_renderer_by_format (gst_source->sink,
+              priv->renderer, priv->format);
+
+        if (!priv->renderer)
+          goto fail_upload;
+
+      } while (!priv->renderer->init (gst_source->sink));
+    }
     gst_buffer_unref (buffer);
   } else
     GST_WARNING_OBJECT (gst_source->sink, "No buffers available for display");
@@ -863,10 +901,11 @@ clutter_gst_dummy_deinit (ClutterGstVideoSink * sink)
 {
 }
 
-static void
+static gboolean
 clutter_gst_rgb_init (ClutterGstVideoSink * sink)
 {
   _create_template_material (sink, NULL, FALSE, 1);
+  return TRUE;
 }
 
 /*
@@ -1019,10 +1058,11 @@ no_map:
   }
 }
 
-static void
+static gboolean
 clutter_gst_yv12_glsl_init (ClutterGstVideoSink * sink)
 {
   _create_template_material (sink, yv12_to_rgba_shader, TRUE, 3);
+  return TRUE;
 }
 
 
@@ -1097,10 +1137,11 @@ no_map:
   }
 }
 
-static void
+static gboolean
 clutter_gst_nv12_glsl_init (ClutterGstVideoSink * sink)
 {
   _create_template_material (sink, nv12_to_rgba_shader, TRUE, 2);
+  return TRUE;
 }
 
 
@@ -1122,7 +1163,7 @@ static ClutterGstRenderer nv12_glsl_renderer = {
  */
 
 #ifdef CLUTTER_COGL_HAS_GL
-static void
+static gboolean
 clutter_gst_yv12_fp_init (ClutterGstVideoSink * sink)
 {
   char *shader = g_malloc (YV12_FP_SZ + 1);
@@ -1131,6 +1172,7 @@ clutter_gst_yv12_fp_init (ClutterGstVideoSink * sink)
   _create_template_material (sink, shader, FALSE, 3);
 
   g_free (shader);
+  return TRUE;
 }
 
 static ClutterGstRenderer yv12_fp_renderer = {
@@ -1152,10 +1194,11 @@ static ClutterGstRenderer yv12_fp_renderer = {
  * Basically the same as YV12, but with the 2 chroma planes switched.
  */
 
-static void
+static gboolean
 clutter_gst_i420_glsl_init (ClutterGstVideoSink * sink)
 {
   _create_template_material (sink, yv12_to_rgba_shader, TRUE, 3);
+  return TRUE;
 }
 
 static ClutterGstRenderer i420_glsl_renderer = {
@@ -1177,7 +1220,7 @@ static ClutterGstRenderer i420_glsl_renderer = {
  */
 
 #ifdef CLUTTER_COGL_HAS_GL
-static void
+static gboolean
 clutter_gst_i420_fp_init (ClutterGstVideoSink * sink)
 {
   char *shader = g_malloc (I420_FP_SZ + 1);
@@ -1186,6 +1229,7 @@ clutter_gst_i420_fp_init (ClutterGstVideoSink * sink)
   _create_template_material (sink, shader, FALSE, 3);
 
   g_free (shader);
+  return TRUE;
 }
 
 static ClutterGstRenderer i420_fp_renderer = {
@@ -1208,10 +1252,11 @@ static ClutterGstRenderer i420_fp_renderer = {
  * (as the name suggests).
  */
 
-static void
+static gboolean
 clutter_gst_ayuv_glsl_init (ClutterGstVideoSink * sink)
 {
   _create_template_material (sink, ayuv_to_rgba_shader, TRUE, 1);
+  return TRUE;
 }
 
 static gboolean
@@ -1362,9 +1407,10 @@ clutter_gst_hw_init_pixmap (ClutterGstVideoSink * sink,
   return FALSE;
 }
 
-static void
+static gboolean
 clutter_gst_hw_init (ClutterGstVideoSink * sink)
 {
+  return TRUE;
 }
 
 static void
@@ -1427,18 +1473,21 @@ typedef struct {
   gboolean is_initialized;
 } GLTextureUploadRendererContext;
 
-static void
+static gboolean
 clutter_gst_gl_texture_upload_init (ClutterGstVideoSink * sink)
 {
   ClutterGstRenderer *renderer = sink->priv->renderer;
 
   if (renderer->context)
-    return;
+    return TRUE;
 
   renderer->context = g_new0 (GLTextureUploadRendererContext, 1);
   if (!renderer->context) {
     GST_ERROR ("Failed to allocate renderer context");
+    return FALSE;
   }
+
+  return TRUE;
 }
 
 static void
