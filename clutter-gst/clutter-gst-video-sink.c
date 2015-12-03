@@ -1632,7 +1632,50 @@ typedef struct {
 
   GstBuffer *cur_buffer;
   GstBuffer *last_buffer;
+
+  volatile gint ref_count;
 } DmabufContext;
+
+typedef struct {
+  EGLImageKHR img;
+  DmabufContext *ctx;
+} DmabufEGLImage;
+
+static DmabufContext *
+clutter_gst_dmabuf_ctx_ref (DmabufContext * ctx)
+{
+  g_atomic_int_inc (&ctx->ref_count);
+  return ctx;
+}
+
+static void
+clutter_gst_dmabuf_ctx_unref (DmabufContext * ctx)
+{
+  if (g_atomic_int_dec_and_test (&ctx->ref_count)) {
+    g_free (ctx);
+  }
+}
+
+static GQuark
+clutter_gst_egl_image_quark ()
+{
+  static GQuark quark = 0;
+
+  if (!quark)
+    quark = g_quark_from_static_string ("ClutterGstDmabufEGLImage");
+
+  return quark;
+}
+
+static void
+clutter_gst_dmabuf_egl_image_free (DmabufEGLImage * data)
+{
+  DmabufContext *ctx = data->ctx;
+
+  ctx->eglDestroyImageKHR (eglGetCurrentDisplay (), data->img);
+  clutter_gst_dmabuf_ctx_unref (data->ctx);
+  g_free (data);
+}
 
 static gboolean
 clutter_gst_dmabuf_init (ClutterGstVideoSink * sink)
@@ -1653,6 +1696,7 @@ clutter_gst_dmabuf_init (ClutterGstVideoSink * sink)
   }
 
   ctx = g_new0 (DmabufContext, 1);
+  ctx->ref_count = 1;
 
   module = g_module_open (NULL, 0);
   g_module_symbol(module, "eglGetProcAddress", (gpointer*) &ctx->eglGetProcAddress);
@@ -1689,8 +1733,8 @@ clutter_gst_dmabuf_deinit (ClutterGstVideoSink * sink)
 
   gst_buffer_replace (&ctx->cur_buffer, NULL);
   gst_buffer_replace (&ctx->last_buffer, NULL);
-  g_free (ctx);
   renderer->context = NULL;
+  clutter_gst_dmabuf_ctx_unref (ctx);
 }
 
 static EGLImageKHR
@@ -1699,7 +1743,13 @@ clutter_gst_egl_image_from_dmabuf (DmabufContext *ctx, GstVideoInfo * info,
 {
   gint atti = 0;
   EGLint attribs[32];
-  EGLImageKHR img = EGL_NO_IMAGE_KHR;
+  DmabufEGLImage *data;
+
+  data = gst_mini_object_get_qdata (GST_MINI_OBJECT (buffer),
+      clutter_gst_egl_image_quark ());
+
+  if (data)
+    return data->img;
 
   attribs[atti++] = EGL_WIDTH;
   attribs[atti++] = GST_VIDEO_INFO_WIDTH (info);
@@ -1721,15 +1771,22 @@ clutter_gst_egl_image_from_dmabuf (DmabufContext *ctx, GstVideoInfo * info,
   attribs[atti] = EGL_NONE;
   g_assert (atti < 32);
 
-  img = ctx->eglCreateImageKHR (eglGetCurrentDisplay (), EGL_NO_CONTEXT,
+  data = g_new0 (DmabufEGLImage, 1);
+  data->img = ctx->eglCreateImageKHR (eglGetCurrentDisplay (), EGL_NO_CONTEXT,
       EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
 
-  if (!img) {
+  if (data->img == EGL_NO_IMAGE_KHR) {
     GST_ERROR ("eglCreateImage: 0x%x", eglGetError ());
+    g_free (data);
     return EGL_NO_IMAGE_KHR;
   }
 
-  return img;
+  data->ctx = clutter_gst_dmabuf_ctx_ref (ctx);
+  gst_mini_object_set_qdata (GST_MINI_OBJECT (buffer),
+      clutter_gst_egl_image_quark (), data,
+      (GDestroyNotify) clutter_gst_dmabuf_egl_image_free);
+
+  return data->img;
 }
 
 static gboolean
@@ -1829,7 +1886,6 @@ clutter_gst_dmabuf_import (ClutterGstVideoSink * sink, GstBuffer * buffer)
 
   ctx->glBindTexture(gl_target, gl_handle);
   ctx->glEGLImageTargetTexture2DOES (gl_target, img);
-  ctx->eglDestroyImageKHR (eglGetCurrentDisplay (), img);
   ctx->glBindTexture(gl_target, 0);
 
   /* We need to keep the buffer around until we have a new one to display,
