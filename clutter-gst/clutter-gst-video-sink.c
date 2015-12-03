@@ -78,6 +78,7 @@
 #include <libdrm/drm_fourcc.h>
 
 typedef gpointer (* EGLGetProcAddressProc) (const gchar * name);
+typedef EGLDisplay (* EGLGetCurrentDisplayProc) (void);
 typedef void (* GLBindTextureProc) (guint target, guint texture);
 typedef EGLImageKHR (* EGLCreateImageKHRProc) (EGLDisplay dpy, EGLContext ctx, EGLenum target,
     EGLClientBuffer buffer, const EGLint * attrib_list);
@@ -1629,6 +1630,7 @@ typedef struct {
   EGLDestroyImageKHRProc eglDestroyImageKHR;
   GLEglImageTargetTexture2DOESProc glEGLImageTargetTexture2DOES;
   EGLGetProcAddressProc eglGetProcAddress;
+  EGLGetCurrentDisplayProc eglGetCurrentDisplay;
 
   GstBuffer *cur_buffer;
   GstBuffer *last_buffer;
@@ -1672,7 +1674,7 @@ clutter_gst_dmabuf_egl_image_free (DmabufEGLImage * data)
 {
   DmabufContext *ctx = data->ctx;
 
-  ctx->eglDestroyImageKHR (eglGetCurrentDisplay (), data->img);
+  ctx->eglDestroyImageKHR (ctx->eglGetCurrentDisplay (), data->img);
   clutter_gst_dmabuf_ctx_unref (data->ctx);
   g_free (data);
 }
@@ -1700,6 +1702,7 @@ clutter_gst_dmabuf_init (ClutterGstVideoSink * sink)
 
   module = g_module_open (NULL, 0);
   g_module_symbol(module, "eglGetProcAddress", (gpointer*) &ctx->eglGetProcAddress);
+  g_module_symbol(module, "eglGetCurrentDisplay", (gpointer*) &ctx->eglGetCurrentDisplay);
   g_module_symbol(module, "glBindTexture", (gpointer*) &ctx->glBindTexture);
   g_module_close (module);
 
@@ -1772,7 +1775,7 @@ clutter_gst_egl_image_from_dmabuf (DmabufContext *ctx, GstVideoInfo * info,
   g_assert (atti < 32);
 
   data = g_new0 (DmabufEGLImage, 1);
-  data->img = ctx->eglCreateImageKHR (eglGetCurrentDisplay (), EGL_NO_CONTEXT,
+  data->img = ctx->eglCreateImageKHR (ctx->eglGetCurrentDisplay (), EGL_NO_CONTEXT,
       EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
 
   if (data->img == EGL_NO_IMAGE_KHR) {
