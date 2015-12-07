@@ -2185,19 +2185,6 @@ clutter_gst_video_sink_dispose (GObject *object)
   self = CLUTTER_GST_VIDEO_SINK (object);
   priv = self->priv;
 
-  clear_frame_textures (self);
-
-  if (priv->renderer) {
-    priv->renderer->shutdown (self);
-    priv->renderer = NULL;
-  }
-
-  if (priv->clt_frame)
-    {
-      g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
-      priv->clt_frame = NULL;
-    }
-
   if (priv->caps)
     {
       gst_caps_unref (priv->caps);
@@ -2248,10 +2235,10 @@ clutter_gst_video_sink_start (GstBaseSink *base_sink)
 static gboolean
 clutter_gst_video_sink_stop (GstBaseSink *base_sink)
 {
-  ClutterGstVideoSink *sink = CLUTTER_GST_VIDEO_SINK (base_sink);
-  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  ClutterGstVideoSink *self = CLUTTER_GST_VIDEO_SINK (base_sink);
+  ClutterGstVideoSinkPrivate *priv = self->priv;
 
-  GST_INFO_OBJECT (sink, "Stop");
+  GST_INFO_OBJECT (self, "Stop");
 
   if (priv->source)
     {
@@ -2259,6 +2246,20 @@ clutter_gst_video_sink_stop (GstBaseSink *base_sink)
       g_source_destroy (source);
       g_source_unref (source);
       priv->source = NULL;
+    }
+
+  clear_frame_textures (self);
+
+  if (priv->renderer)
+    {
+      priv->renderer->shutdown (self);
+      priv->renderer = NULL;
+    }
+
+  if (priv->clt_frame)
+    {
+      g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
+      priv->clt_frame = NULL;
     }
 
   return TRUE;
