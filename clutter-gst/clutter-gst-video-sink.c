@@ -98,8 +98,8 @@ GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
   "I420,"                                       \
   "RGBA,"                                       \
   "BGRA,"                                       \
-  "RGBX,"                                       \
-  "BGRX,"                                       \
+  "RGBx,"                                       \
+  "BGRx,"                                       \
   "RGB,"                                        \
   "BGR,"                                        \
   "NV12 }"
