@@ -91,7 +91,7 @@
 GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
 #define GST_CAT_DEFAULT clutter_gst_video_sink_debug
 
-#define CLUTTER_GST_DEFAULT_PRIORITY G_PRIORITY_HIGH_IDLE
+#define CLUTTER_GST_DEFAULT_PRIORITY CLUTTER_PRIORITY_REDRAW
 
 #define BASE_SINK_CAPS "{ AYUV,"                \
   "YV12,"                                       \
