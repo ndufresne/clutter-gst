@@ -145,6 +145,11 @@ clutter_gst_auto_video_sink_clear_kid (ClutterGstAutoVideoSink3 *sink)
       /* Don't lose the SINK flag */
       GST_OBJECT_FLAG_SET (sink, GST_ELEMENT_FLAG_SINK);
     }
+
+  if (sink->content)
+    {
+      clutter_gst_content_set_sink (CLUTTER_GST_CONTENT (sink->content), NULL);
+    }
 }
 
 /*
