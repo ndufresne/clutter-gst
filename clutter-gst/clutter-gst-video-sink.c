@@ -88,6 +88,39 @@
 #include "clutter-gst-video-sink.h"
 #include "clutter-gst-private.h"
 
+#ifdef COGL_HAS_EGL_SUPPORT
+#include <gst/allocators/gstdmabuf.h>
+#include <cogl/cogl-egl.h>
+#include <libdrm/drm_fourcc.h>
+
+typedef gpointer (* EGLGetProcAddressProc) (const gchar * name);
+typedef EGLDisplay (* EGLGetCurrentDisplayProc) (void);
+typedef EGLImageKHR (* EGLCreateImageKHRProc) (EGLDisplay dpy, EGLContext ctx, EGLenum target,
+    EGLClientBuffer buffer, const EGLint * attrib_list);
+typedef EGLBoolean (* EGLDestroyImageKHRProc) (EGLDisplay dpy, EGLImageKHR image);
+typedef void (* GLEglImageTargetTexture2DOESProc) (guint target, EGLImageKHR image);
+typedef void (* GLBindTextureProc) (guint target, guint texture);
+
+typedef struct {
+  EGLGetProcAddressProc eglGetProcAddress;
+  EGLGetCurrentDisplayProc eglGetCurrentDisplay;
+  EGLCreateImageKHRProc eglCreateImageKHR;
+  EGLDestroyImageKHRProc eglDestroyImageKHR;
+  GLEglImageTargetTexture2DOESProc glEGLImageTargetTexture2DOES;
+  GLBindTextureProc glBindTexture;
+
+  GstBuffer *cur_buffer;
+  GstBuffer *last_buffer;
+
+  volatile gint ref_count;
+} ClutterGstDmabufContext;
+
+typedef struct {
+  EGLImageKHR img;
+  ClutterGstDmabufContext *ctx;
+} ClutterGstDmabufEGLImage;
+#endif
+
 GST_DEBUG_CATEGORY_STATIC (clutter_gst_video_sink_debug);
 #define GST_CAT_DEFAULT clutter_gst_video_sink_debug
 
@@ -218,6 +251,8 @@ typedef struct _ClutterGstRenderer
                       GstBuffer *buffer);
   gboolean (*upload_gl) (ClutterGstVideoSink *sink,
                          GstBuffer *buffer);
+  gboolean (*upload_dmabuf) (ClutterGstVideoSink *sink,
+                             GstBuffer *buffer);
   void (*shutdown) (ClutterGstVideoSink *sink);
 } ClutterGstRenderer;
 
@@ -257,6 +292,10 @@ struct _ClutterGstVideoSinkPrivate
   /**/
   GstVideoOverlayComposition *last_composition;
   ClutterGstOverlays *overlays;
+
+#ifdef COGL_HAS_EGL_SUPPORT
+  ClutterGstDmabufContext *dmabuf_ctx;
+#endif
 };
 
 /* Overlays */
@@ -1072,6 +1111,12 @@ clutter_gst_dummy_upload_gl (ClutterGstVideoSink *sink, GstBuffer *buffer)
   return FALSE;
 }
 
+static gboolean
+clutter_gst_dummy_upload_dmabuf (ClutterGstVideoSink *sink, GstBuffer *buffer)
+{
+  return FALSE;
+}
+
 static void
 clutter_gst_dummy_shutdown (ClutterGstVideoSink *sink)
 {
@@ -1198,6 +1243,7 @@ static ClutterGstRenderer rgb24_glsl_renderer =
     clutter_gst_rgb24_glsl_setup_pipeline,
     clutter_gst_rgb24_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1212,6 +1258,7 @@ static ClutterGstRenderer rgb24_renderer =
     clutter_gst_rgb24_setup_pipeline,
     clutter_gst_rgb24_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1372,6 +1419,204 @@ clutter_gst_rgb32_upload_gl (ClutterGstVideoSink *sink,
   return TRUE;
 }
 
+#ifdef COGL_HAS_EGL_SUPPORT
+static ClutterGstDmabufContext *
+clutter_gst_dmabuf_ctx_new ()
+{
+  GModule *module;
+  ClutterGstDmabufContext *ctx;
+
+  ctx = g_new0 (ClutterGstDmabufContext, 1);
+  ctx->ref_count = 1;
+
+  module = g_module_open (NULL, 0);
+  g_module_symbol(module, "eglGetProcAddress", (gpointer*) &ctx->eglGetProcAddress);
+  g_module_symbol(module, "eglGetCurrentDisplay", (gpointer*) &ctx->eglGetCurrentDisplay);
+  g_module_symbol(module, "glBindTexture", (gpointer*) &ctx->glBindTexture);
+  g_module_close (module);
+
+  if (!ctx->eglGetProcAddress || !ctx->glBindTexture)
+    goto failed;
+
+  ctx->eglCreateImageKHR = (EGLCreateImageKHRProc) ctx->eglGetProcAddress ("eglCreateImageKHR");
+  ctx->eglDestroyImageKHR = (EGLDestroyImageKHRProc) ctx->eglGetProcAddress ("eglDestroyImageKHR");
+  ctx->glEGLImageTargetTexture2DOES = (GLEglImageTargetTexture2DOESProc) ctx->eglGetProcAddress ("glEGLImageTargetTexture2DOES");
+
+  if (ctx->eglCreateImageKHR &&
+      ctx->eglDestroyImageKHR &&
+      ctx->glEGLImageTargetTexture2DOES)
+    return ctx;
+
+failed:
+  g_free (ctx);
+
+  return NULL;
+}
+
+static ClutterGstDmabufContext *
+clutter_gst_dmabuf_ctx_ref (ClutterGstDmabufContext * ctx)
+{
+  g_atomic_int_inc (&ctx->ref_count);
+  return ctx;
+}
+
+static void
+clutter_gst_dmabuf_ctx_unref (ClutterGstDmabufContext * ctx)
+{
+  if (g_atomic_int_dec_and_test (&ctx->ref_count)) {
+    g_free (ctx);
+  }
+}
+
+static GQuark
+clutter_gst_egl_image_quark ()
+{
+  static GQuark quark = 0;
+
+  if (!quark)
+    quark = g_quark_from_static_string ("ClutterGstDmabufEGLImage");
+
+  return quark;
+}
+
+static void
+clutter_gst_dmabuf_egl_image_free (ClutterGstDmabufEGLImage * data)
+{
+  ClutterGstDmabufContext *ctx = data->ctx;
+
+  ctx->eglDestroyImageKHR (ctx->eglGetCurrentDisplay (), data->img);
+  clutter_gst_dmabuf_ctx_unref (data->ctx);
+  g_free (data);
+}
+
+static EGLImageKHR
+clutter_gst_egl_image_from_dmabuf (ClutterGstDmabufContext *ctx,
+                                   GstVideoInfo * info,
+                                   GstBuffer * buffer)
+{
+  gint atti = 0;
+  EGLint attribs[32];
+  ClutterGstDmabufEGLImage *data;
+
+  data = gst_mini_object_get_qdata (GST_MINI_OBJECT (buffer),
+                                    clutter_gst_egl_image_quark ());
+
+  if (data)
+    return data->img;
+
+  attribs[atti++] = EGL_WIDTH;
+  attribs[atti++] = GST_VIDEO_INFO_WIDTH (info);
+  attribs[atti++] = EGL_HEIGHT;
+  attribs[atti++] = GST_VIDEO_INFO_HEIGHT (info);
+
+  attribs[atti++] = EGL_LINUX_DRM_FOURCC_EXT;
+  /* FIXME this should be ARGB8888, MALI presumed bug */
+  attribs[atti++] = DRM_FORMAT_BGRA8888;
+
+  attribs[atti++] = EGL_DMA_BUF_PLANE0_FD_EXT;
+  attribs[atti++] = gst_dmabuf_memory_get_fd (gst_buffer_peek_memory (buffer, 0));
+  attribs[atti++] = EGL_DMA_BUF_PLANE0_OFFSET_EXT;
+  attribs[atti++] = GST_VIDEO_INFO_PLANE_OFFSET (info, 0);
+  attribs[atti++] = EGL_DMA_BUF_PLANE0_PITCH_EXT;
+  attribs[atti++] = GST_VIDEO_INFO_PLANE_STRIDE (info, 0);
+
+  attribs[atti] = EGL_NONE;
+  g_assert (atti < 32);
+
+  data = g_new0 (ClutterGstDmabufEGLImage, 1);
+  data->img = ctx->eglCreateImageKHR (ctx->eglGetCurrentDisplay (), EGL_NO_CONTEXT,
+                                      EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
+  if (data->img == EGL_NO_IMAGE_KHR)
+    {
+      GST_ERROR ("eglCreateImage: 0x%x", eglGetError ());
+      g_free (data);
+      return EGL_NO_IMAGE_KHR;
+    }
+
+  data->ctx = clutter_gst_dmabuf_ctx_ref (ctx);
+  gst_mini_object_set_qdata (GST_MINI_OBJECT (buffer),
+                             clutter_gst_egl_image_quark (), data,
+                             (GDestroyNotify) clutter_gst_dmabuf_egl_image_free);
+
+  return data->img;
+}
+
+static gboolean
+clutter_gst_rgb32_upload_dmabuf (ClutterGstVideoSink *sink,
+                                 GstBuffer *buffer)
+{
+  ClutterGstVideoSinkPrivate *priv = sink->priv;
+  ClutterGstDmabufContext *ctx = priv->dmabuf_ctx;
+  GstVideoMeta *meta;
+  EGLImageKHR img;
+  guint gl_handle, gl_target;
+
+  /* For now we only support BGR order */
+  if (!priv->bgr)
+    return FALSE;
+
+  /* Ideally we'd keep the texture around, but COGL does not know that
+   * something have changed, hence does not render anymore after we have
+   * binded a new EGLImage. */
+  clear_frame_textures (sink);
+
+  priv->frame[0] = COGL_TEXTURE (cogl_texture_2d_new_with_size (priv->ctx,
+                                                                priv->info.width,
+                                                                priv->info.height));
+  cogl_texture_set_components (priv->frame[0], COGL_TEXTURE_COMPONENTS_RGBA);
+
+  if (!cogl_texture_allocate (priv->frame[0], NULL))
+    {
+      GST_WARNING ("Couldn't allocate cogl texture");
+      return FALSE;
+    }
+
+  if (!cogl_texture_get_gl_texture (priv->frame[0], &gl_handle, &gl_target))
+    {
+      GST_WARNING ("Couldn't get gl texture");
+      return FALSE;
+    }
+
+  meta = gst_buffer_get_video_meta (buffer);
+  if (meta)
+    {
+      guint i;
+
+      GST_DEBUG ("n_planes %d format: %s",
+                 meta->n_planes, gst_video_format_to_string (meta->format));
+
+      for (i = 0; i < meta->n_planes; i++)
+        {
+          priv->info.stride[i] = meta->stride[i];
+          priv->info.offset[i] = meta->offset[i];
+
+          GST_DEBUG ("meta: offset[%u]: %" G_GSIZE_FORMAT ", stride[%u]: %d",
+                     i, meta->offset[i], i, meta->stride[i]);
+        }
+    }
+
+  img = clutter_gst_egl_image_from_dmabuf (ctx, &priv->info, buffer);
+  if (img == EGL_NO_IMAGE_KHR)
+    return FALSE;
+
+  ctx->glBindTexture(gl_target, gl_handle);
+  ctx->glEGLImageTargetTexture2DOES (gl_target, img);
+  ctx->glBindTexture(gl_target, 0);
+
+  /* We need to keep the buffer around until we have a new one to display,
+   * otherwise the decoder will reuse it and cause flickering. Ideally a fence
+   * shall be used, but instead we keep one more */
+  if (ctx->last_buffer)
+    gst_buffer_unref (ctx->last_buffer);
+  ctx->last_buffer = ctx->cur_buffer;
+  ctx->cur_buffer = gst_buffer_ref (buffer);
+
+  return TRUE;
+}
+#else
+#define clutter_gst_rgb32_upload_dmabuf clutter_gst_dummy_upload_dmabuf
+#endif
+
 static ClutterGstRenderer rgb32_glsl_renderer =
   {
     "RGB 32",
@@ -1389,6 +1634,7 @@ static ClutterGstRenderer rgb32_glsl_renderer =
     clutter_gst_rgb32_glsl_setup_pipeline,
     clutter_gst_rgb32_upload,
     clutter_gst_rgb32_upload_gl,
+    clutter_gst_rgb32_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1403,6 +1649,7 @@ static ClutterGstRenderer rgb32_renderer =
     clutter_gst_rgb32_setup_pipeline,
     clutter_gst_rgb32_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1552,6 +1799,7 @@ static ClutterGstRenderer yv12_glsl_renderer =
     clutter_gst_yv12_glsl_setup_pipeline,
     clutter_gst_yv12_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1566,6 +1814,7 @@ static ClutterGstRenderer i420_glsl_renderer =
     clutter_gst_yv12_glsl_setup_pipeline,
     clutter_gst_i420_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1650,6 +1899,7 @@ static ClutterGstRenderer ayuv_glsl_renderer =
     clutter_gst_ayuv_glsl_setup_pipeline,
     clutter_gst_ayuv_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -1745,6 +1995,7 @@ static ClutterGstRenderer nv12_glsl_renderer =
     clutter_gst_nv12_glsl_setup_pipeline,
     clutter_gst_nv12_upload,
     clutter_gst_dummy_upload_gl,
+    clutter_gst_dummy_upload_dmabuf,
     clutter_gst_dummy_shutdown,
   };
 
@@ -2031,14 +2282,25 @@ clutter_gst_source_dispatch (GSource *source,
 
   if (buffer)
     {
+      gboolean uploaded = FALSE;
+
       if (gst_buffer_get_video_gl_texture_upload_meta (buffer) != NULL) {
         GST_DEBUG_OBJECT (gst_source->sink,
                           "Trying to upload buffer %p with GL using renderer %s",
                           buffer, priv->renderer->name);
-        if (!priv->renderer->upload_gl (gst_source->sink, buffer)) {
-          goto fail_upload;
-        }
-      } else {
+        uploaded = priv->renderer->upload_gl (gst_source->sink, buffer);
+      }
+
+#ifdef COGL_HAS_EGL_SUPPORT
+      if (gst_is_dmabuf_memory (gst_buffer_peek_memory (buffer, 0))) {
+                GST_DEBUG_OBJECT (gst_source->sink,
+                          "Trying to upload buffer %p with DMABuf using renderer %s",
+                          buffer, priv->renderer->name);
+        uploaded = priv->renderer->upload_dmabuf (gst_source->sink, buffer);
+      }
+#endif
+
+      if (!uploaded) {
         GST_DEBUG_OBJECT (gst_source->sink,
                           "Trying to upload buffer %p with software using renderer %s",
                           buffer, priv->renderer->name);
@@ -2137,6 +2399,10 @@ clutter_gst_video_sink_init (ClutterGstVideoSink *sink)
   priv->renderers = clutter_gst_build_renderers_list (priv->ctx);
   priv->caps = clutter_gst_build_caps (priv->renderers);
   priv->overlays = clutter_gst_overlays_new ();
+
+#ifdef COGL_HAS_EGL_SUPPORT
+  priv->dmabuf_ctx = clutter_gst_dmabuf_ctx_new ();
+#endif
 }
 
 static GstFlowReturn
@@ -2209,6 +2475,14 @@ clutter_gst_video_sink_dispose (GObject *object)
       priv->tablev = NULL;
     }
 
+#ifdef COGL_HAS_EGL_SUPPORT
+  if (priv->dmabuf_ctx)
+    {
+      clutter_gst_dmabuf_ctx_unref (priv->dmabuf_ctx);
+      priv->dmabuf_ctx = NULL;
+    }
+#endif
+
   G_OBJECT_CLASS (clutter_gst_video_sink_parent_class)->dispose (object);
 }
 
@@ -2261,6 +2535,20 @@ clutter_gst_video_sink_stop (GstBaseSink *base_sink)
       g_boxed_free (CLUTTER_GST_TYPE_FRAME, priv->clt_frame);
       priv->clt_frame = NULL;
     }
+
+#ifdef COGL_HAS_EGL_SUPPORT
+  if (priv->dmabuf_ctx->cur_buffer)
+    {
+      gst_buffer_unref (priv->dmabuf_ctx->cur_buffer);
+      priv->dmabuf_ctx->cur_buffer = NULL;
+    }
+
+  if (priv->dmabuf_ctx->last_buffer)
+    {
+      gst_buffer_unref (priv->dmabuf_ctx->last_buffer);
+      priv->dmabuf_ctx->last_buffer = NULL;
+    }
+#endif
 
   return TRUE;
 }
@@ -2343,6 +2631,20 @@ clutter_gst_video_sink_event (GstBaseSink * basesink, GstEvent * event)
         gst_buffer_unref (gst_source->buffer);
         gst_source->buffer = NULL;
       }
+
+#ifdef COGL_HAS_EGL_SUPPORT
+    if (priv->dmabuf_ctx->cur_buffer)
+      {
+        gst_buffer_unref (priv->dmabuf_ctx->cur_buffer);
+        priv->dmabuf_ctx->cur_buffer = NULL;
+      }
+
+    if (priv->dmabuf_ctx->last_buffer)
+      {
+        gst_buffer_unref (priv->dmabuf_ctx->last_buffer);
+        priv->dmabuf_ctx->last_buffer = NULL;
+      }
+#endif
       g_mutex_unlock (&gst_source->buffer_lock);
       break;
 
