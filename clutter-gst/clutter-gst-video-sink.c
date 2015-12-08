@@ -1850,11 +1850,8 @@ clutter_gst_dmabuf_import (ClutterGstVideoSink * sink, GstBuffer * buffer)
   if (!gst_is_dmabuf_memory (gst_buffer_peek_memory (buffer, 0)))
     return FALSE;
 
-  if (!ctx->is_initialized || priv->crop_meta_has_changed) {
-    gboolean ret = clutter_dmabuf_init_texture (sink);
-    if (!ret)
-      return ret;
-  }
+  if (!clutter_dmabuf_init_texture (sink))
+    return FALSE;
 
   if (!(tex = clutter_texture_get_cogl_texture (priv->texture))) {
     GST_WARNING ("Couldn't get Cogl texture");
@@ -1865,7 +1862,6 @@ clutter_gst_dmabuf_import (ClutterGstVideoSink * sink, GstBuffer * buffer)
     GST_WARNING ("Couldn't get GL texture");
     return FALSE;
   }
-
 
   meta = gst_buffer_get_video_meta (buffer);
   if (meta) {
